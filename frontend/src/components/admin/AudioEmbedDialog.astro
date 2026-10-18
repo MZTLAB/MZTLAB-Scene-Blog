@@ -1,0 +1,56 @@
+---
+import Icon from '../Icon.astro';
+---
+<div class="modal-backdrop" data-audio-dialog>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="audio-dialog-title">
+    <form data-audio-form>
+      <div class="modal__head">
+        <h3 id="audio-dialog-title">插入音乐播放器</h3>
+        <button type="button" data-close-audio aria-label="关闭"><Icon name="close" size={15} /></button>
+      </div>
+      <div class="modal__body">
+        <div class="a-field">
+          <label for="audio-url">音频地址 *</label>
+          <input
+            id="audio-url"
+            type="text"
+            inputmode="url"
+            data-audio-url
+            placeholder="https://.../track.mp3 或 /media/track.mp3"
+            autocomplete="off"
+          />
+        </div>
+        <div class="a-field" style="margin-top:12px">
+          <label for="audio-library">从媒体库选择 <small>可选</small></label>
+          <select id="audio-library" data-audio-library>
+            <option value="">加载中…</option>
+          </select>
+        </div>
+        <div class="a-field" style="margin-top:12px">
+          <label for="audio-title">标题 <small>可选</small></label>
+          <input id="audio-title" type="text" maxlength="120" data-audio-title placeholder="曲名" />
+        </div>
+        <div class="a-field" style="margin-top:12px">
+          <label for="audio-artist">作者 <small>可选</small></label>
+          <input id="audio-artist" type="text" maxlength="120" data-audio-artist placeholder="艺术家 / 来源" />
+        </div>
+        <p class="hint" style="margin-top:12px">
+          支持 MP3 / M4A / OGG / WAV 等 HTML5 音频格式；也可以使用站内媒体路径。
+        </p>
+        <p class="hint" data-audio-error hidden style="color:var(--accent)"></p>
+      </div>
+      <div class="modal__foot">
+        <a class="a-btn" href="/admin/media" target="_blank" rel="noopener">媒体库</a>
+        <div class="toolbar-group">
+          <button class="a-btn" type="button" data-close-audio>取消</button>
+          <button class="a-btn a-btn--primary" type="submit">插入播放器</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  import { initAudioEmbedDialog } from '../../scripts/audio-embed-dialog';
+  initAudioEmbedDialog();
+</script>

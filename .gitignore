@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+backend/.venv/
+.pytest_cache/
+backend/data/
+*.sqlite3
+
+# Node / Astro
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.astro/
+frontend/.astro/
+npm-debug.log*
+pnpm-debug.log*
+
+# Local environment and caches
+.env
+.env.local
+.npm-cache/
+.pnpm-store/
+.pnpm-home/
+.pip-cache/
+.tmp/
+debug.log
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

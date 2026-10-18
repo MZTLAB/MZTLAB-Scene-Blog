@@ -1,0 +1,44 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      BLOG_DATA_DIR: /app/data
+      BLOG_FRONTEND_URL: http://127.0.0.1:4321
+      BLOG_SEED_DEMO: "true"
+      BLOG_SESSION_DAYS: "14"
+      # Set to "true" after putting the site behind HTTPS.
+      BLOG_COOKIE_SECURE: "false"
+      # Optional first-run account. Leave empty to use the /admin/setup page.
+      BLOG_ADMIN_USER: ""
+      BLOG_ADMIN_PASSWORD: ""
+      BLOG_ADMIN_NAME: "MZTLAB"
+    volumes:
+      - blog_data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      BLOG_API_INTERNAL_URL: http://backend:8000
+      HOST: 0.0.0.0
+      PORT: 4321
+    ports:
+      - "4321:4321"
+
+volumes:
+  blog_data:

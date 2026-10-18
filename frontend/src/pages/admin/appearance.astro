@@ -1,0 +1,276 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'settings.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+
+const themes = [
+  {
+    name: 'Scene',
+    key: 'scene',
+    note: '纯净画布',
+    colors: ['#ffffff', '#12120f', '#e8481d', '#e3e1da'],
+  },
+  {
+    name: 'Stone',
+    key: 'stone',
+    note: '冷调灰白',
+    colors: ['#f3f2ef', '#17171a', '#e8481d', '#dedcd5'],
+  },
+  {
+    name: 'Sand',
+    key: 'sand',
+    note: '暖调米色',
+    colors: ['#f6f2e9', '#1c1a15', '#e8481d', '#e2dccd'],
+  },
+  {
+    name: 'Night',
+    key: 'night',
+    note: '深色画布',
+    colors: ['#0c0c0b', '#f2f0e9', '#e8481d', '#262624'],
+  },
+];
+---
+<AdminLayout user={user} title="外观" subtitle="Design / Scene" active="appearance" showCompose={false}>
+  <Fragment slot="actions">
+    <button class="a-btn a-btn--primary" type="button" data-save-appearance>
+      <Icon name="save" size={14} /> 保存外观
+    </button>
+  </Fragment>
+
+  <div class="appearance-layout" data-appearance>
+    <input type="hidden" data-setting="theme" value="scene" />
+    <input type="hidden" data-setting="color_mode" value="light" />
+    <input type="hidden" data-setting="font_pair" value="mono" />
+    <input type="hidden" data-setting="post_layout" value="grid" />
+    <input type="hidden" data-setting="hero_style" value="split" />
+    <input type="hidden" data-setting="accent" value="#e8481d" />
+    <input type="hidden" data-setting="gallery_columns" value="3" />
+
+    <div class="a-form">
+      <div class="page-head-row" style="margin-bottom: 0">
+        <div>
+          <h2>Scene</h2>
+          <p>
+            等宽字体，简约影像。右侧即时预览。
+          </p>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card__head"><h3>画布与色彩</h3><span>PALETTE</span></div>
+        <div class="admin-card__body">
+          <div class="theme-grid">
+            {
+              themes.map((theme) => (
+                <button class="theme-option" type="button" data-choice-group="theme" data-choice={theme.key}>
+                  <span class="theme-swatch">
+                    {theme.colors.map((color) => <span style={`background:${color}`} />)}
+                  </span>
+                  <strong>{theme.name}</strong>
+                  <small>{theme.note}</small>
+                </button>
+              ))
+            }
+          </div>
+
+          <div class="setting-row" style="margin-top: 20px">
+            <div class="setting-row__label">
+              <strong>明暗模式</strong>
+              <span>访客首次访问时的默认模式，右上角仍可切换。</span>
+            </div>
+            <div class="segmented">
+              <button type="button" data-choice-group="color_mode" data-choice="light">浅色</button>
+              <button type="button" data-choice-group="color_mode" data-choice="dark">深色</button>
+              <button type="button" data-choice-group="color_mode" data-choice="system">跟随系统</button>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>强调色</strong>
+              <span>链接与选中的信号色。</span>
+            </div>
+            <div class="color-row">
+              <input type="color" data-setting="accent" value="#e8481d" aria-label="选择强调色" />
+              <input type="text" data-setting="accent" value="#e8481d" maxlength="7" aria-label="输入十六进制强调色" />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>字体</strong>
+              <span>全站固定为等宽 / Mono。</span>
+            </div>
+            <div class="segmented">
+              <button type="button" class="is-active" disabled>MONO</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card__head"><h3>布局与影像</h3><span>LAYOUT</span></div>
+        <div class="admin-card__body">
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>内容宽度</strong>
+              <span>页面最大宽度。</span>
+            </div>
+            <div>
+              <input type="range" min="720" max="1600" step="20" data-setting="layout_width" value="1400" style="width:100%" />
+              <div style="display:flex;justify-content:space-between;margin-top:4px;color:var(--ink-faint);font-family:var(--font-mono);font-size:8px">
+                <span>720</span><span data-out="layout_width">1400px</span><span>1600</span>
+              </div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>圆角</strong>
+              <span>建议 0–4px。</span>
+            </div>
+            <div>
+              <input type="range" min="0" max="40" step="1" data-setting="radius" value="0" style="width:100%" />
+              <div style="display:flex;justify-content:space-between;margin-top:4px;color:var(--ink-faint);font-family:var(--font-mono);font-size:8px">
+                <span>0</span><span data-out="radius">0px</span><span>40</span>
+              </div>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>相册列数</strong>
+              <span>影像索引的列数。</span>
+            </div>
+            <div class="segmented">
+              <button type="button" data-choice-group="gallery_columns" data-choice="2">2 列</button>
+              <button type="button" data-choice-group="gallery_columns" data-choice="3">3 列</button>
+              <button type="button" data-choice-group="gallery_columns" data-choice="4">4 列</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>文章页面</strong>
+              <span>网格或列表，均显示封面。</span>
+            </div>
+            <div class="segmented">
+              <button type="button" data-choice-group="post_layout" data-choice="grid"><Icon name="grid" size={13} /> 网格</button>
+              <button type="button" data-choice-group="post_layout" data-choice="list"><Icon name="list" size={13} /> 列表</button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-row__label">
+              <strong>首页主视觉</strong>
+              <span>分栏 / 极简 / 整幅图片。</span>
+            </div>
+            <div class="segmented">
+              <button type="button" data-choice-group="hero_style" data-choice="split">分栏</button>
+              <button type="button" data-choice-group="hero_style" data-choice="minimal">极简居中</button>
+              <button type="button" data-choice-group="hero_style" data-choice="image">整幅图片</button>
+            </div>
+          </div>
+</div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card__head"><h3>首页文案</h3><span>COPY</span></div>
+        <div class="admin-card__body">
+          <label class="check-row">
+            <input type="checkbox" data-setting="hero_show" checked />
+            <div>
+              <strong>显示首页主视觉</strong>
+              <span>关闭后直接进入相册索引。</span>
+            </div>
+          </label>
+          <div class="a-field" style="margin-top:14px">
+            <label>眉题 <small>英文小字</small></label>
+            <input type="text" maxlength="100" data-setting="hero_eyebrow" />
+          </div>
+          <div class="a-field" style="margin-top:12px">
+            <label>主标题 <small>换行会分成两行，第二行使用强调色</small></label>
+            <textarea rows="2" maxlength="160" data-setting="hero_title"></textarea>
+          </div>
+          <div class="a-field" style="margin-top:12px">
+            <label>副标题</label>
+            <textarea rows="3" maxlength="500" data-setting="hero_subtitle"></textarea>
+          </div>
+          <div class="a-field" style="margin-top:12px">
+            <label>主视觉图片 <small>留空则使用精选相册封面</small></label>
+            <input type="text" maxlength="500" data-setting="hero_image" placeholder="/media/... 或 https://" />
+          </div>
+
+          <div class="a-field--row" style="margin-top:18px">
+            <div class="a-field">
+              <label>影像区标题</label>
+              <input type="text" maxlength="60" data-setting="home_gallery_title" />
+            </div>
+            <div class="a-field">
+              <label>影像区副标题</label>
+              <input type="text" maxlength="160" data-setting="home_gallery_subtitle" />
+            </div>
+          </div>
+          <div class="a-field--row" style="margin-top:12px">
+            <div class="a-field">
+              <label>文章区标题</label>
+              <input type="text" maxlength="60" data-setting="home_section_title" />
+            </div>
+            <div class="a-field">
+              <label>文章区副标题</label>
+              <input type="text" maxlength="160" data-setting="home_section_subtitle" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card__head"><h3>自定义 CSS</h3><span>ADVANCED</span></div>
+        <div class="admin-card__body">
+          <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7;margin-bottom:10px">
+            会注入到前台每个页面。可以覆盖任何设计变量，例如
+            <code style="font-family:var(--font-mono);font-size:8.5px">.hero-title &#123; letter-spacing: -0.06em; &#125;</code>。
+          </p>
+          <textarea
+            rows="8"
+            maxlength="60000"
+            spellcheck="false"
+            data-setting="custom_css"
+            placeholder="/* 你的 CSS */"
+            style="width:100%;padding:10px;border:1px solid var(--line);border-radius:2px;background:var(--bg);font-family:var(--font-mono);font-size:10px;line-height:1.7;outline:0"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-frame">
+      <div class="preview-frame__head">
+        <i></i><i></i><i></i><span>LIVE PREVIEW · SCENE</span>
+      </div>
+      <div class="preview-surface">
+        <div class="preview-surface__nav">
+          <strong data-preview-site>MZTLAB</strong>
+          <span>影像 / 文章</span>
+        </div>
+        <div class="preview-surface__hero" data-preview-hero>
+          <small>MZTLAB // VISUAL_ARCHIVE</small>
+          <h3 data-preview-title>光落下。</h3>
+          <p data-preview-subtitle></p>
+        </div>
+        <div class="preview-surface__card" data-preview-card>
+          <div class="preview-surface__cover"></div>
+          <div>
+            <strong>SCENE_001</strong>
+            <span>ALBUM · 03 FRAMES</span>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:16px;padding-top:12px;border-top:1px solid var(--line);color:var(--ink-faint);font-family:var(--font-mono);font-size:6.5px;letter-spacing:.1em">
+          <span>SCENE</span><span>EST. 2026</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-appearance';
+</script>

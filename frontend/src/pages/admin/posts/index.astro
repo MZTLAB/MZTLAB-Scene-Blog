@@ -1,0 +1,57 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import { guardAdmin } from '../../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'content.read');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="文章" subtitle="Content / Posts" active="posts">
+  <div data-post-list data-type="post">
+    <div class="page-head-row">
+      <div>
+        <h2>所有文章</h2>
+        <p>草稿、已发布与定时文章都在这里。作者只会看到自己创建的内容。</p>
+      </div>
+      <div class="toolbar-group">
+        <a class="a-btn" href="/archive" target="_blank" rel="noopener">
+          <Icon name="external" size={14} /> 查看归档
+        </a>
+        <a class="a-btn a-btn--primary" href="/admin/posts/new">
+          <Icon name="plus" size={14} /> 写文章
+        </a>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <div class="filter-tabs" data-filters>
+        <button type="button" class="is-active" data-status="">全部 <small>0</small></button>
+        <button type="button" data-status="published">已发布 <small>0</small></button>
+        <button type="button" data-status="draft">草稿 <small>0</small></button>
+        <button type="button" data-status="scheduled">定时 <small>0</small></button>
+      </div>
+      <div class="toolbar-group">
+        <label class="admin-search">
+          <Icon name="search" size={14} />
+          <input type="search" placeholder="搜索文章…" data-search aria-label="搜索文章" />
+        </label>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <div class="table-wrap" data-table>
+        <div class="admin-loading">
+          <div class="skeleton" style="width: 40%; height: 18px"></div>
+          <div class="skeleton" style="height: 44px"></div>
+          <div class="skeleton" style="height: 44px"></div>
+        </div>
+      </div>
+      <div class="table-footer" data-pagination></div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../../scripts/admin-post-list';
+</script>

@@ -1,0 +1,285 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'settings.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="设置" subtitle="Site / Settings" active="settings" showCompose={false}>
+  <Fragment slot="actions">
+    <button class="a-btn a-btn--primary" type="button" data-save-settings><Icon name="save" size={14} /> 保存设置</button>
+  </Fragment>
+
+  <div class="settings-layout" data-settings-page>
+    <nav class="settings-nav" aria-label="设置分类">
+      <button type="button" class="is-active" data-settings-tab="general">常规</button>
+      <button type="button" data-settings-tab="reading">阅读与评论</button>
+      <button type="button" data-settings-tab="team">协作与权限</button>
+      <button type="button" data-settings-tab="navigation">导航</button>
+      <button type="button" data-settings-tab="footer">页脚与社交</button>
+      <button type="button" data-settings-tab="seo">SEO 与高级</button>
+      <button type="button" data-settings-tab="account">账号</button>
+    </nav>
+
+    <div>
+      <section class="settings-panel is-active" data-settings-panel="general">
+        <div class="admin-page-intro">
+          <div>
+            <h2>站点信息</h2>
+            <p>名字、简介与作者身份。它们会出现在页面标题、RSS 和搜索结果里。</p>
+          </div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>站点名称</strong><span>显示在浏览器标签与页头。</span></div>
+              <div class="a-field"><input type="text" maxlength="60" data-setting="site_title" placeholder="MZTLAB" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>英文副名</strong><span>页头品牌下方的小字。</span></div>
+              <div class="a-field"><input type="text" maxlength="60" data-setting="site_subtitle" placeholder="SCENE" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>一句话标语</strong><span>用于首页与分享卡片。</span></div>
+              <div class="a-field"><input type="text" maxlength="160" data-setting="tagline" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>站点描述</strong><span>给第一次来的读者。</span></div>
+              <div class="a-field"><textarea rows="3" maxlength="300" data-setting="description"></textarea></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>站点地址</strong><span>用于 canonical、RSS 与 sitemap，结尾不要加斜杠。</span></div>
+              <div class="a-field"><input type="url" maxlength="200" data-setting="site_url" placeholder="https://example.com" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>作者称呼</strong><span>文章署名。</span></div>
+              <div class="a-field"><input type="text" maxlength="60" data-setting="author_name" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>作者简介</strong><span>出现在文章末尾与关于区域。</span></div>
+              <div class="a-field"><textarea rows="3" maxlength="500" data-setting="author_bio"></textarea></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>头像 URL</strong><span>不填则使用称呼首字。</span></div>
+              <div class="a-field"><input type="text" maxlength="500" data-setting="author_avatar" placeholder="/media/... 或 https://" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>Logo / Favicon</strong><span>可选图片地址。Logo 替代默认标记。</span></div>
+              <div class="a-field">
+                <input type="text" maxlength="500" data-setting="logo" placeholder="Logo URL" style="margin-bottom:8px" />
+                <input type="text" maxlength="500" data-setting="favicon" placeholder="Favicon URL" />
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>公告条</strong><span>显示在所有页面顶部，留空则隐藏。</span></div>
+              <div class="a-field"><input type="text" maxlength="300" data-setting="announcement" /></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="reading">
+        <div class="admin-page-intro">
+          <div><h2>阅读与评论</h2><p>控制文章列表密度、元信息与留言行为。</p></div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>每页文章数</strong><span>首页与分页列表的卡片数量。</span></div>
+              <div class="a-field" style="max-width:160px"><input type="number" min="1" max="30" data-setting="posts_per_page" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>显示阅读时间</strong><span>根据中英文字符估算。</span></div>
+              <label class="switch" data-switch><input type="checkbox" data-setting="show_reading_time" hidden /><span></span></label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>显示作者</strong><span>文章页署名与头像。</span></div>
+              <label class="switch" data-switch><input type="checkbox" data-setting="show_author" hidden /><span></span></label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>显示阅读量</strong><span>在首页卡片与文章页显示。</span></div>
+              <label class="switch" data-switch><input type="checkbox" data-setting="show_views" hidden /><span></span></label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>开启评论</strong><span>关闭后文章下方与后台都将停止接收留言。</span></div>
+              <label class="switch" data-switch><input type="checkbox" data-setting="comments_enabled" hidden /><span></span></label>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>留言审核</strong><span>开启后新留言默认待审核。</span></div>
+              <label class="switch" data-switch><input type="checkbox" data-setting="comment_moderation" hidden /><span></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card__body">
+            <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7">
+              评论没有引入第三方服务。数据存放在本地 SQLite 的 comments 表中，删除文章时会一并删除。
+              如果站点公开在互联网上，建议在反向代理层启用限流。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="team">
+        <div class="admin-page-intro">
+          <div>
+            <h2>协作与所有权</h2>
+            <p>文章、页面与媒体都有明确的所有者。</p>
+          </div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <div class="setting-row">
+              <div class="setting-row__label">
+                <strong>编辑可管理他人内容</strong>
+                <span>关闭（默认）时，编辑只能编辑、删除自己创建的文章 / 相册，以及自己上传的媒体；评论审核、分类与导出不受影响。</span>
+              </div>
+              <label class="switch" data-switch><input type="checkbox" data-setting="editor_manage_others" hidden /><span></span></label>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card__body">
+            <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7">
+              所有权规则：文章 / 页面与相册记录 <code>author_id</code>，媒体记录 <code>owner_id</code>。
+              越权请求由后端返回 403，后台列表只会显示当前成员可管理的内容。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="navigation">
+        <div class="admin-page-intro">
+          <div><h2>导航链接</h2><p>页头、移动端菜单与页脚都会读取这里。外部链接请写完整 https:// 地址。</p></div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__head"><h3>主导航</h3><button class="a-btn a-btn--sm" type="button" data-add-link="nav"><Icon name="plus" size={13} /> 添加</button></div>
+          <div class="admin-card__body">
+            <div class="nav-editor" data-links="nav"></div>
+            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">建议保留「首页 / 文章 / 关于」三项。拖拽排序暂未支持。</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="footer">
+        <div class="admin-page-intro">
+          <div><h2>页脚与社交</h2><p>这些内容会出现在每一页的底部。</p></div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>页脚短句</strong><span>品牌下方的一行文字。</span></div>
+              <div class="a-field"><textarea rows="2" maxlength="200" data-setting="footer_text"></textarea></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>版权备注</strong><span>例如 Built with Astro × FastAPI。</span></div>
+              <div class="a-field"><input type="text" maxlength="200" data-setting="footer_note" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>备案号</strong><span>可选，显示在页脚底部。</span></div>
+              <div class="a-field"><input type="text" maxlength="80" data-setting="icp" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card__head"><h3>社交链接</h3><button class="a-btn a-btn--sm" type="button" data-add-link="social"><Icon name="plus" size={13} /> 添加</button></div>
+          <div class="admin-card__body">
+            <div class="nav-editor" data-links="social"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="seo">
+        <div class="admin-page-intro">
+          <div><h2>SEO 与高级</h2><p>搜索引擎、分享卡片，以及需要直接写入页头的代码。</p></div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>SEO 描述</strong><span>默认页面描述，文章可单独覆盖。</span></div>
+              <div class="a-field"><textarea rows="3" maxlength="300" data-setting="seo_description"></textarea></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>关键词</strong><span>用英文逗号分隔。现代搜索引擎权重很低。</span></div>
+              <div class="a-field"><input type="text" maxlength="200" data-setting="seo_keywords" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>默认分享图</strong><span>Open Graph 图片，建议 1200×630。</span></div>
+              <div class="a-field"><input type="text" maxlength="500" data-setting="og_image" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>页头代码</strong><span>会原样注入 &lt;head&gt;，可用于统计脚本或字体。</span></div>
+              <div class="a-field">
+                <textarea rows="5" spellcheck="false" data-setting="head_html" style="font-family:var(--font-mono);font-size:10px" placeholder="<!-- analytics -->"></textarea>
+                <p class="hint">只放可信代码。错误的标签可能破坏整站。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card__head"><h3>数据与工具</h3></div>
+          <div class="admin-card__body" style="display:flex;flex-wrap:wrap;gap:8px">
+            <a class="a-btn" href="/api/admin/export" download><Icon name="download" size={14} /> 导出 JSON</a>
+            <a class="a-btn" href="/api/docs" target="_blank" rel="noopener"><Icon name="code" size={14} /> API 文档</a>
+            <a class="a-btn" href="/rss.xml" target="_blank" rel="noopener"><Icon name="rss" size={14} /> RSS</a>
+          </div>
+        </div>
+      </section>
+
+      <section class="settings-panel" data-settings-panel="account">
+        <div class="admin-page-intro">
+          <div><h2>账号资料</h2><p>修改显示名称、邮箱与密码。登录用户名不可更改。</p></div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body" data-profile-form>
+            <div class="a-field--row">
+              <div class="a-field">
+                <label>显示名称</label>
+                <input type="text" name="display_name" value={user.display_name} maxlength="50" />
+              </div>
+              <div class="a-field">
+                <label>登录用户名</label>
+                <input type="text" value={user.username} disabled />
+              </div>
+            </div>
+            <div class="a-field" style="margin-top:12px">
+              <label>邮箱</label>
+              <input type="email" name="email" value={user.email} maxlength="120" />
+            </div>
+            <div class="a-field" style="margin-top:12px">
+              <label>个人简介</label>
+              <textarea name="bio" rows="3" maxlength="500">{user.bio}</textarea>
+            </div>
+            <div class="a-field" style="margin-top:12px">
+              <label>头像 URL</label>
+              <input type="text" name="avatar" value={user.avatar} maxlength="500" />
+            </div>
+            <div class="a-field--row" style="margin-top:18px">
+              <div class="a-field">
+                <label>当前密码 <small>修改密码时填写</small></label>
+                <input type="password" name="current_password" autocomplete="current-password" />
+              </div>
+              <div class="a-field">
+                <label>新密码 <small>至少 8 位</small></label>
+                <input type="password" name="new_password" autocomplete="new-password" minlength="8" />
+              </div>
+            </div>
+            <div class="a-field" style="margin-top:12px;max-width:50%">
+              <label>确认新密码</label>
+              <input type="password" name="confirm_password" autocomplete="new-password" />
+            </div>
+            <div class="form-actions" style="margin-top:18px">
+              <button class="a-btn a-btn--primary" type="button" data-save-profile><Icon name="save" size={14} /> 更新账号</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-settings';
+</script>

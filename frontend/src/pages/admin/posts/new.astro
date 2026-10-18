@@ -1,0 +1,12 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import PostEditor from '../../../components/admin/PostEditor.astro';
+import { guardAdmin } from '../../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'content.write');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="写文章" subtitle="Content / New post" active="posts" showCompose={false}>
+  <PostEditor mode="new" postType="post" />
+</AdminLayout>

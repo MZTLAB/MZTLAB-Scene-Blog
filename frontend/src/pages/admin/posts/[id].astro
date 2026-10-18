@@ -1,0 +1,33 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import PostEditor from '../../../components/admin/PostEditor.astro';
+import Icon from '../../../components/Icon.astro';
+import { guardAdmin } from '../../../lib/auth';
+import { apiServer } from '../../../lib/api';
+import type { AdminPost } from '../../../types';
+
+const guard = await guardAdmin(Astro, 'content.write');
+if (guard instanceof Response) return guard;
+const user = guard;
+
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id) || id < 1) return Astro.redirect('/admin/posts');
+
+let post: AdminPost;
+try {
+  post = await apiServer<AdminPost>(`/api/admin/posts/${id}`, {
+    cookie: Astro.request.headers.get('cookie') || '',
+  });
+} catch {
+  return Astro.redirect('/admin/posts');
+}
+if (post.type !== 'post') return Astro.redirect(`/admin/pages/${post.id}`);
+---
+<AdminLayout user={user} title="编辑文章" subtitle="Content / Edit post" active="posts" showCompose={false}>
+  <Fragment slot="actions">
+    {post.status === 'published' && (
+      <a class="a-btn" href={post.url} target="_blank" rel="noopener"><Icon name="external" size={14} /> 查看文章</a>
+    )}
+  </Fragment>
+  <PostEditor mode="edit" postType="post" post={post} />
+</AdminLayout>

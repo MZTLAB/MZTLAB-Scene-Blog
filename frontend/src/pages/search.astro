@@ -1,0 +1,125 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import GalleryCard from '../components/GalleryCard.astro';
+import Icon from '../components/Icon.astro';
+import { apiServer, getSite } from '../lib/api';
+import { formatDate } from '../lib/format';
+import type { SearchResults, SiteInfo } from '../types';
+
+const site: SiteInfo = await getSite();
+const query = (Astro.url.searchParams.get('q') || '').trim();
+let results: SearchResults = { query: '', articles: [], galleries: [] };
+let error = '';
+if (query) {
+  try {
+    results = await apiServer<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`);
+  } catch (exception) {
+    error = exception instanceof Error ? exception.message : '搜索失败';
+  }
+}
+const total = results.articles.length + results.galleries.length;
+---
+<BaseLayout
+  site={site}
+  title={query ? `搜索「${query}」` : '搜索'}
+  description={`搜索 ${site.settings.site_title} 的相册与文章。`}
+  noindex={!query}
+>
+  <section class="container page-hero">
+    <span class="eyebrow">// SEARCH</span>
+    <h1>搜索</h1>
+    <p>相册与文章。</p>
+    <form class="search-form" action="/search" method="get" role="search">
+      <Icon name="search" size={15} />
+      <input
+        name="q"
+        type="search"
+        value={query}
+        placeholder="关键词…"
+        aria-label="搜索全站"
+        autofocus={!query}
+      />
+      <button class="btn btn--small" type="submit">搜索</button>
+    </form>
+    {
+      query && !error && (
+        <div class="page-hero__meta">
+          <span>「{query}」</span>
+          <span>/</span>
+          <span>{String(total).padStart(2, '0')} RESULTS</span>
+        </div>
+      )
+    }
+  </section>
+
+  <div class="container">
+    {
+      error ? (
+        <div class="empty-state">
+          <span class="empty-mark">!</span>
+          <h2>搜索不可用</h2>
+          <p>{error}</p>
+        </div>
+      ) : !query ? (
+        <div class="empty-state">
+          <span class="empty-mark">⌕</span>
+          <h2>输入关键词</h2>
+          <p>地点、器材、标题。</p>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <a class="btn btn--ghost" href="/photos">影像索引</a>
+            <a class="btn btn--ghost" href="/archive">文章</a>
+          </div>
+        </div>
+      ) : total === 0 ? (
+        <div class="empty-state">
+          <span class="empty-mark">—</span>
+          <h2>没有匹配</h2>
+          <p>换一个更短的词。</p>
+          <div style="display:flex;gap:10px;margin-top:16px">
+            <a class="btn btn--ghost" href="/photos">影像</a>
+            <a class="btn btn--ghost" href="/archive">文章</a>
+          </div>
+        </div>
+      ) : (
+        <>
+          {results.galleries.length > 0 && (
+            <section class="result-group">
+              <h2>
+                ALBUMS <span>{String(results.galleries.length).padStart(2, '0')}</span>
+              </h2>
+              <div class="gallery-grid">
+                {results.galleries.map((gallery, index) => (
+                  <GalleryCard gallery={gallery} label={site.settings.site_title} index={index + 1} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {results.articles.length > 0 && (
+            <section class="result-group">
+              <h2>
+                TEXTS <span>{String(results.articles.length).padStart(2, '0')}</span>
+              </h2>
+              <div class="journal-list">
+                {results.articles.map((post) => (
+                  <a class="journal-item" href={post.url}>
+                    <time datetime={post.published_at || undefined}>
+                      {formatDate(post.published_at, 'short')}
+                    </time>
+                    <div>
+                      <h3>{post.title}</h3>
+                      {post.excerpt && <p>{post.excerpt}</p>}
+                    </div>
+                    <span class="journal-item__aside">
+                      {post.categories?.[0]?.name || '文字'} · {post.reading_time} MIN
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )
+    }
+  </div>
+</BaseLayout>

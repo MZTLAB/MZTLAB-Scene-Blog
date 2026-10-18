@@ -1,0 +1,182 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import { guardAdmin } from '../../../lib/auth';
+import { apiServer } from '../../../lib/api';
+import type { Gallery } from '../../../types';
+
+const guard = await guardAdmin(Astro, 'gallery.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+
+const id = Number(Astro.params.id);
+if (!Number.isInteger(id) || id < 1) return Astro.redirect('/admin/galleries');
+
+let gallery: Gallery;
+try {
+  gallery = await apiServer<Gallery>(`/api/admin/galleries/${id}`, {
+    cookie: Astro.request.headers.get('cookie') || '',
+  });
+} catch {
+  return Astro.redirect('/admin/galleries');
+}
+---
+<AdminLayout user={user} title="编辑相册" subtitle="Photography / Gallery" active="photography" showCompose={false}>
+  <Fragment slot="actions">
+    <a class="a-btn" href="/admin/galleries"><Icon name="arrowLeft" size={14} /> 返回</a>
+    {
+      gallery.status === 'published' && (
+        <a class="a-btn" href={gallery.url} target="_blank" rel="noopener">
+          <Icon name="external" size={14} /> 查看
+        </a>
+      )
+    }
+    <button class="a-btn a-btn--primary" type="button" data-save>
+      <Icon name="save" size={14} /> 保存设置
+    </button>
+  </Fragment>
+
+  <div data-gallery-detail data-id={id}>
+    <div class="page-head-row">
+      <div>
+        <h2 data-title>{gallery.title}</h2>
+        <p>
+          ID #{String(id).padStart(3, '0')} /
+          <span data-photo-count>{gallery.photo_count}</span> FRAMES /
+          <span data-gallery-status>{gallery.status}</span>
+        </p>
+      </div>
+      <div class="toolbar-group">
+        <a class="a-btn" href="/photos" target="_blank" rel="noopener">影像页</a>
+        <button class="a-btn a-btn--danger" type="button" data-delete-gallery>
+          <Icon name="trash" size={14} /> 删除相册
+        </button>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-stack">
+        <div class="admin-card">
+          <div class="admin-card__head"><h3>相册设置</h3><span>METADATA</span></div>
+          <div class="admin-card__body">
+            <div class="a-field">
+              <label for="gal-title">标题 *</label>
+              <input id="gal-title" type="text" maxlength="120" data-field="title" value={gallery.title} />
+            </div>
+            <div class="a-field" style="margin-top:12px">
+              <label for="gal-slug">别名 / URL</label>
+              <input id="gal-slug" type="text" maxlength="100" data-field="slug" value={gallery.slug} />
+              <p class="hint">发布后修改链接会让旧地址失效。</p>
+            </div>
+            <div class="a-field" style="margin-top:12px">
+              <label for="gal-desc">描述</label>
+              <textarea id="gal-desc" rows="4" maxlength="1000" data-field="description">{gallery.description}</textarea>
+            </div>
+            <div class="form-grid-2" style="margin-top:12px">
+              <div class="a-field">
+                <label for="gal-status">状态</label>
+                <select id="gal-status" data-field="status">
+                  <option value="draft" selected={gallery.status === 'draft'}>草稿</option>
+                  <option value="published" selected={gallery.status === 'published'}>已发布</option>
+                </select>
+              </div>
+              <div class="a-field">
+                <label for="gal-cover">封面</label>
+                <select id="gal-cover" data-field="cover">
+                  <option value="">自动（第一张）</option>
+                </select>
+              </div>
+            </div>
+            <label class="check-row" style="margin-top:12px">
+              <input type="checkbox" data-field="featured" checked={gallery.featured} />
+              <div>
+                <strong>精选相册</strong>
+                <span>优先出现在首页与相册列表前部</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card__head">
+            <h3>照片</h3>
+            <div class="toolbar-group">
+              <button class="a-btn a-btn--sm" type="button" data-add-photos>
+                <Icon name="plus" size={13} /> 从媒体库添加
+              </button>
+            </div>
+          </div>
+          <div class="photo-manager" data-photo-rows>
+            <div class="admin-loading" style="padding:20px">
+              <div class="skeleton" style="height:60px"></div>
+              <div class="skeleton" style="height:60px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-stack">
+        <div class="admin-card">
+          <div class="admin-card__head"><h3>状态</h3><span>OVERVIEW</span></div>
+          <div class="admin-card__body">
+            <div class="member-card__meta" style="border-top:0;padding-top:0">
+              <div><span>照片</span><span data-overview-photos>—</span></div>
+              <div><span>已发布</span><span data-overview-published>—</span></div>
+              <div><span>浏览</span><span data-overview-views>—</span></div>
+              <div><span>创建</span><span>{gallery.created_at.slice(0, 10)}</span></div>
+              <div><span>更新</span><span data-overview-updated>{gallery.updated_at.slice(0, 10)}</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <span class="eyebrow eyebrow--plain">FLOW</span>
+            <ol style="margin:12px 0 0;padding-left:18px;color:var(--ink-soft);font-size:12px;line-height:1.8">
+              <li>选照片。</li>
+              <li>EXIF 在媒体库编辑；点每行的 EXIF 前往。</li>
+              <li>展开「显示 EXIF」，勾选这张图要公开的字段。</li>
+              <li>补标题、说明与地点。</li>
+              <li>调整顺序。</li>
+              <li>发布。</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-picker>
+      <div class="modal modal--wide">
+        <div class="modal__head">
+          <h3>从媒体库选择照片</h3>
+          <button type="button" data-close-picker aria-label="关闭"><Icon name="close" size={15} /></button>
+        </div>
+        <div class="modal__body">
+          <div class="picker-toolbar">
+            <label class="admin-search" style="flex:1">
+              <Icon name="search" size={14} />
+              <input type="search" placeholder="搜索文件名或替代文字…" data-picker-search />
+            </label>
+            <span class="number-label" data-picker-count>已选 0 张</span>
+          </div>
+          <div class="picker-grid" data-picker-grid>
+            <div class="admin-loading"><div class="skeleton" style="height:100px"></div></div>
+          </div>
+        </div>
+        <div class="modal__foot">
+          <a class="a-btn" href="/admin/media" target="_blank" rel="noopener"><Icon name="upload" size={13} /> 上传新媒体</a>
+          <div class="toolbar-group">
+            <button class="a-btn" type="button" data-close-picker>取消</button>
+            <button class="a-btn a-btn--primary" type="button" data-confirm-picker disabled>
+              添加到相册
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../../scripts/admin-gallery-detail';
+</script>

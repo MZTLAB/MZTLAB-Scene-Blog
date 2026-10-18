@@ -1,0 +1,65 @@
+---
+import Icon from './Icon.astro';
+import type { SiteInfo } from '../types';
+import { appConfig } from '../config';
+
+interface Props {
+  site: SiteInfo;
+}
+
+const { site } = Astro.props;
+const settings = site.settings;
+const social = settings.social || [];
+const year = appConfig.footerYear;
+const markSrc = settings.favicon || '/favicon.svg';
+
+function iconFor(label: string, url: string): string {
+  const value = `${label} ${url}`.toLowerCase();
+  if (value.includes('github')) return 'github';
+  if (value.includes('rss') || value.includes('feed')) return 'rss';
+  if (value.includes('mail') || value.includes('@')) return 'mail';
+  if (value.includes('twitter') || value.includes('x.com')) return 'twitter';
+  if (value.includes('wechat') || value.includes('微信')) return 'wechat';
+  return 'external';
+}
+---
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a class="brand" href="/">
+        <img class="brand-mark" src={markSrc} alt="" width="32" height="32" style="width:32px;height:32px" aria-hidden="true" />
+        <span class="brand-text">
+          <span class="brand-title">{settings.site_title}</span>
+          <span class="brand-sub">{settings.site_subtitle || 'SCENE'}</span>
+        </span>
+      </a>
+      <p>{settings.footer_text || '影像与文字。'}</p>
+    </div>
+
+    <nav class="footer-links" aria-label="页脚链接">
+      {
+        social.map((item) => (
+          <a
+            href={item.url}
+            target={/^https?:\/\//.test(item.url) ? '_blank' : undefined}
+            rel={/^https?:\/\//.test(item.url) ? 'noopener noreferrer' : undefined}
+          >
+            <Icon name={iconFor(item.label, item.url)} size={13} /> {item.label}
+          </a>
+        ))
+      }
+      <a href="/photos">影像</a>
+      <a href="/archive">文章</a>
+      <a href="/search">搜索</a>
+      <a href="/admin">后台</a>
+    </nav>
+  </div>
+
+  <div class="container footer-bottom">
+    <span>© {year} {settings.site_title} · {settings.footer_note || 'SCENE'}</span>
+    <span>
+      {settings.icp && <span>{settings.icp} · </span>}
+      <a class="back-to-top" href="#top">回到顶部 <Icon name="arrowUp" size={12} /></a>
+    </span>
+  </div>
+</footer>

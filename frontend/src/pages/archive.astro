@@ -1,0 +1,114 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import StoryCard from '../components/StoryCard.astro';
+import { apiServer, getSite } from '../lib/api';
+import type { PostSummary, SiteInfo } from '../types';
+
+const site: SiteInfo = await getSite();
+const data = await apiServer<{
+  items: PostSummary[];
+  total: number;
+  years: Array<{ year: string; count: number }>;
+}>('/api/archive');
+const groups = data.years.map((year) => ({
+  ...year,
+  posts: data.items.filter((post) => (post.published_at || '').startsWith(year.year)),
+}));
+const settings = site.settings;
+const layout = settings.post_layout === 'list' ? 'list' : 'grid';
+---
+<BaseLayout site={site} title="文章归档" description={`${settings.site_title} 的全部文章归档。`}>
+  <section class="container page-hero">
+    <span class="eyebrow">// TEXT_ARCHIVE</span>
+    <h1>文字</h1>
+    <p>按时间排列。</p>
+    <div class="page-hero__meta">
+      <span>{String(data.total).padStart(2, '0')} TEXTS</span>
+      <span>/</span>
+      <span>{String(groups.length).padStart(2, '0')} YEARS</span>
+    </div>
+    <form class="search-form" action="/search" method="get">
+      <Icon name="search" size={15} />
+      <input name="q" type="search" placeholder="搜索…" aria-label="搜索文章" />
+      <button class="btn btn--small" type="submit">搜索</button>
+    </form>
+  </section>
+
+  <div class="container">
+    <div class="archive-toolbar">
+      <div class="archive-years" data-year-filter>
+        <button type="button" class="is-active" data-year="all">ALL {data.total}</button>
+        {
+          groups.map((group) => (
+            <button type="button" data-year={group.year}>
+              {group.year} {group.count}
+            </button>
+          ))
+        }
+      </div>
+      <span class="number-label">
+        {data.items.length
+          ? `FROM ${data.items[data.items.length - 1].published_at?.slice(0, 10)}`
+          : 'EMPTY'}
+      </span>
+    </div>
+
+    {
+      groups.length ? (
+        groups.map((group) => (
+          <section class="archive-year" data-year-group={group.year}>
+            <div class="archive-year__label">
+              <strong>{group.year}</strong>
+              <span>{String(group.count).padStart(2, '0')} entries</span>
+            </div>
+            <div class:list={['story-layout', `story-layout--${layout}`]}>
+              {group.posts.map((post, index) => (
+                <StoryCard
+                  post={post}
+                  site={site}
+                  label={settings.site_title}
+                  eager={group.year === groups[0]?.year && index < 3}
+                />
+              ))}
+            </div>
+          </section>
+        ))
+      ) : (
+        <div class="empty-state">
+          <span class="empty-mark">[ ]</span>
+          <h2>空档案</h2>
+          <p>第一篇文章会出现在这里。</p>
+          <a class="btn" href="/admin/posts/new" style="margin-top: 18px">
+            写一篇 <Icon name="arrowRight" size={14} />
+          </a>
+        </div>
+      )
+    }
+
+    <div class="cta-band" style="margin-top:clamp(36px,5vw,64px)">
+      <div>
+        <span class="section-code">// ELSEWHERE</span>
+        <h3>影像按相册归档。</h3>
+      </div>
+      <div class="cta-actions">
+        <a class="btn btn--ghost" href="/photos">影像索引 <Icon name="arrowRight" size={14} /></a>
+        <a class="btn btn--ghost" href="/search">搜索</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const filter = document.querySelector('[data-year-filter]');
+    filter?.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      button.addEventListener('click', () => {
+        filter.querySelectorAll('button').forEach((item) => item.classList.remove('is-active'));
+        button.classList.add('is-active');
+        const year = button.dataset.year;
+        document.querySelectorAll<HTMLElement>('[data-year-group]').forEach((group) => {
+          group.style.display = year === 'all' || group.dataset.yearGroup === year ? '' : 'none';
+        });
+      });
+    });
+  </script>
+</BaseLayout>

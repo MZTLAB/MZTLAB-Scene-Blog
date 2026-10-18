@@ -1,0 +1,12 @@
+.git/
+.gitignore
+.venv/
+backend/.venv/
+backend/data/
+node_modules/
+frontend/node_modules/
+frontend/dist/
+.tmp/
+.npm-cache/
+.pnpm-store/
+docs/

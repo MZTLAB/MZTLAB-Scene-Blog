@@ -1,0 +1,159 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'users.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+
+const roles = [
+  {
+    key: 'admin',
+    label: '管理员',
+    summary: '拥有全部权限，包括成员、权限与站点设置。适合站点所有者。',
+    permissions: ['内容', '影像', '评论', '分类', '设置', '成员', '导出'],
+  },
+  {
+    key: 'editor',
+    label: '编辑',
+    summary: '管理自己的文章、媒体与相册，并负责评论、分类与导出。默认不能编辑他人内容；站点所有者可在设置里放开。',
+    permissions: ['自己的内容', '媒体库', '评论', '分类', '导出'],
+  },
+  {
+    key: 'author',
+    label: '作者',
+    summary: '撰写文章，管理自己的相册与媒体。不能管理他人内容。',
+    permissions: ['自己的内容', '影像', '媒体库'],
+  },
+];
+---
+<AdminLayout user={user} title="成员与权限" subtitle="Team / Roles" active="users" showCompose={false}>
+  <div data-users-page data-self-id={user.id}>
+    <div class="page-head-row">
+      <div>
+        <h2>成员与权限</h2>
+        <p>角色决定权限。作者与编辑默认只管理自己的内容。</p>
+      </div>
+      <div class="toolbar-group">
+        <button class="a-btn a-btn--primary" type="button" data-open-user>
+          <Icon name="userPlus" size={14} /> 邀请成员
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <div class="filter-tabs" data-role-filters>
+        <button type="button" class="is-active" data-role="">全部 <small>0</small></button>
+        <button type="button" data-role="admin">管理员 <small>0</small></button>
+        <button type="button" data-role="editor">编辑 <small>0</small></button>
+        <button type="button" data-role="author">作者 <small>0</small></button>
+      </div>
+      <div class="toolbar-group">
+        <label class="admin-search">
+          <Icon name="search" size={14} />
+          <input type="search" placeholder="搜索用户名或邮箱…" data-user-search aria-label="搜索成员" />
+        </label>
+      </div>
+    </div>
+
+    <div class="member-grid" data-member-grid>
+      <div class="admin-loading" style="grid-column: 1 / -1">
+        <div class="skeleton" style="height: 150px"></div>
+        <div class="skeleton" style="height: 150px"></div>
+      </div>
+    </div>
+
+    <section class="admin-card" style="margin-top: 22px">
+      <div class="admin-card__head"><h3>角色说明</h3><span>ROLES</span></div>
+      <div class="admin-card__body">
+        <div class="gallery-admin-grid">
+          {
+            roles.map((role) => (
+              <div class="admin-callout" style="display:grid;gap:8px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="role-badge" data-role={role.key}>{role.label}</span>
+                  <code style="font-family:var(--font-mono);font-size:8.5px;color:var(--ink-faint)">{role.key}</code>
+                </div>
+                <p style="font-size:12.5px;line-height:1.65;color:var(--ink-soft)">{role.summary}</p>
+                <div class="perm-list">
+                  {role.permissions.map((permission) => <code>{permission}</code>)}
+                </div>
+              </div>
+            ))
+          }
+        </div>
+        <p style="margin-top:14px;font-size:12px;color:var(--ink-faint);line-height:1.7">
+          站点至少需要保留一名启用中的管理员。不能停用或删除自己的账号，也不能修改自己的角色——这些限制由后端强制校验。
+        </p>
+      </div>
+    </section>
+
+    <div class="modal-backdrop" data-user-modal>
+      <div class="modal">
+        <div class="modal__head">
+          <h3 data-modal-title>邀请成员</h3>
+          <button type="button" data-close-user aria-label="关闭"><Icon name="close" size={15} /></button>
+        </div>
+        <form class="modal__body" data-user-form>
+          <div class="member-form">
+            <div data-username-field>
+              <div class="a-field">
+                <label for="user-username">用户名 * <small>登录用，创建后不可修改</small></label>
+                <input id="user-username" type="text" maxlength="32" autocomplete="off" placeholder="如 lin" />
+              </div>
+            </div>
+            <div class="form-grid-2">
+              <div class="a-field">
+                <label for="user-name">显示名称 *</label>
+                <input id="user-name" type="text" maxlength="50" placeholder="如 林间" />
+              </div>
+              <div class="a-field">
+                <label for="user-email">邮箱</label>
+                <input id="user-email" type="email" maxlength="120" autocomplete="off" />
+              </div>
+            </div>
+            <div class="a-field">
+              <label for="user-password" data-password-label>初始密码 *</label>
+              <input id="user-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" />
+              <p class="hint" data-password-hint>至少 8 位。对方登录后可在个人资料里修改。</p>
+            </div>
+            <div class="a-field">
+              <label>角色 *</label>
+              <div class="role-picker" data-role-picker>
+                {
+                  roles.map((role) => (
+                    <label class="role-option" data-role-option={role.key}>
+                      <input type="radio" name="role" value={role.key} checked={role.key === 'author'} />
+                      <div>
+                        <strong>{role.label}</strong>
+                        <span>{role.summary}</span>
+                      </div>
+                    </label>
+                  ))
+                }
+              </div>
+            </div>
+            <label class="check-row" data-active-row>
+              <input type="checkbox" data-user-active checked />
+              <div>
+                <strong>启用账号</strong>
+                <span>停用后无法登录，现有会话会立即失效。</span>
+              </div>
+            </label>
+          </div>
+        </form>
+        <div class="modal__foot">
+          <button class="a-btn" type="button" data-close-user>取消</button>
+          <button class="a-btn a-btn--primary" type="button" data-submit-user>
+            <Icon name="check" size={14} /> 保存成员
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-users';
+</script>

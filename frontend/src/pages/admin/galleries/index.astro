@@ -1,0 +1,101 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import { guardAdmin } from '../../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'gallery.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="影像" subtitle="Photography / Galleries" active="photography">
+  <div data-galleries-page>
+    <div class="page-head-row">
+      <div>
+        <h2>相册</h2>
+        <p>相册是影像的组织单位：先建一本相册，再从媒体库挑选照片、补上标题与拍摄信息。发布后会自动出现在 /galleries 与 /photos。</p>
+      </div>
+      <div class="toolbar-group">
+        <a class="a-btn" href="/photos" target="_blank" rel="noopener">
+          <Icon name="external" size={14} /> 查看影像页
+        </a>
+        <button class="a-btn a-btn--primary" type="button" data-open-create>
+          <Icon name="plus" size={14} /> 新建相册
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-card" data-create-card hidden style="margin-bottom: 18px">
+      <div class="admin-card__head">
+        <h3>新建相册</h3>
+        <button class="a-btn a-btn--sm" type="button" data-close-create>取消</button>
+      </div>
+      <div class="admin-card__body">
+        <form class="member-form" data-create-form>
+          <div class="form-grid-2">
+            <div class="a-field">
+              <label for="gallery-title">标题 *</label>
+              <input id="gallery-title" type="text" maxlength="120" placeholder="例如 FORM / 结构练习" required data-create-title />
+            </div>
+            <div class="a-field">
+              <label for="gallery-slug">别名 <small>留空自动生成</small></label>
+              <input id="gallery-slug" type="text" maxlength="100" placeholder="form-studies" data-create-slug />
+            </div>
+          </div>
+          <div class="a-field">
+            <label for="gallery-desc">描述</label>
+            <textarea id="gallery-desc" rows="3" maxlength="1000" placeholder="一段简短的说明，会成为相册页面的导语。" data-create-desc></textarea>
+          </div>
+          <div class="form-grid-2">
+            <div class="a-field">
+              <label for="gallery-status">状态</label>
+              <select id="gallery-status" data-create-status>
+                <option value="draft">草稿（不公开）</option>
+                <option value="published">已发布</option>
+              </select>
+            </div>
+            <label class="check-row" style="align-self: end">
+              <input type="checkbox" data-create-featured />
+              <div>
+                <strong>设为精选</strong>
+                <span>优先出现在首页与相册列表前部</span>
+              </div>
+            </label>
+          </div>
+          <div class="member-form__foot">
+            <button class="a-btn" type="button" data-close-create>取消</button>
+            <button class="a-btn a-btn--primary" type="submit">
+              <Icon name="plus" size={13} /> 创建并编辑
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <div class="filter-tabs" data-filters>
+        <button type="button" class="is-active" data-status="">全部 <small>0</small></button>
+        <button type="button" data-status="published">已发布 <small>0</small></button>
+        <button type="button" data-status="draft">草稿 <small>0</small></button>
+      </div>
+      <div class="toolbar-group">
+        <label class="admin-search">
+          <Icon name="search" size={14} />
+          <input type="search" placeholder="搜索相册…" data-search aria-label="搜索相册" />
+        </label>
+      </div>
+    </div>
+
+    <div class="gallery-admin-grid" data-gallery-grid>
+      <div class="admin-loading" style="grid-column: 1 / -1">
+        <div class="skeleton" style="height: 140px"></div>
+        <div class="skeleton" style="height: 140px"></div>
+      </div>
+    </div>
+
+    <div class="table-footer" data-pagination style="margin-top: 18px"></div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../../scripts/admin-galleries';
+</script>

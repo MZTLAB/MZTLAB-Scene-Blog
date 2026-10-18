@@ -1,0 +1,84 @@
+---
+import AuthLayout from '../../layouts/AuthLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { getAuthStatus } from '../../lib/auth';
+import { getSite } from '../../lib/api';
+import { fallbackSite } from '../../config';
+import type { SiteInfo } from '../../types';
+
+const status = await getAuthStatus(Astro);
+if (!status.needs_setup) {
+  return status.authenticated ? Astro.redirect('/admin') : Astro.redirect('/admin/login');
+}
+
+let site: SiteInfo = fallbackSite as unknown as SiteInfo;
+try {
+  site = await getSite();
+} catch {
+  // fallback
+}
+---
+<AuthLayout site={site} mode="setup">
+  <h1>给这个场景，<br />写一个名字。</h1>
+  <p>创建管理员账号。数据保存在本地 SQLite。</p>
+
+  <form class="auth-form" data-setup-form>
+    <div class="a-field">
+      <label for="site_title">站点名称</label>
+      <input id="site_title" name="site_title" type="text" value={site.settings.site_title} maxlength="50" required />
+    </div>
+    <div class="a-field">
+      <label for="display_name">你的称呼</label>
+      <input id="display_name" name="display_name" type="text" placeholder="MZTLAB" maxlength="50" required />
+    </div>
+    <div class="a-field">
+      <label for="username">管理员用户名 <small>3–32 位字母、数字、点、横线</small></label>
+      <input id="username" name="username" type="text" autocomplete="username" pattern="[a-zA-Z0-9_.\-]{3,32}" required />
+    </div>
+    <div class="a-field">
+      <label for="password">密码 <small>至少 8 位</small></label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+    </div>
+    <div class="a-field">
+      <label for="confirm_password">确认密码</label>
+      <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required />
+    </div>
+    <div class="auth-error" data-auth-error role="alert"></div>
+    <button class="a-btn a-btn--primary" type="submit" style="justify-content: center; min-height: 42px">
+      创建站点 <Icon name="arrowRight" size={15} />
+    </button>
+  </form>
+
+  <p class="auth-foot" style="margin-top: 18px">创建后请妥善保存密码。忘记密码需要通过服务器重置。</p>
+</AuthLayout>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-setup-form]');
+  const errorBox = document.querySelector<HTMLElement>('[data-auth-error]');
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!form.reportValidity()) return;
+    const data = Object.fromEntries(new FormData(form).entries()) as Record<string, string>;
+    if (data.password !== data.confirm_password) {
+      if (errorBox) errorBox.textContent = '两次输入的密码不一致';
+      return;
+    }
+    delete data.confirm_password;
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (button) button.disabled = true;
+    if (errorBox) errorBox.textContent = '';
+    try {
+      const response = await fetch('/api/setup', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.detail || '初始化失败');
+      window.location.href = '/admin';
+    } catch (error) {
+      if (errorBox) errorBox.textContent = error instanceof Error ? error.message : '初始化失败';
+      if (button) button.disabled = false;
+    }
+  });
+</script>

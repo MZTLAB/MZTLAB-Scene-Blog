@@ -1,0 +1,35 @@
+---
+import CoverArt from './CoverArt.astro';
+import type { PostSummary, SiteInfo } from '../types';
+import { formatDate } from '../lib/format';
+
+interface Props {
+  post: PostSummary;
+  site?: SiteInfo;
+  label?: string;
+  eager?: boolean;
+}
+
+const { post, site = null, label = 'MZTLAB', eager = false } = Astro.props;
+const category = post.categories?.[0]?.name || (site ? 'Writing' : 'Journal');
+---
+<article class="story-card">
+  <a class="story-card__media" href={post.url} aria-label={post.title}>
+    {
+      post.cover_image ? (
+        <img src={post.cover_image} alt="" loading={eager ? 'eager' : 'lazy'} decoding="async" />
+      ) : (
+        <CoverArt title={post.title} slug={post.slug} category={category} label={label} eager={eager} />
+      )
+    }
+  </a>
+  <div class="story-card__body">
+    <div class="story-card__meta">
+      <span>{category}</span>
+      <span>·</span>
+      <time datetime={post.published_at || undefined}>{formatDate(post.published_at, 'short')}</time>
+    </div>
+    <h3 class="story-card__title"><a href={post.url}>{post.title}</a></h3>
+    {post.excerpt && <p class="story-card__desc">{post.excerpt}</p>}
+  </div>
+</article>

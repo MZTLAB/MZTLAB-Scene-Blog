@@ -1,0 +1,185 @@
+---
+import Icon from '../components/Icon.astro';
+import '../styles/global.css';
+import '../styles/admin.css';
+import { getSite } from '../lib/api';
+import { fallbackSite } from '../config';
+import { initial } from '../lib/format';
+import { hasPermission } from '../lib/permissions';
+import type { AdminUser, SiteInfo } from '../types';
+
+interface Props {
+  user: AdminUser;
+  title: string;
+  subtitle?: string;
+  active: string;
+  showCompose?: boolean;
+}
+
+const { user, title, subtitle = '', active, showCompose = true } = Astro.props;
+
+let site: SiteInfo = fallbackSite as unknown as SiteInfo;
+try {
+  site = await getSite();
+} catch {
+  // Keep the admin usable with fallback visual tokens.
+}
+const settings = site.settings;
+const markSrc = settings.favicon || '/favicon.svg';
+const accent = /^#[0-9a-f]{6}$/i.test(settings.accent || '') ? settings.accent : '#e8481d';
+const width = Math.min(1600, Math.max(720, Number(settings.layout_width) || 1400));
+const radius = Math.min(40, Math.max(0, Number(settings.radius) || 0));
+const colorMode = ['light', 'dark', 'system'].includes(String(settings.color_mode))
+  ? String(settings.color_mode)
+  : 'light';
+const paletteAliases: Record<string, string> = {
+  paper: 'scene',
+  graphite: 'stone',
+  forest: 'sand',
+  ocean: 'stone',
+};
+const rawPalette = String(settings.theme || 'scene');
+const palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
+  ? rawPalette
+  : paletteAliases[rawPalette] || 'scene';
+const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
+  ? String(settings.font_pair)
+  : 'mono';
+
+const can = (permission: string) => hasPermission(user, permission);
+const canCompose = can('content.write');
+const nav = [
+  { key: 'dashboard', label: '概览', href: '/admin', icon: 'dashboard', show: true },
+  { key: 'photography', label: '影像', href: '/admin/galleries', icon: 'camera', show: can('gallery.manage') },
+  { key: 'posts', label: '文章', href: '/admin/posts', icon: 'file', show: true },
+  { key: 'pages', label: '页面', href: '/admin/pages', icon: 'book', show: can('content.others') },
+  { key: 'media', label: '媒体库', href: '/admin/media', icon: 'image', show: can('media.manage') },
+  { key: 'comments', label: '评论', href: '/admin/comments', icon: 'message', show: can('comment.moderate') },
+  { key: 'taxonomy', label: '分类与标签', href: '/admin/taxonomy', icon: 'folder', show: can('taxonomy.manage') },
+].filter((item) => item.show);
+const siteNav = [
+  { key: 'appearance', label: '外观', href: '/admin/appearance', icon: 'palette', show: can('settings.manage') },
+  { key: 'users', label: '成员', href: '/admin/users', icon: 'users', show: can('users.manage') },
+  { key: 'settings', label: '设置', href: '/admin/settings', icon: 'settings', show: can('settings.manage') },
+].filter((item) => item.show);
+const isActive = (key: string) => active === key;
+const composeHref = '/admin/posts/new';
+---
+<!doctype html>
+<html
+  lang="zh-CN"
+  data-color-mode={colorMode}
+  data-palette={palette}
+  data-font={fontPair}
+  data-theme="scene"
+  style={`--accent:${accent};--layout-width:${width}px;--radius:${radius}px`}
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="theme-color" content={accent} />
+    <title>{title} · {settings.site_title} · Scene</title>
+    <link rel="icon" href={settings.favicon || '/favicon.svg'} />
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        try {
+          const stored =
+            localStorage.getItem('scene-color-mode') || localStorage.getItem('ink-color-mode');
+          let mode = stored || root.dataset.colorMode || 'light';
+          if (mode === 'system') {
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          root.dataset.colorMode = mode;
+          root.style.colorScheme = mode;
+        } catch (_) {}
+      })();
+    </script>
+    <slot name="head" />
+  </head>
+  <body class="admin-body" data-role={user.role}>
+    <div class="admin-shell">
+      <aside class="admin-sidebar" aria-label="管理导航">
+        <a class="admin-brand" href="/admin">
+          <img class="brand-mark" src={markSrc} alt="" width="22" height="22" aria-hidden="true" />
+          <span class="admin-brand__text">
+            <strong>{settings.site_title}</strong>
+            <span>mono studio</span>
+          </span>
+        </a>
+
+        <nav class="admin-nav">
+          <span class="admin-nav__label">Studio</span>
+          {
+            nav.map((item) => (
+              <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
+                <Icon name={item.icon} size={17} />
+                {item.label}
+                {item.key === 'comments' && <span class="nav-count" data-pending-count hidden>0</span>}
+              </a>
+            ))
+          }
+          {siteNav.length > 0 && <span class="admin-nav__label">Site</span>}
+          {
+            siteNav.map((item) => (
+              <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
+                <Icon name={item.icon} size={17} />
+                {item.label}
+              </a>
+            ))
+          }
+        </nav>
+
+        <div class="admin-sidebar__foot">
+          <a href="/" target="_blank" rel="noopener">
+            <Icon name="external" size={15} /> 查看站点
+          </a>
+          <button type="button" data-logout>
+            <Icon name="logout" size={15} /> 退出登录
+          </button>
+        </div>
+      </aside>
+
+      <div class="admin-backdrop" data-admin-backdrop></div>
+
+      <div class="admin-main">
+        <header class="admin-topbar">
+          <button class="icon-btn admin-menu-btn" type="button" data-admin-menu aria-label="打开菜单">
+            <Icon name="menu" />
+          </button>
+          <div class="admin-topbar__title">
+            <span class="crumb">{subtitle || 'MZTLAB // SCENE'}</span>
+            <h1>{title}</h1>
+          </div>
+          <div class="admin-topbar__actions">
+            <slot name="actions" />
+            {showCompose && canCompose && (
+              <a class="a-btn a-btn--primary" href={composeHref}>
+                <Icon name="plus" size={14} /> 写文章
+              </a>
+            )}
+            <div class="admin-user" title={`${user.display_name} · ${user.role_label || user.role}`}>
+              <span class="avatar">{initial(user.display_name)}</span>
+              <span class="admin-user__meta">
+                <strong>{user.display_name}</strong>
+                <span>{user.role_label || user.role}</span>
+              </span>
+            </div>
+          </div>
+        </header>
+
+        <main class="admin-content" id="main">
+          <slot />
+        </main>
+      </div>
+    </div>
+
+    <div class="toast-root" id="toastRoot"></div>
+
+    <script>
+      import { initAdminShell } from '../lib/admin-client';
+      initAdminShell();
+    </script>
+  </body>
+</html>

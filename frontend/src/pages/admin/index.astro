@@ -1,0 +1,171 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+import { hasPermission } from '../../lib/permissions';
+
+const guard = await guardAdmin(Astro);
+if (guard instanceof Response) return guard;
+const user = guard;
+const canGallery = hasPermission(user, 'gallery.manage');
+const denied = Astro.url.searchParams.get('denied') || '';
+const permissionLabels: Record<string, string> = {
+  'content.write': '创建与编辑内容',
+  'gallery.manage': '管理影像画廊',
+  'media.manage': '管理媒体库',
+  'comment.moderate': '审核评论',
+  'taxonomy.manage': '管理分类与标签',
+  'settings.manage': '修改站点设置与外观',
+  'users.manage': '管理用户与权限',
+  'data.export': '导出站点数据',
+  'content.delete': '删除内容',
+};
+---
+<AdminLayout user={user} title="概览" subtitle={`${user.display_name} · ${user.role_label || user.role}`} active="dashboard">
+  <div data-dashboard>
+    {
+      denied && (
+        <div class="admin-callout admin-callout--accent" style="margin-bottom:18px">
+          <Icon name="lock" size={16} />
+          <div>
+            <strong>没有访问权限</strong>
+            <p>
+              当前角色（{user.role_label || user.role}）不能{permissionLabels[denied] || '执行这项操作'}。
+              需要更高权限时请联系管理员。
+            </p>
+          </div>
+        </div>
+      )
+    }
+
+    <div class="page-head-row">
+      <div>
+        <h2 data-greeting>你好，今天记录什么？</h2>
+        <p>影像、文章与成员。</p>
+      </div>
+      <div class="toolbar-group">
+        <a class="a-btn" href="/" target="_blank" rel="noopener"><Icon name="external" size={14} /> 查看站点</a>
+        {canGallery && (
+          <a class="a-btn" href="/admin/galleries"><Icon name="camera" size={14} /> 相册</a>
+        )}
+        {hasPermission(user, 'content.write') && (
+          <a class="a-btn a-btn--primary" href="/admin/posts/new"><Icon name="plus" size={14} /> 写文章</a>
+        )}
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card" data-stat="photos">
+        <span class="stat-card__label"><Icon name="camera" size={13} /> Photos</span>
+        <div class="stat-card__value" data-value>—</div>
+        <div class="stat-card__hint" data-hint>正在读取…</div>
+      </div>
+      <div class="stat-card" data-stat="posts">
+        <span class="stat-card__label"><Icon name="file" size={13} /> Journal</span>
+        <div class="stat-card__value" data-value>—</div>
+        <div class="stat-card__hint" data-hint>文章与草稿</div>
+      </div>
+      <div class="stat-card" data-stat="comments">
+        <span class="stat-card__label"><Icon name="message" size={13} /> To review</span>
+        <div class="stat-card__value" data-value>—</div>
+        <div class="stat-card__hint" data-hint>待审核留言</div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <div class="dashboard-stack">
+        <div class="admin-card">
+          <div class="admin-card__head">
+            <h3>最近编辑</h3>
+            <a href="/admin/posts">全部文章 →</a>
+          </div>
+          <div class="table-wrap" data-recent-posts>
+            <div class="admin-loading" style="padding: 26px">
+              <div class="skeleton" style="width: 40%; height: 16px"></div>
+              <div class="skeleton" style="height: 40px"></div>
+              <div class="skeleton" style="height: 40px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card__head">
+            <h3>影像相册</h3>
+            <a href="/admin/galleries">管理 →</a>
+          </div>
+          <div class="admin-card__body" data-recent-galleries>
+            <div class="admin-loading" style="padding: 0">
+              <div class="skeleton" style="height: 40px"></div>
+              <div class="skeleton" style="height: 40px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-stack">
+        <div class="admin-card">
+          <div class="admin-card__head">
+            <h3>待审核留言</h3>
+            <a href="/admin/comments">管理 →</a>
+          </div>
+          <div data-pending-comments>
+            <div class="admin-loading" style="padding: 18px">
+              <div class="skeleton" style="height: 44px"></div>
+              <div class="skeleton" style="height: 44px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card__head"><h3>快捷操作</h3></div>
+          <div class="admin-card__body">
+            <div class="quick-actions">
+              {
+                hasPermission(user, 'content.write') && (
+                  <a class="quick-action" href="/admin/posts/new"><Icon name="file" /> 写文章</a>
+                )
+              }
+              {
+                canGallery && (
+                  <a class="quick-action" href="/admin/galleries"><Icon name="camera" /> 整理相册</a>
+                )
+              }
+              {
+                hasPermission(user, 'media.manage') && (
+                  <a class="quick-action" href="/admin/media"><Icon name="upload" /> 上传图片</a>
+                )
+              }
+              {
+                hasPermission(user, 'settings.manage') && (
+                  <a class="quick-action" href="/admin/appearance"><Icon name="palette" /> 调整外观</a>
+                )
+              }
+              {
+                hasPermission(user, 'users.manage') && (
+                  <a class="quick-action" href="/admin/users"><Icon name="users" /> 邀请成员</a>
+                )
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card__body" style="padding: 20px">
+            <span class="eyebrow eyebrow--plain" style="margin-bottom: 10px">NOTE_TO_SELF</span>
+            <p style="font-family: var(--font-display); font-size: 20px; line-height: 1.45; letter-spacing: -0.02em">
+              “先看清，再留下。”
+            </p>
+            <div style="display: flex; justify-content: space-between; margin-top: 16px; color: var(--ink-faint); font-family: var(--font-mono); font-size: 8px; letter-spacing: .14em; text-transform: uppercase">
+              <span>MZTLAB // SCENE</span>
+              <span data-version>v2.0.0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-dashboard';
+</script>

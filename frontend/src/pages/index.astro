@@ -1,0 +1,129 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HomeHero from '../components/HomeHero.astro';
+import GalleryCard from '../components/GalleryCard.astro';
+import Icon from '../components/Icon.astro';
+import { apiServer, getSite } from '../lib/api';
+import { fallbackSite } from '../config';
+import { formatDate } from '../lib/format';
+import type { Gallery, Paginated, PostSummary, SiteInfo } from '../types';
+
+let site: SiteInfo = fallbackSite as unknown as SiteInfo;
+let galleries: Gallery[] = [];
+let articles: PostSummary[] = [];
+let loadError = '';
+
+try {
+  site = await getSite();
+  const [galleryResult, articleResult] = await Promise.allSettled([
+    apiServer<Paginated<Gallery>>('/api/galleries?per_page=6'),
+    apiServer<Paginated<PostSummary>>('/api/posts?per_page=4'),
+  ]);
+  if (galleryResult.status === 'fulfilled') galleries = galleryResult.value.items;
+  if (articleResult.status === 'fulfilled') articles = articleResult.value.items;
+} catch (error) {
+  loadError = error instanceof Error ? error.message : '无法连接内容服务';
+}
+
+const featuredGallery = galleries.find((gallery) => gallery.featured) || galleries[0] || null;
+const selectedGalleries = galleries.slice(0, 3);
+const settings = site.settings;
+---
+<BaseLayout site={site} description={site.settings.description || site.settings.seo_description}>
+  {loadError ? (
+    <section class="container empty-state" style="min-height: 52vh">
+      <span class="empty-mark">!</span>
+      <h2>内容服务离线</h2>
+      <p>启动 FastAPI 后端后刷新。</p>
+      <p><code>{loadError}</code></p>
+    </section>
+  ) : (
+    <>
+      {settings.hero_show !== false && <HomeHero site={site} featuredGallery={featuredGallery} />}
+
+      {
+        selectedGalleries.length > 0 && (
+          <section class="container section--tight">
+            <div class="section-head">
+              <div>
+                <span class="section-code">// 01 / ALBUMS</span>
+                <h2>{settings.home_gallery_title || '影像相册'}</h2>
+              </div>
+              <div class="section-head__side">
+                <a class="text-link" href="/photos">
+                  索引 {String(site.gallery_count).padStart(2, '0')} 本 <Icon name="arrowRight" size={14} />
+                </a>
+              </div>
+            </div>
+            <div class="gallery-grid gallery-grid--home">
+              {selectedGalleries.map((gallery, index) => (
+                <GalleryCard gallery={gallery} label={settings.site_title} index={index + 1} />
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        articles.length > 0 && (
+          <section class="container section">
+            <div class="section-head">
+              <div>
+                <span class="section-code">// 02 / TEXTS</span>
+                <h2>{settings.home_section_title || '文字'}</h2>
+              </div>
+              <div class="section-head__side">
+                <a class="text-link" href="/archive">
+                  全部 {String(site.post_count).padStart(2, '0')} 篇 <Icon name="arrowRight" size={14} />
+                </a>
+              </div>
+            </div>
+            <div class="journal-list">
+              {articles.map((post, index) => (
+                <a class="journal-item" href={post.url}>
+                  <time datetime={post.published_at || undefined}>
+                    {formatDate(post.published_at, 'short')}
+                  </time>
+                  <div>
+                    <span class="journal-item__index">[{String(index + 1).padStart(2, '0')}]</span>
+                    <h3>{post.title}</h3>
+                    {post.excerpt && <p>{post.excerpt}</p>}
+                  </div>
+                  <span class="journal-item__aside">
+                    {post.reading_time} MIN READ
+                  </span>
+                </a>
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {
+        galleries.length === 0 && articles.length === 0 && (
+          <section class="container empty-state">
+            <span class="empty-mark">[ ]</span>
+            <h2>空索引</h2>
+            <p>上传照片、建立相册，或写一篇文章。</p>
+            <a class="btn" href="/admin" style="margin-top: 18px">
+              进入后台 <Icon name="arrowRight" size={14} />
+            </a>
+          </section>
+        )
+      }
+
+      <section class="container">
+        <div class="cta-band">
+          <div>
+            <span class="section-code">// SYNDICATION</span>
+            <h3>通过 RSS 订阅。</h3>
+          </div>
+          <div class="cta-actions">
+            <a class="btn btn--ghost" href="/rss.xml"><Icon name="rss" size={14} /> RSS</a>
+            <a class="btn" href="/search">搜索 <Icon name="search" size={14} /></a>
+          </div>
+        </div>
+      </section>
+    </>
+  )}
+</BaseLayout>

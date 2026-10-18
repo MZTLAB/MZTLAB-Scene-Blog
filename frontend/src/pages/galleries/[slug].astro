@@ -1,0 +1,222 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PhotoGrid from '../../components/PhotoGrid.astro';
+import GalleryViewer from '../../components/GalleryViewer.astro';
+import GalleryCard from '../../components/GalleryCard.astro';
+import Icon from '../../components/Icon.astro';
+import { ApiError, apiServer, getSite } from '../../lib/api';
+import { exifFieldVisible } from '../../lib/photo';
+import { formatMonth } from '../../lib/format';
+import type { Gallery, SiteInfo } from '../../types';
+
+const { slug } = Astro.params;
+const site: SiteInfo = await getSite();
+let gallery: Gallery;
+try {
+  gallery = await apiServer<Gallery>(`/api/galleries/${encodeURIComponent(slug || '')}`);
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) return Astro.rewrite('/404');
+  throw error;
+}
+
+const photos = gallery.photos || [];
+const columns = Math.min(4, Math.max(2, Number(site.settings.gallery_columns) || 3));
+const first = photos[0];
+const locations = Array.from(new Set(photos.map((photo) => photo.location).filter(Boolean)));
+const cameras = Array.from(
+  new Set(photos.filter((photo) => exifFieldVisible(photo, 'camera')).map((photo) => photo.camera).filter(Boolean)),
+);
+const optics = Array.from(
+  new Set(
+    photos
+      .filter((photo) => exifFieldVisible(photo, 'focal_length'))
+      .map((photo) => photo.focal_length)
+      .filter(Boolean),
+  ),
+);
+const apertures = Array.from(
+  new Set(
+    photos
+      .filter((photo) => exifFieldVisible(photo, 'aperture'))
+      .map((photo) => photo.aperture)
+      .filter(Boolean),
+  ),
+);
+const iso = Array.from(
+  new Set(
+    photos
+      .filter((photo) => exifFieldVisible(photo, 'iso'))
+      .map((photo) => photo.iso)
+      .filter(Boolean),
+  ),
+);
+const dates = photos
+  .filter((photo) => exifFieldVisible(photo, 'taken_at'))
+  .map((photo) => photo.taken_at)
+  .filter(Boolean)
+  .sort();
+const range = dates.length
+  ? dates[0] === dates[dates.length - 1]
+    ? formatMonth(dates[0])
+    : `${formatMonth(dates[0])} – ${formatMonth(dates[dates.length - 1])}`
+  : photos.length
+    ? '—'
+    : formatMonth(gallery.created_at);
+const description = gallery.description || site.settings.description;
+---
+<BaseLayout
+  site={site}
+  title={gallery.title}
+  description={description}
+  image={gallery.cover?.url}
+  type="article"
+>
+  <section class="container gallery-header" data-gallery-id={gallery.id}>
+    <div>
+      <span class="eyebrow">// GALLERY_{String(gallery.id).padStart(3, '0')} / {String(gallery.photo_count).padStart(2, '0')} FRAMES</span>
+      <h1>{gallery.title}<span class="title-cursor" aria-hidden="true">_</span></h1>
+      {gallery.description && <p>{gallery.description}</p>}
+    </div>
+    <div class="gallery-facts">
+      <div class="gallery-fact"><span>PERIOD</span><span>{range || '—'}</span></div>
+      <div class="gallery-fact"><span>LOCATION</span><span>{locations.join(' / ') || '—'}</span></div>
+      <div class="gallery-fact"><span>CAMERA</span><span>{cameras.join(' / ') || '—'}</span></div>
+      <div class="gallery-fact"><span>OPTICS</span><span>{optics.join(' / ') || '—'}{apertures.length ? ` · ${apertures.join(' / ')}` : ''}</span></div>
+      <div class="gallery-fact"><span>ISO</span><span>{iso.join(' / ') || '—'}</span></div>
+      <div class="gallery-fact" data-gallery-views>
+        <span>VIEWS</span><span>{gallery.view_count}</span>
+      </div>
+    </div>
+  </section>
+
+  <div class="container">
+    {
+      photos.length > 0 ? (
+        <>
+          <div class="gallery-mode-bar">
+            <div class="filter-chips" data-gallery-modes>
+              <button class="chip is-active" type="button" data-gallery-mode="viewer">
+                VIEWER
+              </button>
+              <button class="chip" type="button" data-gallery-mode="grid">
+                GRID
+              </button>
+            </div>
+            <span class="number-label">
+              {String(photos.length).padStart(2, '0')} FRAMES / ← → / EXIF
+            </span>
+          </div>
+
+          <div data-gallery-panel="viewer">
+            <GalleryViewer photos={photos} galleryTitle={gallery.title} />
+          </div>
+          <div data-gallery-panel="grid" hidden>
+            <PhotoGrid photos={photos} layout="masonry" columns={columns} />
+          </div>
+        </>
+      ) : (
+        <div class="empty-state">
+          <span class="empty-mark">[ ]</span>
+          <h2>空相册</h2>
+          <p>从媒体库添加照片。</p>
+        </div>
+      )
+    }
+
+    {
+      first && (
+        <div class="gallery-facts" style="margin-top:32px;max-width:520px">
+          <div class="gallery-fact">
+            <span>Curated by</span>
+            <span>{gallery.author?.name || site.settings.site_title}</span>
+          </div>
+          <div class="gallery-fact">
+            <span>Frames</span>
+            <span>{gallery.photo_count}</span>
+          </div>
+          <div class="gallery-fact">
+            <span>Index</span>
+            <span>#{String(gallery.id).padStart(3, '0')}</span>
+          </div>
+        </div>
+      )
+    }
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:26px">
+      <a class="btn btn--ghost" href="/photos"><Icon name="arrowLeft" size={14} /> 影像索引</a>
+    </div>
+  </div>
+
+  {
+    gallery.related && gallery.related.length > 0 && (
+      <section class="container section">
+        <div class="section-head">
+          <div>
+            <span class="section-code">// NEXT_INDEX</span>
+            <h2>其他相册</h2>
+          </div>
+          <div class="section-head__side">
+            <a class="text-link" href="/photos">
+              影像索引 <Icon name="arrowRight" size={14} />
+            </a>
+          </div>
+        </div>
+        <div class="gallery-grid">
+          {gallery.related.map((item, index) => (
+            <GalleryCard gallery={item} label={site.settings.site_title} index={index + 1} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  <script>
+    const modeButtons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-gallery-mode]'));
+    const modePanels = Array.from(document.querySelectorAll<HTMLElement>('[data-gallery-panel]'));
+    const applyMode = (mode: string) => {
+      const next = mode === 'grid' ? 'grid' : 'viewer';
+      modePanels.forEach((panel) => {
+        panel.hidden = panel.dataset.galleryPanel !== next;
+      });
+      modeButtons.forEach((button) => {
+        button.classList.toggle('is-active', button.dataset.galleryMode === next);
+      });
+      try {
+        localStorage.setItem('scene-gallery-mode', next);
+      } catch {
+        // Private mode / storage disabled.
+      }
+    };
+    modeButtons.forEach((button) => {
+      button.addEventListener('click', () => applyMode(button.dataset.galleryMode || 'viewer'));
+    });
+    try {
+      const saved = localStorage.getItem('scene-gallery-mode');
+      if (saved === 'grid' || saved === 'viewer') applyMode(saved);
+    } catch {
+      // Keep the server-rendered default (viewer).
+    }
+  </script>
+
+  <script>
+    const views = document.querySelector<HTMLElement>('[data-gallery-views] span:last-child');
+    const host = document.querySelector<HTMLElement>('[data-gallery-id]');
+    const galleryId = Number(host?.dataset.galleryId || 0);
+    const key = `scene-gallery-viewed-${galleryId}`;
+    let seen = false;
+    try {
+      seen = Boolean(sessionStorage.getItem(key));
+    } catch {
+      seen = true;
+    }
+    if (galleryId && !seen) {
+      fetch(`/api/galleries/${galleryId}/view`, { method: 'POST' })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data) => {
+          if (data?.view_count && views) views.textContent = String(data.view_count);
+          sessionStorage.setItem(key, '1');
+        })
+        .catch(() => {});
+    }
+  </script>
+</BaseLayout>

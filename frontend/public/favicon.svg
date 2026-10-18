@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <defs>
+    <!-- Face gradients -->
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#e2b83d" stop-opacity=".62"/>
+      <stop offset=".48" stop-color="#4aa5b5" stop-opacity=".58"/>
+      <stop offset="1" stop-color="#1479b8" stop-opacity=".70"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d3aa39" stop-opacity=".58"/>
+      <stop offset=".45" stop-color="#4b9cae" stop-opacity=".52"/>
+      <stop offset="1" stop-color="#0d75b9" stop-opacity=".78"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d4ad3d" stop-opacity=".62"/>
+      <stop offset=".42" stop-color="#5aa7b1" stop-opacity=".48"/>
+      <stop offset="1" stop-color="#0876b7" stop-opacity=".74"/>
+    </linearGradient>
+
+    <!-- Soft cloud/glow -->
+    <filter id="blur12" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <filter id="blur5" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+
+    <linearGradient id="cloudBlue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#006fd0" stop-opacity=".12"/>
+      <stop offset=".5" stop-color="#0088ee" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#0063bf" stop-opacity=".18"/>
+    </linearGradient>
+    <linearGradient id="cloudGold" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#8c6500" stop-opacity=".12"/>
+      <stop offset=".5" stop-color="#d49c00" stop-opacity=".72"/>
+      <stop offset="1" stop-color="#8b6200" stop-opacity=".15"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Pure black background -->
+  <rect width="1080" height="1080" fill="#000"/>
+
+  <!-- Abstract pixel clouds: left -->
+  <g shape-rendering="crispEdges" opacity=".92">
+    <path fill="url(#cloudBlue)" d="
+      M48 286h82v-16h44v-13h92v15h73v18h68v38h-55v17h-94v18h-90v-16H82v-19H48z"/>
+    <path fill="url(#cloudBlue)" d="
+      M73 390h61v-19h73v12h65v23h92v31h-51v17h-87v18h-83v-13H89v-25H63z"/>
+    <path fill="url(#cloudGold)" d="
+      M65 349h83v-15h58v19h74v20h69v29h-84v19h-72v-13h-82v-17H65z"/>
+    <path fill="url(#cloudBlue)" d="
+      M93 474h55v-17h77v11h78v20h55v28h-43v18h-89v15h-78v-14h-55z"/>
+    <path fill="url(#cloudGold)" d="
+      M69 535h89v-17h69v14h84v24h-39v19h-103v16h-100z"/>
+  </g>
+
+  <!-- Abstract pixel clouds: right -->
+  <g shape-rendering="crispEdges" opacity=".9">
+    <path fill="url(#cloudBlue)" d="
+      M690 645h73v-21h82v17h72v25h70v39h-48v19h-86v18h-92v-18h-71z"/>
+    <path fill="url(#cloudBlue)" d="
+      M708 733h63v-18h80v12h82v22h88v34h-62v18h-91v16h-82v-15h-78z"/>
+    <path fill="url(#cloudGold)" d="
+      M730 790h72v-17h67v17h91v23h64v33h-76v19h-88v15h-96v-17h-54v-28h20z"/>
+    <path fill="url(#cloudBlue)" d="
+      M783 846h78v-16h78v16h71v25h-41v17h-96v16h-90v-20h-39v-23h39z"/>
+    <path fill="url(#cloudGold)" d="
+      M804 877h62v-16h86v18h69v25h-52v18h-98v13h-82v-19h-43v-22h58z"/>
+  </g>
+
+  <!-- Subtle pixel texture inside the cloud zones -->
+  <g fill="#1590dc" opacity=".12" shape-rendering="crispEdges">
+    <rect x="52" y="310" width="24" height="18"/><rect x="112" y="289" width="31" height="15"/>
+    <rect x="174" y="335" width="38" height="18"/><rect x="264" y="300" width="29" height="22"/>
+    <rect x="95" y="420" width="35" height="17"/><rect x="213" y="398" width="27" height="21"/>
+    <rect x="780" y="670" width="33" height="17"/><rect x="873" y="650" width="27" height="22"/>
+    <rect x="923" y="720" width="40" height="19"/><rect x="744" y="752" width="29" height="20"/>
+    <rect x="854" y="815" width="35" height="18"/><rect x="956" y="842" width="26" height="21"/>
+  </g>
+
+  <!-- Cube faces -->
+  <!-- top -->
+  <polygon points="241,388 555,218 869,380 570,540" fill="url(#top)"/>
+  <!-- left -->
+  <polygon points="241,388 570,540 570,868 249,736" fill="url(#left)"/>
+  <!-- right -->
+  <polygon points="570,540 869,380 873,709 570,868" fill="url(#right)"/>
+
+  <!-- Soft internal color patches to mimic translucent painted surfaces -->
+  <g opacity=".16" filter="url(#blur12)">
+    <ellipse cx="430" cy="430" rx="170" ry="95" fill="#e7bd45"/>
+    <ellipse cx="715" cy="430" rx="150" ry="110" fill="#1f91dc"/>
+    <ellipse cx="444" cy="690" rx="160" ry="130" fill="#0c8fe0"/>
+    <ellipse cx="745" cy="645" rx="150" ry="110" fill="#27a3c8"/>
+  </g>
+
+  <!-- Cube frame -->
+  <g fill="none" stroke="#f4f4f2" stroke-width="13" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M241 388 L555 218 L869 380 L873 709 L570 868 L249 736 Z"/>
+    <path d="M241 388 L570 540 L869 380"/>
+    <path d="M570 540 L570 868"/>
+  </g>
+
+  <!-- Slight bright edge accents -->
+  <g fill="none" stroke="#ffffff" stroke-width="4" opacity=".72" stroke-linecap="round">
+    <path d="M248 389 L555 224 L862 381"/>
+    <path d="M250 733 L570 860 L866 704"/>
+  </g>
+
+  <!-- Minimal pixel fragments crossing behind the cube -->
+  <g fill="#168bd4" opacity=".22" shape-rendering="crispEdges">
+    <rect x="205" y="503" width="24" height="22"/>
+    <rect x="177" y="527" width="38" height="18"/>
+    <rect x="854" y="532" width="25" height="19"/>
+    <rect x="879" y="553" width="36" height="22"/>
+  </g>
+</svg>

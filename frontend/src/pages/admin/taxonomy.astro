@@ -1,0 +1,74 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'taxonomy.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="分类与标签" subtitle="Content / Taxonomy" active="taxonomy">
+  <div data-taxonomy-page>
+    <div class="page-head-row">
+      <div>
+        <h2>整理内容线索</h2>
+        <p>分类是主题，标签是线索。</p>
+      </div>
+    </div>
+
+    <div class="taxonomy-grid">
+      <div class="admin-card">
+        <div class="admin-card__head">
+          <h3>分类 · Categories</h3>
+          <button class="a-btn a-btn--sm" type="button" data-add-term="categories"><Icon name="plus" size={13} /> 新建分类</button>
+        </div>
+        <div data-term-list="categories">
+          <div class="admin-loading"><div class="skeleton" style="height: 42px"></div><div class="skeleton" style="height: 42px"></div></div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card__head">
+          <h3>标签 · Tags</h3>
+          <button class="a-btn a-btn--sm" type="button" data-add-term="tags"><Icon name="plus" size={13} /> 新建标签</button>
+        </div>
+        <div data-term-list="tags">
+          <div class="admin-loading"><div class="skeleton" style="height: 42px"></div><div class="skeleton" style="height: 42px"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-backdrop" data-term-modal>
+      <div class="modal">
+        <div class="modal__head">
+          <h3 data-modal-title>新建分类</h3>
+          <button type="button" data-close-term-modal aria-label="关闭"><Icon name="close" size={15} /></button>
+        </div>
+        <div class="modal__body">
+          <div class="a-form">
+            <div class="a-field">
+              <label for="term-name">名称 <small>必填</small></label>
+              <input id="term-name" type="text" maxlength="40" data-term-name />
+            </div>
+            <div class="a-field">
+              <label for="term-slug">别名 <small>可留空</small></label>
+              <input id="term-slug" type="text" maxlength="80" data-term-slug placeholder="自动生成" />
+            </div>
+            <div class="a-field">
+              <label for="term-desc">描述 <small>可选</small></label>
+              <textarea id="term-desc" rows="3" maxlength="300" data-term-desc placeholder="用于分类页面的说明"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal__foot">
+          <button class="a-btn" type="button" data-close-term-modal>取消</button>
+          <button class="a-btn a-btn--primary" type="button" data-save-term>保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-taxonomy';
+</script>

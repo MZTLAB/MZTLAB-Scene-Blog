@@ -1,0 +1,57 @@
+---
+import CoverArt from './CoverArt.astro';
+import type { Gallery } from '../types';
+import { exifFieldVisible } from '../lib/photo';
+import { formatDate } from '../lib/format';
+
+interface Props {
+  gallery: Gallery;
+  label?: string;
+  index?: number;
+}
+
+const { gallery, label = 'MZTLAB', index = 1 } = Astro.props;
+const cover = gallery.cover;
+const code = String(index).padStart(2, '0');
+const coverTech = cover
+  ? [
+      exifFieldVisible(cover, 'focal_length') ? cover.focal_length : '',
+      exifFieldVisible(cover, 'aperture') ? cover.aperture : '',
+      exifFieldVisible(cover, 'iso') && cover.iso ? `ISO ${cover.iso}` : '',
+    ]
+      .filter(Boolean)
+      .join(' / ')
+  : '';
+---
+<article class="gallery-card">
+  <div class="gallery-card__code" aria-hidden="true">
+    <span>[{code}] / ALBUM</span>
+    <span>{String(gallery.photo_count).padStart(2, '0')} FILES</span>
+  </div>
+  <a class="gallery-card__media" href={gallery.url} aria-label={gallery.title}>
+    {
+      cover ? (
+        <img
+          src={cover.url}
+          alt={cover.alt}
+          width={cover.width || undefined}
+          height={cover.height || undefined}
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <CoverArt title={gallery.title} slug={gallery.slug} category="Gallery" label={label} eager={false} />
+      )
+    }
+    <span class="gallery-card__scan" aria-hidden="true"></span>
+    {coverTech && <span class="gallery-card__tech" aria-hidden="true">{coverTech}</span>}
+  </a>
+  <div class="gallery-card__body">
+    <div class="gallery-card__meta">
+      <span>{String(gallery.photo_count).padStart(2, '0')} FRAMES</span>
+      <time datetime={gallery.updated_at}>{formatDate(gallery.updated_at, 'short')}</time>
+    </div>
+    <h3 class="gallery-card__title"><a href={gallery.url}>{gallery.title}</a></h3>
+    {gallery.description && <p class="gallery-card__desc">{gallery.description}</p>}
+  </div>
+</article>

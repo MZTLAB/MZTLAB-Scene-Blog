@@ -1,0 +1,76 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import StoryCard from '../../components/StoryCard.astro';
+import Pagination from '../../components/Pagination.astro';
+import Icon from '../../components/Icon.astro';
+import { apiServer, getSite } from '../../lib/api';
+import type { Paginated, PostSummary, SiteInfo, Term } from '../../types';
+
+const { tag: slug } = Astro.params;
+const site: SiteInfo = await getSite();
+let tag = site.tags.find((item) => item.slug === slug);
+if (!tag) {
+  const taxonomy = await apiServer<{ tags: Term[] }>('/api/taxonomy').catch(() => ({ tags: [] }));
+  tag = taxonomy.tags.find((item) => item.slug === slug);
+}
+if (!tag) return Astro.rewrite('/404');
+
+const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
+const data = await apiServer<Paginated<PostSummary>>(
+  `/api/posts?tag=${encodeURIComponent(slug || '')}&page=${page}&per_page=12`,
+);
+const siblings = site.tags.filter((item) => item.slug !== slug && (item.count || 0) > 0).slice(0, 10);
+---
+<BaseLayout site={site} title={`标签：${tag.name}`} description={tag.description || `关于「${tag.name}」的文章。`}>
+  <section class="container page-hero">
+    <span class="eyebrow">
+      <span class="dot"></span>
+      Tag
+    </span>
+    <h1>#{tag.name}</h1>
+    <p>{tag.description || `所有与「${tag.name}」有关的记录。`}</p>
+    <div class="page-hero__meta">
+      <span>{tag.count || data.total} 篇文章</span>
+      <span>·</span>
+      <a href="/archive" class="text-link">返回归档 <Icon name="arrowUpRight" size={12} /></a>
+    </div>
+  </section>
+
+  <div class="container section--tight">
+    {
+      data.items.length ? (
+        <div class="story-grid">
+          {data.items.map((post, index) => (
+            <StoryCard post={post} site={site} label={site.settings.site_title} eager={index === 0} />
+          ))}
+        </div>
+      ) : (
+        <div class="empty-state">
+          <span class="empty-mark">#</span>
+          <h2>这个标签下还没有文章</h2>
+        </div>
+      )
+    }
+    <Pagination page={data.page} pages={data.pages} />
+  </div>
+
+  {
+    siblings.length > 0 && (
+      <div class="container" style="padding-bottom: clamp(40px, 6vw, 80px)">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow eyebrow--plain">Explore</span>
+            <h2>其他标签</h2>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          {siblings.map((item) => (
+            <a class="chip" href={`/tags/${item.slug}`}>
+              #{item.name} <span style="opacity: .5">{item.count}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    )
+  }
+</BaseLayout>

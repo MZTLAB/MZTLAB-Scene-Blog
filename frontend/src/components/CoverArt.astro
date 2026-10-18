@@ -1,0 +1,54 @@
+---
+import { coverVariant, initial } from '../lib/format';
+
+interface Props {
+  title: string;
+  slug: string;
+  category?: string;
+  image?: string;
+  index?: number;
+  eager?: boolean;
+  label?: string;
+  class?: string;
+}
+
+const {
+  title,
+  slug,
+  category = '',
+  image = '',
+  index = 0,
+  eager = false,
+  label = 'MZTLAB',
+  class: className = '',
+} = Astro.props;
+
+const variant = coverVariant(slug || title);
+const no = String(index + 1).padStart(2, '0');
+const year = new Date().getFullYear();
+---
+{
+  image ? (
+    <div class:list={['cover-art', 'cover-art--image', className]}>
+      <img
+        src={image}
+        alt=""
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+        fetchpriority={eager ? 'high' : 'auto'}
+      />
+    </div>
+  ) : (
+    <div class:list={['cover-art', `cover-art--v${variant}`, className]} aria-hidden="true">
+      <div class="cover-art-top">
+        <span>{category || 'SCENE'}</span>
+        <span>{label}</span>
+      </div>
+      <div class="cover-art-glyph">{initial(title)}</div>
+      <div class="cover-art-caption">
+        <span>{title}</span>
+        <span class="cover-no">{no} / {year}</span>
+      </div>
+    </div>
+  )
+}

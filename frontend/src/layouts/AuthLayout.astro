@@ -1,0 +1,90 @@
+---
+import '../styles/global.css';
+import '../styles/admin.css';
+import type { SiteInfo } from '../types';
+
+interface Props {
+  site: SiteInfo;
+  mode?: 'login' | 'setup';
+}
+
+const { site, mode = 'login' } = Astro.props;
+const settings = site.settings;
+const markSrc = settings.favicon || '/favicon.svg';
+const accent = /^#[0-9a-f]{6}$/i.test(settings.accent || '') ? settings.accent : '#e8481d';
+const colorMode = ['light', 'dark'].includes(String(settings.color_mode)) ? String(settings.color_mode) : 'light';
+const paletteAliases: Record<string, string> = {
+  paper: 'scene',
+  graphite: 'stone',
+  forest: 'sand',
+  ocean: 'stone',
+};
+const rawPalette = String(settings.theme || 'scene');
+const palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
+  ? rawPalette
+  : paletteAliases[rawPalette] || 'scene';
+const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
+  ? String(settings.font_pair)
+  : 'sans';
+---
+<!doctype html>
+<html
+  lang="zh-CN"
+  data-color-mode={colorMode}
+  data-palette={palette}
+  data-font={fontPair}
+  data-theme="scene"
+  style={`--accent:${accent};--radius:${settings.radius || 2}px`}
+>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>{mode === 'setup' ? '初始化站点' : '登录'} · {settings.site_title}</title>
+    <link rel="icon" href={settings.favicon || '/favicon.svg'} />
+    <script is:inline>
+      (() => {
+        const root = document.documentElement;
+        try {
+          const stored =
+            localStorage.getItem('scene-color-mode') || localStorage.getItem('ink-color-mode');
+          let mode = stored || root.dataset.colorMode || 'light';
+          if (mode === 'system') {
+            mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          root.dataset.colorMode = mode;
+          root.style.colorScheme = mode;
+        } catch (_) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="auth-body">
+      <aside class="auth-aside">
+        <a class="brand" href="/" style="color: inherit">
+          <img class="brand-mark" src={markSrc} alt="" width="32" height="32" style="width:32px;height:32px" aria-hidden="true" />
+          <span class="brand-text">
+            <span class="brand-title">{settings.site_title}</span>
+            <span class="brand-sub">{settings.site_subtitle || 'SCENE'}</span>
+          </span>
+        </a>
+        <div class="auth-aside__quote">
+          <p>{settings.tagline || '影像与文字。'}</p>
+          <span>Photography / Writing</span>
+        </div>
+        <div class="auth-aside__foot">
+          <span>SCENE</span>
+          <span>ASTRO × FASTAPI</span>
+          <span>EST. {new Date().getFullYear()}</span>
+        </div>
+      </aside>
+      <main class="auth-main">
+        <div class="auth-card">
+          <span class="eyebrow"><span class="dot"></span>{mode === 'setup' ? 'First run' : 'Welcome back'}</span>
+          <slot />
+          <p class="auth-foot"><a href="/">← 返回网站</a></p>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

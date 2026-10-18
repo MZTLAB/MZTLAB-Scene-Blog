@@ -1,0 +1,52 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import { guardAdmin } from '../../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'content.others');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="页面" subtitle="Content / Pages" active="pages" showCompose={false}>
+  <Fragment slot="actions">
+    <a class="a-btn a-btn--primary" href="/admin/pages/new"><Icon name="plus" size={14} /> 新建页面</a>
+  </Fragment>
+
+  <div data-post-list data-type="page">
+    <div class="admin-page-intro">
+      <div>
+        <h2>独立页面</h2>
+        <p>关于、联系等长期内容。</p>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <div class="filter-tabs" data-filters>
+        <button type="button" class="is-active" data-status="">全部 <small>0</small></button>
+        <button type="button" data-status="published">已发布 <small>0</small></button>
+        <button type="button" data-status="draft">草稿 <small>0</small></button>
+      </div>
+      <div class="toolbar-group">
+        <label class="admin-search">
+          <Icon name="search" size={14} />
+          <input type="search" placeholder="搜索页面…" data-search aria-label="搜索页面" />
+        </label>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <div class="table-wrap" data-table>
+        <div class="admin-loading">
+          <div class="skeleton" style="width: 40%; height: 18px"></div>
+          <div class="skeleton" style="height: 44px"></div>
+          <div class="skeleton" style="height: 44px"></div>
+        </div>
+      </div>
+      <div class="table-footer" data-pagination></div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../../scripts/admin-post-list';
+</script>

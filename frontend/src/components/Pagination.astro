@@ -1,0 +1,58 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  page: number;
+  pages: number;
+}
+
+const { page, pages } = Astro.props;
+
+const params = new URLSearchParams(Astro.url.search);
+params.delete('page');
+const base = Astro.url.pathname;
+const href = (n: number) => {
+  const query = new URLSearchParams(params);
+  if (n > 1) query.set('page', String(n));
+  const value = query.toString();
+  return value ? `${base}?${value}` : base;
+};
+
+const numbers: number[] = [];
+const start = Math.max(1, page - 2);
+const end = Math.min(pages, page + 2);
+for (let i = start; i <= end; i += 1) numbers.push(i);
+---
+{
+  pages > 1 && (
+    <nav class="pagination" aria-label="分页">
+      {page > 1 ? (
+        <a href={href(page - 1)} aria-label="上一页"><Icon name="chevronLeft" size={15} /></a>
+      ) : (
+        <span class="is-disabled" aria-hidden="true"><Icon name="chevronLeft" size={15} /></span>
+      )}
+      {start > 1 && (
+        <>
+          <a href={href(1)}>1</a>
+          {start > 2 && <span class="is-disabled">…</span>}
+        </>
+      )}
+      {numbers.map((n) => (
+        n === page
+          ? <span class="is-current" aria-current="page">{n}</span>
+          : <a href={href(n)}>{n}</a>
+      ))}
+      {end < pages && (
+        <>
+          {end < pages - 1 && <span class="is-disabled">…</span>}
+          <a href={href(pages)}>{pages}</a>
+        </>
+      )}
+      {page < pages ? (
+        <a href={href(page + 1)} aria-label="下一页"><Icon name="chevronRight" size={15} /></a>
+      ) : (
+        <span class="is-disabled" aria-hidden="true"><Icon name="chevronRight" size={15} /></span>
+      )}
+    </nav>
+  )
+}

@@ -1,0 +1,83 @@
+---
+import type { Photo } from '../types';
+import { exifFieldVisible, photoMetaLine, specsJson } from '../lib/photo';
+
+interface Props {
+  photos: Photo[];
+  layout?: 'masonry' | 'grid' | 'strip';
+  columns?: number;
+  showMeta?: boolean;
+  startIndex?: number;
+  captionMode?: 'title' | 'location';
+}
+
+const {
+  photos,
+  layout = 'masonry',
+  columns = 3,
+  showMeta = true,
+  startIndex = 1,
+  captionMode = 'title',
+} = Astro.props;
+
+const safeColumns = Math.min(4, Math.max(2, columns));
+const classes = [
+  'photo-grid',
+  layout === 'masonry' ? 'photo-grid--masonry' : '',
+  layout === 'strip' ? 'photo-grid--strip' : '',
+  layout === 'grid' && safeColumns === 2 ? 'photo-grid--two' : '',
+  layout === 'grid' && safeColumns === 4 ? 'photo-grid--four' : '',
+].filter(Boolean);
+
+function techLine(photo: Photo): string {
+  return [
+    exifFieldVisible(photo, 'focal_length') ? photo.focal_length : '',
+    exifFieldVisible(photo, 'aperture') ? photo.aperture : '',
+    exifFieldVisible(photo, 'exposure') ? photo.exposure : '',
+    exifFieldVisible(photo, 'iso') && photo.iso ? `ISO ${photo.iso}` : '',
+  ]
+    .filter(Boolean)
+    .join(' / ');
+}
+---
+{
+  photos.length > 0 && (
+    <div class:list={classes} style={layout === 'masonry' ? `--photo-columns:${safeColumns}` : `--photo-columns:${safeColumns}`}>
+      {photos.map((photo, index) => {
+        const number = String(startIndex + index).padStart(2, '0');
+        const caption = captionMode === 'location' ? photo.location || photo.title : photo.title;
+        return (
+          <button
+            class="photo-tile"
+            type="button"
+            data-photo
+            data-src={photo.url}
+            data-title={photo.title}
+            data-caption={photo.caption}
+            data-meta={photoMetaLine(photo)}
+            data-specs={specsJson(photo)}
+            aria-label={`查看照片：${photo.title || photo.alt}`}
+          >
+            <span class="photo-tile__media">
+              <img
+                src={photo.url}
+                alt={photo.alt}
+                width={photo.width || undefined}
+                height={photo.height || undefined}
+                loading={index < 3 ? 'eager' : 'lazy'}
+                fetchpriority={index < 3 ? 'high' : 'auto'}
+              />
+            </span>
+            {showMeta && (
+              <span class="photo-tile__meta">
+                <span class="photo-tile__index">{number}</span>
+                <span class="photo-tile__title">{caption || '未命名'}</span>
+                {techLine(photo) && <span class="photo-tile__tech">{techLine(photo)}</span>}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  )
+}

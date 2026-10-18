@@ -1,0 +1,91 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { ApiError, getPage, getSite } from '../lib/api';
+import type { PostDetail, SiteInfo } from '../types';
+import { formatDate } from '../lib/format';
+
+const { slug } = Astro.params;
+const site: SiteInfo = await getSite();
+let page: PostDetail;
+try {
+  page = await getPage(slug || '');
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) return Astro.rewrite('/404');
+  throw error;
+}
+const settings = site.settings;
+const description = page.seo_description || '';
+---
+<BaseLayout site={site} title={page.seo_title || page.title} description={description} image={page.cover_image}>
+  <article class="container">
+    <header class="article-header">
+      <span class="eyebrow"><span class="dot"></span> Page · {formatDate(page.updated_at, 'short')}</span>
+      <h1>{page.title}</h1>
+    </header>
+
+    <div class="article-wrap">
+      <div class="article-main">
+        <div class="prose" data-prose set:html={page.content_html} />
+        <div class="article-footer">
+          <div class="article-author">
+            <span class="avatar avatar--large">
+              {settings.author_avatar
+                ? <img src={settings.author_avatar} alt="" />
+                : (settings.author_name || 'M').slice(0, 1)}
+            </span>
+            <div>
+              <h3>{settings.author_name}</h3>
+              <p>{settings.author_bio}</p>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <a class="btn btn--ghost" href="/"><Icon name="arrowLeft" size={14} /> 回到首页</a>
+            <a class="btn btn--ghost" href="/photos">观看影像</a>
+          </div>
+        </div>
+      </div>
+
+      {
+        page.toc.length > 1 && (
+          <aside class="article-sidebar">
+            <div class="toc">
+              <div class="toc-title">
+                <span>On this page</span>
+                <span>{String(page.toc.length).padStart(2, '0')}</span>
+              </div>
+              <nav>
+                {page.toc.map((item) => (
+                  <a href={`#${item.id}`} data-level={item.level}>{item.text}</a>
+                ))}
+              </nav>
+            </div>
+          </aside>
+        )
+      }
+    </div>
+  </article>
+
+  <script>
+    document.querySelectorAll<HTMLElement>('[data-prose] pre').forEach((pre) => {
+      const wrapper = pre.parentElement?.classList.contains('highlight') ? pre.parentElement : pre;
+      if (!wrapper || wrapper.querySelector('.copy-code')) return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'copy-code';
+      button.textContent = 'COPY';
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(pre.innerText);
+          button.textContent = 'COPIED';
+          setTimeout(() => {
+            button.textContent = 'COPY';
+          }, 1500);
+        } catch {
+          button.textContent = 'FAILED';
+        }
+      });
+      wrapper.appendChild(button);
+    });
+  </script>
+</BaseLayout>

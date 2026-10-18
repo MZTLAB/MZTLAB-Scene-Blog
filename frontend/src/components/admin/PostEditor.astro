@@ -1,0 +1,952 @@
+---
+import Icon from '../Icon.astro';
+import AudioEmbedDialog from './AudioEmbedDialog.astro';
+import { formatDateInput, safeJson } from '../../lib/format';
+import type { AdminPost } from '../../types';
+
+interface Props {
+  mode: 'new' | 'edit';
+  postType: 'post' | 'page';
+  post?: AdminPost | null;
+}
+
+const { mode, postType, post = null } = Astro.props;
+const isPage = postType === 'page';
+const id = post?.id || null;
+const status = post?.raw_status || 'draft';
+const typeLabel = isPage ? '页面' : '文章';
+const listUrl = isPage ? '/admin/pages' : '/admin/posts';
+const urlPrefix = isPage ? '' : 'posts/';
+const titlePlaceholder = isPage ? '页面标题' : '文章标题';
+const initialData = {
+  mode,
+  type: postType,
+  post,
+};
+---
+<div
+  class="editor"
+  data-editor
+  data-mode={mode}
+  data-type={postType}
+  data-id={id || ''}
+  data-list-url={listUrl}
+  data-view="write"
+>
+  <script type="application/json" id="editor-data" set:html={safeJson(initialData)}></script>
+
+  <div class="editor-topbar">
+    <div class="editor-topbar__left">
+      <a class="a-btn a-btn--sm" href={listUrl} title={`返回${typeLabel}列表`}>
+        <Icon name="arrowLeft" size={14} /> 返回
+      </a>
+      <span class="editor-status" data-save-state>
+        <span class="dot"></span>
+        <span data-save-label>{mode === 'new' ? '未保存' : '已保存'}</span>
+      </span>
+    </div>
+    <div class="editor-topbar__right">
+      <button class="a-btn" type="button" data-save>
+        <Icon name="save" size={14} /> <span data-save-text>{status === 'draft' ? '保存草稿' : '保存'}</span>
+      </button>
+      <button class="a-btn a-btn--primary" type="button" data-save-primary>
+        <span data-primary-text>{status === 'scheduled' ? '更新定时' : status === 'published' ? '更新' : '发布'}</span>
+        <Icon name="arrowRight" size={14} />
+      </button>
+    </div>
+  </div>
+
+  <div class="draft-banner" data-draft-banner hidden>
+    <span>检测到上次未保存的本地草稿。</span>
+    <div class="toolbar-group">
+      <button class="a-btn a-btn--sm" type="button" data-draft-discard>丢弃</button>
+      <button class="a-btn a-btn--sm a-btn--primary" type="button" data-draft-restore>恢复草稿</button>
+    </div>
+  </div>
+
+  <div class="editor-layout">
+    <div class="editor-main" data-view="write">
+      <div class="editor-head">
+        <input
+          class="editor-title"
+          type="text"
+          maxlength="200"
+          placeholder={titlePlaceholder}
+          value={post?.title || ''}
+          data-title
+          aria-label="标题"
+        />
+        <div class="editor-subline">
+          <span data-slug-preview>/{urlPrefix}{post?.slug || '…'}</span>
+          <span>·</span>
+          <span data-word-count>0 字</span>
+          <span>·</span>
+          <span>{mode === 'edit' ? `最后保存 ${formatDateInput(post?.updated_at || '')?.replace('T', ' ') || '—'}` : '新' + typeLabel}</span>
+        </div>
+      </div>
+
+      <div class="editor-tabs">
+        <button type="button" class="is-active" data-view-tab="write">编写</button>
+        <button type="button" data-view-tab="preview">预览</button>
+        <button type="button" data-view-tab="split">分栏</button>
+        <span class="spacer"></span>
+        <span class="word-count" data-reading-hint>约 1 分钟阅读</span>
+      </div>
+
+      <div class="editor-toolbar" data-toolbar>
+        <button type="button" data-md="bold" title="加粗 (Ctrl+B)"><Icon name="bold" /></button>
+        <button type="button" data-md="italic" title="斜体 (Ctrl+I)"><Icon name="italic" /></button>
+        <button type="button" data-md="heading" title="二级标题"><Icon name="heading" /></button>
+        <span class="divider"></span>
+        <button type="button" data-md="quote" title="引用"><Icon name="quote" /></button>
+        <button type="button" data-md="code" title="行内代码"><Icon name="code" /></button>
+        <button type="button" data-md="codeblock" title="代码块"><span style="font-family:var(--font-mono);font-size:10px">{ }</span></button>
+        <button type="button" data-md="ul" title="无序列表"><Icon name="list" /></button>
+        <button type="button" data-md="ol" title="有序列表"><Icon name="listOrdered" /></button>
+        <span class="divider"></span>
+        <button type="button" data-md="link" title="链接"><Icon name="link2" /></button>
+        <button type="button" data-md="image" title="插入图片"><Icon name="image" /></button>
+        <button type="button" data-md="audio" title="插入音乐播放器" aria-label="插入音乐播放器"><span style="font-size:14px;line-height:1">♫</span></button>
+        <button type="button" data-md="hr" title="分隔线"><span style="font-size:13px">—</span></button>
+        <span class="divider"></span>
+        <button type="button" data-md="preview" title="刷新预览"><Icon name="refresh" /></button>
+      </div>
+
+      <div class="editor-body" data-view="write">
+        <div class="editor-write">
+          <textarea
+            class="editor-textarea"
+            placeholder={isPage ? '页面内容，支持 Markdown…' : '开始写。支持 Markdown 与图片…'}
+            spellcheck="false"
+            data-content>{post?.content_md || ''}</textarea>
+        </div>
+        <div class="editor-preview-pane">
+          <div class="editor-preview">
+            <div class="prose" data-preview></div>
+          </div>
+          <div class="preview-loading" data-preview-status></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="editor-side">
+      <div class="side-card">
+        <div class="side-card__head">
+          <h3>发布</h3>
+          <span>{status.toUpperCase()}</span>
+        </div>
+        <div class="side-card__body">
+          <div class="a-field">
+            <label for="editor-status">状态</label>
+            <select id="editor-status" data-status>
+              <option value="draft" selected={status === 'draft'}>草稿</option>
+              <option value="published" selected={status === 'published'}>已发布</option>
+              <option value="scheduled" selected={status === 'scheduled'}>定时发布</option>
+            </select>
+          </div>
+          <div class="a-field" style="margin-top:12px">
+            <label for="editor-published">发布时间 <small>留空则现在</small></label>
+            <input
+              id="editor-published"
+              type="datetime-local"
+              value={formatDateInput(post?.published_at)}
+              data-published
+            />
+          </div>
+          {
+            !isPage && (
+              <label class="check-row">
+                <input type="checkbox" data-featured checked={Boolean(post?.featured)} />
+                <div>
+                  <strong>设为精选</strong>
+                  <span>在首页优先展示</span>
+                </div>
+              </label>
+            )
+          }
+          {
+            !isPage && (
+              <label class="check-row">
+                <input type="checkbox" data-comments checked={post ? Boolean(post.allow_comments) : true} />
+                <div>
+                  <strong>允许留言</strong>
+                  <span>文末显示留言</span>
+                </div>
+              </label>
+            )
+          }
+        </div>
+      </div>
+
+      <div class="side-card">
+        <div class="side-card__head">
+          <h3>封面</h3>
+          <span>OPTIONAL</span>
+        </div>
+        <div class="side-card__body">
+          <div class="cover-picker" data-cover-preview>
+            <div class="cover-picker__empty">
+              <Icon name="image" size={20} />
+              <span>未设置封面<br />不设置时会生成文字封面</span>
+            </div>
+          </div>
+          <div class="cover-picker__actions">
+            <button class="a-btn a-btn--sm" type="button" data-pick-cover><Icon name="image" size={13} /> 媒体库</button>
+            <button class="a-btn a-btn--sm" type="button" data-clear-cover>清除</button>
+          </div>
+          <div class="a-field" style="margin-top: 10px">
+            <input type="text" placeholder="或粘贴图片 URL" data-cover-url value={post?.cover_image || ''} />
+          </div>
+        </div>
+      </div>
+
+      {
+        !isPage && (
+          <>
+            <div class="side-card">
+              <div class="side-card__head"><h3>分类</h3><span>ONE</span></div>
+              <div class="side-card__body">
+                <div class="a-field">
+                  <input
+                    type="text"
+                    list="category-options"
+                    placeholder="输入或选择分类"
+                    value={post?.categories?.[0]?.name || ''}
+                    data-category
+                  />
+                  <p class="hint">输入新名称会自动创建分类。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="side-card">
+              <div class="side-card__head"><h3>标签</h3><span data-tag-count>0</span></div>
+              <div class="side-card__body">
+                <div class="tag-input-wrap" data-tag-wrap>
+                  <div style="display:contents" data-tag-chips></div>
+                  <input type="text" list="tag-options" placeholder="添加标签，回车确认" data-tag-input />
+                </div>
+                <p class="hint" style="margin-top:6px">用标签把零散的想法连起来。</p>
+              </div>
+            </div>
+          </>
+        )
+      }
+
+      {
+        !isPage && (
+          <div class="side-card">
+            <div class="side-card__head"><h3>摘要</h3><span data-excerpt-count>0</span></div>
+            <div class="side-card__body">
+              <div class="a-field">
+                <textarea
+                  rows="4"
+                  maxlength="600"
+                  placeholder="不填会根据正文自动生成"
+                  data-excerpt>{post?.excerpt || ''}</textarea>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      <div class="side-card">
+        <div class="side-card__head"><h3>链接</h3><span>URL</span></div>
+        <div class="side-card__body">
+          <div class="a-field">
+            <input
+              type="text"
+              maxlength="100"
+              placeholder="留空则根据标题自动生成"
+              value={post?.slug || ''}
+              data-slug
+            />
+            <p class="hint">发布后修改链接会让旧地址失效。</p>
+          </div>
+        </div>
+      </div>
+
+      <details class="side-card editor-details">
+        <summary class="side-card__head">
+          <h3>SEO</h3>
+          <span>OPTIONAL</span>
+        </summary>
+        <div class="side-card__body">
+          <div class="a-field">
+            <label>SEO 标题</label>
+            <input type="text" maxlength="200" value={post?.seo_title || ''} data-seo-title />
+          </div>
+          <div class="a-field" style="margin-top:12px">
+            <label>SEO 描述</label>
+            <textarea rows="3" maxlength="400" data-seo-description>{post?.seo_description || ''}</textarea>
+          </div>
+        </div>
+      </details>
+
+      <div class="side-card" data-revisions-card hidden={mode !== 'edit'}>
+        <div class="side-card__head">
+          <h3>版本历史</h3>
+          <span data-revision-count>0</span>
+        </div>
+        <div class="side-card__body" style="padding: 8px 15px">
+          <div class="revision-list" data-revisions>
+            <p class="hint">加载中…</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <datalist id="category-options"></datalist>
+  <datalist id="tag-options"></datalist>
+
+  <div class="modal-backdrop" data-media-modal>
+    <div class="modal modal--wide">
+      <div class="modal__head">
+        <h3>选择媒体</h3>
+        <button type="button" data-close-media aria-label="关闭"><Icon name="close" size={15} /></button>
+      </div>
+      <div class="modal__body">
+        <div class="media-picker-grid" data-media-grid>
+          <div class="admin-loading"><div class="skeleton" style="height: 90px"></div></div>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <a class="a-btn" href="/admin/media" target="_blank" rel="noopener"><Icon name="upload" size={13} /> 上传新媒体</a>
+        <button class="a-btn" type="button" data-close-media>关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <AudioEmbedDialog />
+</div>
+
+<script>
+  import {
+    debounce,
+    errorMessage,
+    escapeHtml,
+    toast,
+  } from '../../lib/admin-client';
+  import { api } from '../../lib/api';
+  import { formatDate } from '../../lib/format';
+  import type { AdminPost, MediaItem, Paginated, Revision } from '../../types';
+
+  interface EditorData {
+    mode: 'new' | 'edit';
+    type: 'post' | 'page';
+    post: AdminPost | null;
+  }
+
+  const root = document.querySelector<HTMLElement>('[data-editor]');
+  if (root) {
+    const dataNode = document.getElementById('editor-data');
+    const data: EditorData = dataNode ? JSON.parse(dataNode.textContent || '{}') : { mode: 'new', type: 'post', post: null };
+    const isPage = data.type === 'page';
+    const urlPrefix = isPage ? '' : 'posts/';
+    const editorRoot = isPage ? '/admin/pages' : '/admin/posts';
+    const isEdit = data.mode === 'edit' && Boolean(data.post);
+    const id = data.post?.id || null;
+
+    const titleInput = root.querySelector<HTMLInputElement>('[data-title]')!;
+    const contentInput = root.querySelector<HTMLTextAreaElement>('[data-content]')!;
+    const excerptInput = root.querySelector<HTMLTextAreaElement>('[data-excerpt]');
+    const slugInput = root.querySelector<HTMLInputElement>('[data-slug]')!;
+    const categoryInput = root.querySelector<HTMLInputElement>('[data-category]');
+    const statusSelect = root.querySelector<HTMLSelectElement>('[data-status]')!;
+    const publishedInput = root.querySelector<HTMLInputElement>('[data-published]')!;
+    const featuredInput = root.querySelector<HTMLInputElement>('[data-featured]');
+    const commentsInput = root.querySelector<HTMLInputElement>('[data-comments]');
+    const seoTitleInput = root.querySelector<HTMLInputElement>('[data-seo-title]')!;
+    const seoDescriptionInput = root.querySelector<HTMLTextAreaElement>('[data-seo-description]')!;
+    const coverUrlInput = root.querySelector<HTMLInputElement>('[data-cover-url]')!;
+    const saveState = root.querySelector<HTMLElement>('[data-save-state]');
+    const saveLabel = root.querySelector<HTMLElement>('[data-save-label]');
+    const saveText = root.querySelector<HTMLElement>('[data-save-text]');
+    const primaryText = root.querySelector<HTMLElement>('[data-primary-text]');
+    const wordCount = root.querySelector<HTMLElement>('[data-word-count]');
+    const readingHint = root.querySelector<HTMLElement>('[data-reading-hint]');
+    const preview = root.querySelector<HTMLElement>('[data-preview]');
+    const previewStatus = root.querySelector<HTMLElement>('[data-preview-status]');
+    const tagWrap = root.querySelector<HTMLElement>('[data-tag-wrap]');
+    const tagChips = root.querySelector<HTMLElement>('[data-tag-chips]');
+    const tagInput = root.querySelector<HTMLInputElement>('[data-tag-input]');
+    const tagCount = root.querySelector<HTMLElement>('[data-tag-count]');
+    const coverPreview = root.querySelector<HTMLElement>('[data-cover-preview]');
+    const mediaModal = root.querySelector<HTMLElement>('[data-media-modal]');
+    const mediaGrid = root.querySelector<HTMLElement>('[data-media-grid]');
+    const draftBanner = root.querySelector<HTMLElement>('[data-draft-banner]');
+    const revisionsHost = root.querySelector<HTMLElement>('[data-revisions]');
+    const revisionCount = root.querySelector<HTMLElement>('[data-revision-count]');
+    const draftKey = `scene-draft-${data.type}-${id || 'new'}`;
+
+    let tags: string[] = [...(data.post?.tags?.map((tag) => tag.name) || [])];
+    let cover = data.post?.cover_image || '';
+    let dirty = false;
+    let saving = false;
+    let previewTimer: number | undefined;
+    let mediaContext: 'cover' | 'content' = 'cover';
+
+    const setDirty = (value: boolean) => {
+      dirty = value;
+      saveState?.classList.toggle('is-dirty', value);
+      if (value && saveLabel) saveLabel.textContent = '有未保存的更改';
+      if (!value) saveState?.classList.remove('is-dirty');
+    };
+
+    const updateMeta = () => {
+      const text = contentInput.value;
+      const chars = text.replace(/\s/g, '').length;
+      const cjk = (text.match(/[\u3400-\u9fff]/g) || []).length;
+      const words = (text.match(/[A-Za-z0-9]+/g) || []).length;
+      const minutes = Math.max(1, Math.round(cjk / 380 + words / 220));
+      if (wordCount) wordCount.textContent = `${chars.toLocaleString('zh-CN')} 字`;
+      if (readingHint) readingHint.textContent = `约 ${minutes} 分钟阅读`;
+      const slug = slugInput.value.trim() || '…';
+      const slugPreview = root.querySelector<HTMLElement>('[data-slug-preview]');
+      if (slugPreview) slugPreview.textContent = `/${urlPrefix}${slug}`;
+      const excerptCount = root.querySelector<HTMLElement>('[data-excerpt-count]');
+      if (excerptCount) excerptCount.textContent = `${(excerptInput?.value || '').length}/600`;
+    };
+
+    const primaryLabel = () => {
+      if (statusSelect.value === 'published') return '更新';
+      if (statusSelect.value === 'scheduled') return '更新定时';
+      return '发布';
+    };
+
+    const updateButtons = () => {
+      if (primaryText) primaryText.textContent = primaryLabel();
+      if (saveText) saveText.textContent = statusSelect.value === 'draft' ? '保存草稿' : '保存';
+    };
+
+    const renderTags = () => {
+      if (!tagChips) return;
+      tagChips.innerHTML = tags
+        .map(
+          (tag, index) => `<span class="tag-chip">${escapeHtml(tag)}<button type="button" data-remove-tag="${index}" aria-label="移除 ${escapeHtml(tag)}">×</button></span>`,
+        )
+        .join('');
+      tagChips.querySelectorAll<HTMLButtonElement>('[data-remove-tag]').forEach((button) => {
+        button.addEventListener('click', () => {
+          tags.splice(Number(button.dataset.removeTag), 1);
+          renderTags();
+          markDirty();
+        });
+      });
+      if (tagCount) tagCount.textContent = String(tags.length);
+    };
+
+    const addTag = (value: string) => {
+      const clean = value.trim().replace(/^#/, '');
+      if (clean && !tags.includes(clean) && tags.length < 20) {
+        tags.push(clean);
+        renderTags();
+        markDirty();
+      }
+      if (tagInput) tagInput.value = '';
+    };
+
+    const updateCover = () => {
+      if (!coverPreview) return;
+      if (cover) {
+        const image = document.createElement('img');
+        image.src = cover;
+        image.alt = '';
+        coverPreview.replaceChildren(image);
+        coverUrlInput.value = cover;
+      } else {
+        coverPreview.innerHTML = `<div class="cover-picker__empty"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>未设置封面<br>不设置时会生成文字封面</span></div>`;
+        coverUrlInput.value = '';
+      }
+    };
+
+    const markDirty = () => {
+      setDirty(true);
+      schedulePreview();
+      updateMeta();
+      scheduleDraftSave();
+    };
+
+    const scheduleDraftSave = debounce(() => {
+      if (!dirty) return;
+      try {
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({
+            title: titleInput.value,
+            content: contentInput.value,
+            excerpt: excerptInput?.value || '',
+            slug: slugInput.value,
+            category: categoryInput?.value || '',
+            tags,
+            cover,
+            status: statusSelect.value,
+            published: publishedInput.value,
+            featured: featuredInput?.checked || false,
+            comments: commentsInput?.checked || true,
+            seoTitle: seoTitleInput.value,
+            seoDescription: seoDescriptionInput.value,
+            savedAt: new Date().toISOString(),
+          }),
+        );
+        if (saveLabel && dirty) saveLabel.textContent = '本地草稿已保存';
+        saveState?.classList.remove('is-dirty');
+      } catch {
+        // localStorage can be full or disabled
+      }
+    }, 900);
+
+    const applySnapshot = (snapshot: Record<string, unknown>) => {
+      titleInput.value = String(snapshot.title || '');
+      contentInput.value = String(snapshot.content || '');
+      if (excerptInput) excerptInput.value = String(snapshot.excerpt || '');
+      slugInput.value = String(snapshot.slug || '');
+      if (categoryInput) categoryInput.value = String(snapshot.category || '');
+      tags = Array.isArray(snapshot.tags) ? snapshot.tags.map(String) : [];
+      cover = String(snapshot.cover || '');
+      statusSelect.value = String(snapshot.status || 'draft');
+      publishedInput.value = String(snapshot.published || '');
+      if (featuredInput) featuredInput.checked = Boolean(snapshot.featured);
+      if (commentsInput) commentsInput.checked = snapshot.comments !== false;
+      seoTitleInput.value = String(snapshot.seoTitle || '');
+      seoDescriptionInput.value = String(snapshot.seoDescription || '');
+      renderTags();
+      updateCover();
+      updateMeta();
+      updateButtons();
+      setDirty(true);
+      schedulePreview(true);
+    };
+
+    const collectPayload = (overrideStatus?: string) => {
+      const status = overrideStatus || statusSelect.value;
+      const publishedValue = publishedInput.value;
+      return {
+        title: titleInput.value.trim(),
+        slug: slugInput.value.trim().toLowerCase(),
+        excerpt: excerptInput?.value.trim() || '',
+        content_md: contentInput.value,
+        cover_image: cover,
+        status,
+        featured: featuredInput?.checked || false,
+        allow_comments: commentsInput?.checked ?? true,
+        published_at: publishedValue ? new Date(publishedValue).toISOString() : null,
+        seo_title: seoTitleInput.value.trim(),
+        seo_description: seoDescriptionInput.value.trim(),
+        tags: isPage ? [] : tags,
+        categories: isPage ? [] : categoryInput?.value.trim() ? [categoryInput.value.trim()] : [],
+      };
+    };
+
+    const setSaving = (value: boolean) => {
+      saving = value;
+      root.querySelectorAll<HTMLButtonElement>('[data-save], [data-save-primary]').forEach((button) => {
+        button.disabled = value;
+      });
+      if (saveLabel) saveLabel.textContent = value ? '保存中…' : saveLabel.textContent;
+    };
+
+    const save = async (publish = false) => {
+      if (saving) return;
+      if (!titleInput.value.trim()) {
+        toast('先给这篇内容起个标题', 'error');
+        titleInput.focus();
+        return;
+      }
+      if (publish && statusSelect.value === 'draft') {
+        statusSelect.value = 'published';
+        updateButtons();
+      }
+      if (statusSelect.value === 'scheduled' && !publishedInput.value) {
+        toast('定时发布需要选择发布时间', 'error');
+        publishedInput.focus();
+        return;
+      }
+      setSaving(true);
+      const payload = collectPayload();
+      try {
+        const result = isEdit
+          ? await api<AdminPost>(`/api/admin/posts/${id}`, { method: 'PUT', body: payload })
+          : await api<AdminPost>(`/api/admin/posts?type=${data.type}`, { method: 'POST', body: payload });
+        setDirty(false);
+        if (saveState) saveState.classList.remove('is-dirty');
+        if (saveLabel) saveLabel.textContent = '已保存';
+        try {
+          localStorage.removeItem(draftKey);
+        } catch {
+          // ignore
+        }
+        toast(result.raw_status === 'draft' ? '草稿已保存' : result.raw_status === 'scheduled' ? '已安排定时发布' : '已发布', 'success');
+        if (!isEdit) {
+          window.location.href = `${editorRoot}/${result.id}`;
+          return;
+        }
+        statusSelect.value = result.raw_status;
+        if (result.published_at) {
+          const local = new Date(result.published_at);
+          const pad = (n: number) => String(n).padStart(2, '0');
+          publishedInput.value = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+        }
+        updateButtons();
+        loadRevisions();
+      } catch (error) {
+        toast(errorMessage(error), 'error');
+        if (saveLabel) saveLabel.textContent = '保存失败';
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    const renderPreview = async () => {
+      if (!preview) return;
+      if (previewStatus) previewStatus.textContent = '正在渲染…';
+      try {
+        const result = await api<{ html: string; reading_time: number }>('/api/admin/preview', {
+          method: 'POST',
+          body: { content_md: contentInput.value || '*还没有内容。*' },
+        });
+        preview.innerHTML = result.html;
+        if (previewStatus) previewStatus.textContent = '';
+        preview.querySelectorAll('pre').forEach((pre) => {
+          const wrapper = pre.parentElement?.classList.contains('highlight') ? pre.parentElement : pre;
+          if (!wrapper || wrapper.querySelector('.copy-code')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'copy-code';
+          button.textContent = 'COPY';
+          button.addEventListener('click', async () => {
+            try {
+              await navigator.clipboard.writeText(pre.innerText);
+              button.textContent = 'COPIED';
+              setTimeout(() => (button.textContent = 'COPY'), 1400);
+            } catch {
+              // ignore
+            }
+          });
+          wrapper.appendChild(button);
+        });
+      } catch (error) {
+        if (previewStatus) previewStatus.textContent = errorMessage(error);
+      }
+    };
+
+    const schedulePreview = (immediate = false) => {
+      window.clearTimeout(previewTimer);
+      previewTimer = window.setTimeout(renderPreview, immediate ? 0 : 380);
+    };
+
+    const setView = (view: 'write' | 'preview' | 'split') => {
+      root.dataset.view = view;
+      const main = root.querySelector<HTMLElement>('.editor-main');
+      if (main) main.dataset.view = view;
+      const body = root.querySelector<HTMLElement>('.editor-body');
+      if (body) body.dataset.view = view;
+      root.querySelectorAll<HTMLElement>('[data-view-tab]').forEach((button) => {
+        button.classList.toggle('is-active', button.dataset.viewTab === view);
+      });
+      if (view !== 'write') schedulePreview(true);
+    };
+
+    const insertAround = (before: string, after: string, placeholder: string) => {
+      const start = contentInput.selectionStart;
+      const end = contentInput.selectionEnd;
+      const selected = contentInput.value.slice(start, end) || placeholder;
+      contentInput.setRangeText(`${before}${selected}${after}`, start, end, 'select');
+      contentInput.focus();
+      contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const insertBlock = (block: string) => {
+      const start = contentInput.selectionStart;
+      const end = contentInput.selectionEnd;
+      const before = contentInput.value.slice(0, start);
+      const after = contentInput.value.slice(end);
+      const lead = before && !before.endsWith('\n\n') ? '\n\n' : '';
+      const trail = after && !after.startsWith('\n\n') ? '\n\n' : '';
+      contentInput.setRangeText(`${lead}${block}${trail}`, start, end, 'end');
+      contentInput.focus();
+      contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const prefixLines = (prefix: string) => {
+      const start = contentInput.selectionStart;
+      const end = contentInput.selectionEnd;
+      const before = contentInput.value.slice(0, start);
+      const lineStart = before.lastIndexOf('\n') + 1;
+      const chunk = contentInput.value.slice(lineStart, end) || '';
+      const lines = chunk.split('\n');
+      const replacement = lines.map((line) => `${prefix}${line}`).join('\n');
+      contentInput.setRangeText(replacement, lineStart, end, 'end');
+      contentInput.focus();
+      contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+
+    const openMedia = async (context: 'cover' | 'content') => {
+      mediaContext = context;
+      mediaModal?.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      if (!mediaGrid) return;
+      mediaGrid.innerHTML = '<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:90px"></div><div class="skeleton" style="height:90px"></div></div>';
+      try {
+        const result = await api<Paginated<MediaItem>>('/api/admin/media?per_page=60&kind=image');
+        if (!result.items.length) {
+          mediaGrid.innerHTML = '<div class="admin-empty" style="grid-column:1/-1"><p>媒体库还是空的。先上传一张图片吧。</p></div>';
+          return;
+        }
+        mediaGrid.innerHTML = result.items
+          .map(
+            (item) => `<button type="button" data-media-id="${item.id}" data-url="${escapeHtml(item.url)}" data-alt="${escapeHtml(item.alt || item.original_name)}" title="${escapeHtml(item.original_name)}">
+              <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" loading="lazy" />
+              <span>${escapeHtml(item.original_name)}</span>
+            </button>`,
+          )
+          .join('');
+        mediaGrid.querySelectorAll<HTMLButtonElement>('[data-media-id]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const url = button.dataset.url || '';
+            if (mediaContext === 'cover') {
+              cover = url;
+              updateCover();
+              markDirty();
+            } else {
+              const alt = button.dataset.alt || '';
+              const cursor = contentInput.selectionStart;
+              contentInput.setRangeText(`![${alt}](${url})`, cursor, contentInput.selectionEnd, 'end');
+              contentInput.focus();
+              contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            closeMedia();
+          });
+        });
+      } catch (error) {
+        mediaGrid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${escapeHtml(errorMessage(error))}</p></div>`;
+      }
+    };
+
+    const closeMedia = () => {
+      mediaModal?.classList.remove('is-open');
+      document.body.style.overflow = '';
+    };
+
+    const loadTaxonomyOptions = async () => {
+      try {
+        const taxonomy = await api<{ categories: Array<{ name: string }>; tags: Array<{ name: string }> }>('/api/admin/taxonomy');
+        const categoryList = document.getElementById('category-options');
+        const tagList = document.getElementById('tag-options');
+        if (categoryList) {
+          categoryList.innerHTML = taxonomy.categories.map((item) => `<option value="${escapeHtml(item.name)}"></option>`).join('');
+        }
+        if (tagList) {
+          tagList.innerHTML = taxonomy.tags.map((item) => `<option value="${escapeHtml(item.name)}"></option>`).join('');
+        }
+      } catch {
+        // Suggestions are non-critical.
+      }
+    };
+
+    const loadRevisions = async () => {
+      if (!isEdit || !id || !revisionsHost) return;
+      try {
+        const result = await api<{ items: Revision[] }>(`/api/admin/posts/${id}/revisions`);
+        if (revisionCount) revisionCount.textContent = String(result.items.length);
+        if (!result.items.length) {
+          revisionsHost.innerHTML = '<p class="hint">保存修改后会在这里留下版本。</p>';
+          return;
+        }
+        revisionsHost.innerHTML = result.items
+          .map(
+            (revision) => `<div class="revision-row">
+              <div class="revision-row__meta">
+                <strong>${escapeHtml(revision.title)}</strong>
+                <span>${escapeHtml(formatDate(revision.created_at, 'datetime'))} · ${revision.reading_time} min</span>
+              </div>
+              <button class="a-btn a-btn--sm" type="button" data-restore="${revision.id}">恢复</button>
+            </div>`,
+          )
+          .join('');
+        revisionsHost.querySelectorAll<HTMLButtonElement>('[data-restore]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            if (!window.confirm('恢复这个版本？当前内容会先被保存为一个新版本。')) return;
+            try {
+              await api(`/api/admin/posts/${id}/revisions/${button.dataset.restore}/restore`, { method: 'POST' });
+              toast('版本已恢复', 'success');
+              window.location.reload();
+            } catch (error) {
+              toast(errorMessage(error), 'error');
+            }
+          });
+        });
+      } catch (error) {
+        revisionsHost.innerHTML = `<p class="hint">${escapeHtml(errorMessage(error))}</p>`;
+      }
+    };
+
+    // Initial state -------------------------------------------------------
+    renderTags();
+    updateCover();
+    updateMeta();
+    updateButtons();
+    schedulePreview(true);
+    loadTaxonomyOptions();
+    if (isEdit) loadRevisions();
+
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const snapshot = JSON.parse(raw);
+        const differs =
+          snapshot.title !== titleInput.value ||
+          snapshot.content !== contentInput.value ||
+          snapshot.excerpt !== (excerptInput?.value || '');
+        if (differs && draftBanner) {
+          draftBanner.hidden = false;
+          draftBanner.dataset.snapshot = raw;
+        } else if (!differs) {
+          localStorage.removeItem(draftKey);
+        }
+      }
+    } catch {
+      // ignore malformed drafts
+    }
+
+    draftBanner?.querySelector('[data-draft-restore]')?.addEventListener('click', () => {
+      try {
+        const raw = draftBanner.dataset.snapshot || '';
+        applySnapshot(JSON.parse(raw));
+        draftBanner.hidden = true;
+        toast('本地草稿已恢复', 'success');
+      } catch {
+        toast('草稿已损坏，无法恢复', 'error');
+      }
+    });
+    draftBanner?.querySelector('[data-draft-discard]')?.addEventListener('click', () => {
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // ignore
+      }
+      draftBanner.hidden = true;
+      toast('本地草稿已丢弃');
+    });
+
+    // Inputs --------------------------------------------------------------
+    titleInput.addEventListener('input', () => {
+      markDirty();
+      const slugPreview = root.querySelector<HTMLElement>('[data-slug-preview]');
+      if (!slugInput.value && slugPreview) {
+        slugPreview.textContent = `/${urlPrefix}${titleInput.value.trim() ? '自动生成' : '…'}`;
+      }
+    });
+    contentInput.addEventListener('input', markDirty);
+    excerptInput?.addEventListener('input', markDirty);
+    slugInput.addEventListener('input', markDirty);
+    categoryInput?.addEventListener('input', markDirty);
+    seoTitleInput.addEventListener('input', markDirty);
+    seoDescriptionInput.addEventListener('input', markDirty);
+    publishedInput.addEventListener('change', markDirty);
+    featuredInput?.addEventListener('change', markDirty);
+    commentsInput?.addEventListener('change', markDirty);
+    coverUrlInput.addEventListener('change', () => {
+      cover = coverUrlInput.value.trim();
+      updateCover();
+      markDirty();
+    });
+
+    statusSelect.addEventListener('change', () => {
+      updateButtons();
+      markDirty();
+    });
+
+    tagInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ',') {
+        event.preventDefault();
+        addTag(tagInput.value);
+      } else if (event.key === 'Backspace' && !tagInput.value && tags.length) {
+        tags.pop();
+        renderTags();
+        markDirty();
+      }
+    });
+    tagInput?.addEventListener('blur', () => {
+      if (tagInput.value.trim()) addTag(tagInput.value);
+    });
+    tagWrap?.addEventListener('click', () => tagInput?.focus());
+
+    // Toolbar -------------------------------------------------------------
+    root.querySelectorAll<HTMLButtonElement>('[data-md]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.md;
+        if (action === 'bold') insertAround('**', '**', '加粗文字');
+        else if (action === 'italic') insertAround('*', '*', '斜体文字');
+        else if (action === 'heading') prefixLines('## ');
+        else if (action === 'quote') prefixLines('> ');
+        else if (action === 'code') insertAround('`', '`', 'code');
+        else if (action === 'codeblock') insertAround('\n```\n', '\n```\n', '在这里写代码');
+        else if (action === 'ul') prefixLines('- ');
+        else if (action === 'ol') prefixLines('1. ');
+        else if (action === 'link') {
+          const url = window.prompt('输入链接地址', 'https://');
+          if (url) insertAround('[', `](${url})`, '链接文字');
+        } else if (action === 'image') openMedia('content');
+        else if (action === 'audio') {
+          document.dispatchEvent(new CustomEvent('audio-embed:open'));
+        } else if (action === 'hr') insertAround('\n\n---\n\n', '', '');
+        else if (action === 'preview') schedulePreview(true);
+      });
+    });
+
+    document.addEventListener('audio-embed:insert', (event) => {
+      const html = (event as CustomEvent<{ html?: string }>).detail?.html;
+      if (html) insertBlock(html);
+    });
+
+    root.querySelectorAll<HTMLButtonElement>('[data-view-tab]').forEach((button) => {
+      button.addEventListener('click', () => setView(button.dataset.viewTab as 'write' | 'preview' | 'split'));
+    });
+
+    contentInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        const start = contentInput.selectionStart;
+        contentInput.setRangeText('  ', start, contentInput.selectionEnd, 'end');
+        contentInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        insertAround('**', '**', '加粗文字');
+      }
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
+        event.preventDefault();
+        insertAround('*', '*', '斜体文字');
+      }
+    });
+
+    // Save / media / draft -------------------------------------------------
+    root.querySelector('[data-save]')?.addEventListener('click', () => save(false));
+    root.querySelector('[data-save-primary]')?.addEventListener('click', () => save(true));
+    root.querySelector('[data-pick-cover]')?.addEventListener('click', () => openMedia('cover'));
+    root.querySelector('[data-clear-cover]')?.addEventListener('click', () => {
+      cover = '';
+      updateCover();
+      markDirty();
+    });
+    root.querySelectorAll('[data-close-media]').forEach((button) => button.addEventListener('click', closeMedia));
+    mediaModal?.addEventListener('click', (event) => {
+      if (event.target === mediaModal) closeMedia();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        save(false);
+      }
+      if (event.key === 'Escape') closeMedia();
+    });
+
+    window.addEventListener('beforeunload', (event) => {
+      if (!dirty || saving) return;
+      event.preventDefault();
+    });
+  }
+</script>

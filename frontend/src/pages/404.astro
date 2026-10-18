@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { getSite } from '../lib/api';
+import { fallbackSite } from '../config';
+import type { SiteInfo } from '../types';
+
+let site: SiteInfo = fallbackSite as unknown as SiteInfo;
+try {
+  site = await getSite();
+} catch {
+  // The fallback site keeps the 404 usable even when the API is down.
+}
+Astro.response.status = 404;
+---
+<BaseLayout site={site} title="404" noindex>
+  <section class="container notfound">
+    <strong>404</strong>
+    <h1>场景不存在</h1>
+    <p>链接可能已失效。</p>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px">
+      <a class="btn" href="/"><Icon name="home" size={14} /> 首页</a>
+      <a class="btn btn--ghost" href="/photos">影像 <Icon name="arrowRight" size={14} /></a>
+      <a class="btn btn--ghost" href="/archive">文字</a>
+    </div>
+  </section>
+</BaseLayout>

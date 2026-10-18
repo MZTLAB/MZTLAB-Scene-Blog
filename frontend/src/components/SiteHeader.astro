@@ -1,0 +1,102 @@
+---
+import Icon from './Icon.astro';
+import type { SiteInfo } from '../types';
+
+interface Props {
+  site: SiteInfo;
+}
+
+const { site } = Astro.props;
+const settings = site.settings;
+const path = Astro.url.pathname;
+const fallbackNav = [
+  { label: '首页', url: '/' },
+  { label: '影像', url: '/photos' },
+  { label: '文章', url: '/archive' },
+  { label: '关于', url: '/about' },
+];
+const nav = (settings.nav?.length ? settings.nav : fallbackNav).filter(
+  (item) => !item.url.startsWith('/projects'),
+);
+const markSrc = settings.favicon || '/favicon.svg';
+
+function isExternal(url: string): boolean {
+  return /^https?:\/\//.test(url);
+}
+
+function isActive(url: string): boolean {
+  if (isExternal(url)) return false;
+  if (url === '/') return path === '/';
+  return path === url || path.startsWith(`${url.replace(/\/$/, '')}/`);
+}
+---
+<header class="site-header" id="siteHeader">
+  <div class="container header-inner">
+    <a class="brand" href="/" aria-label={`${settings.site_title} 首页`}>
+      {
+        settings.logo ? (
+          <img class="brand-logo" src={settings.logo} alt="" />
+        ) : (
+          <img class="brand-mark" src={markSrc} alt="" width="32" height="32" style="width:32px;height:32px" aria-hidden="true" />
+        )
+      }
+      <span class="brand-text">
+        <span class="brand-title">{settings.site_title}</span>
+        <span class="brand-sub">{settings.site_subtitle || 'SCENE'}</span>
+      </span>
+    </a>
+
+    <nav class="site-nav" aria-label="主导航">
+      {
+        nav.map((item) => (
+          <a
+            href={item.url}
+            aria-current={isActive(item.url) ? 'page' : undefined}
+            target={isExternal(item.url) ? '_blank' : undefined}
+            rel={isExternal(item.url) ? 'noopener noreferrer' : undefined}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="header-actions">
+      <a class="icon-btn" href="/search" aria-label="搜索">
+        <Icon name="search" size={17} />
+      </a>
+      <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="切换明暗主题">
+        <span class="moon-icon"><Icon name="moon" size={17} /></span>
+        <span class="sun-icon"><Icon name="sun" size={17} /></span>
+      </button>
+      <button
+        class="icon-btn menu-toggle"
+        type="button"
+        data-menu-toggle
+        aria-controls="mobileNav"
+        aria-expanded="false"
+        aria-label="打开菜单"
+      >
+        <Icon name="menu" size={18} />
+      </button>
+    </div>
+  </div>
+
+  <div class="mobile-nav container" id="mobileNav">
+    {nav.map((item, index) => (
+      <a
+        href={item.url}
+        aria-current={isActive(item.url) ? 'page' : undefined}
+        target={isExternal(item.url) ? '_blank' : undefined}
+        rel={isExternal(item.url) ? 'noopener noreferrer' : undefined}
+      >
+        {item.label}
+        <span>{String(index + 1).padStart(2, '0')}</span>
+      </a>
+    ))}
+    <a href="/search">
+      搜索
+      <span><Icon name="search" size={14} /></span>
+    </a>
+  </div>
+</header>

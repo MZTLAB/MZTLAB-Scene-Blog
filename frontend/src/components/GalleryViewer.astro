@@ -1,0 +1,140 @@
+---
+import type { Photo } from '../types';
+import { exifFieldVisible, specsJson } from '../lib/photo';
+import Icon from './Icon.astro';
+
+interface Props {
+  photos: Photo[];
+  galleryTitle?: string;
+}
+
+const { photos, galleryTitle = '' } = Astro.props;
+
+const metaLine = (photo: Photo): string =>
+  [
+    exifFieldVisible(photo, 'camera') ? photo.camera : '',
+    exifFieldVisible(photo, 'lens') ? photo.lens : '',
+    photo.location,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+const exifLine = (photo: Photo): string =>
+  [
+    exifFieldVisible(photo, 'focal_length') && photo.focal_length
+      ? `${photo.focal_length}${photo.focal_length_35mm ? ` (${photo.focal_length_35mm}mm eq)` : ''}`
+      : '',
+    exifFieldVisible(photo, 'aperture') ? photo.aperture : '',
+    exifFieldVisible(photo, 'exposure') ? photo.exposure : '',
+    exifFieldVisible(photo, 'iso') && photo.iso ? `ISO ${photo.iso}` : '',
+    exifFieldVisible(photo, 'taken_at') ? photo.taken_at : '',
+  ]
+    .filter(Boolean)
+    .join(' / ');
+
+const pad = (value: number) => String(value).padStart(2, '0');
+const first = photos[0];
+---
+<section
+  class="gallery-viewer"
+  data-gallery-viewer
+  aria-roledescription="carousel"
+  aria-label={`${galleryTitle || '相册'} · 大图浏览`}
+  tabindex="0"
+>
+  <div class="gallery-viewer__stage">
+    <div class="gallery-viewer__track" data-gv-track>
+      {
+        photos.map((photo, index) => (
+          <figure
+            class:list={['gallery-viewer__slide', index === 0 && 'is-active']}
+            data-gv-slide
+            data-index={index}
+            aria-hidden={index === 0 ? 'false' : 'true'}
+          >
+            <button
+              class="gallery-viewer__zoom"
+              type="button"
+              data-photo
+              data-src={photo.url}
+              data-title={photo.title}
+              data-caption={photo.caption}
+              data-meta={metaLine(photo)}
+              data-exif={exifLine(photo)}
+              data-specs={specsJson(photo)}
+              tabindex={index === 0 ? undefined : -1}
+              aria-label={`全屏查看：${photo.title || photo.alt}`}
+            >
+              <img
+                src={photo.url}
+                alt={photo.alt}
+                width={photo.width || undefined}
+                height={photo.height || undefined}
+                loading={index < 2 ? 'eager' : 'lazy'}
+                fetchpriority={index === 0 ? 'high' : 'auto'}
+                decoding="async"
+              />
+            </button>
+          </figure>
+        ))
+      }
+    </div>
+
+    {
+      photos.length > 1 && (
+        <>
+          <button class="gallery-viewer__arrow gallery-viewer__arrow--prev" type="button" data-gv-prev aria-label="上一张">
+            <Icon name="arrowLeft" size={20} />
+          </button>
+          <button class="gallery-viewer__arrow gallery-viewer__arrow--next" type="button" data-gv-next aria-label="下一张">
+            <Icon name="arrowRight" size={20} />
+          </button>
+        </>
+      )
+    }
+
+    <span class="gallery-viewer__zoom-hint">点击大图全屏</span>
+  </div>
+
+  <div class="gallery-viewer__bar">
+    <div class="gallery-viewer__caption" aria-live="polite">
+      <span class="gallery-viewer__counter">
+        <span data-gv-counter>{pad(1)} / {pad(photos.length)}</span>
+      </span>
+      <div class="gallery-viewer__text">
+        <strong data-gv-title>{first?.title || '未命名'}</strong>
+        <span class="gallery-viewer__exif" data-gv-exif>{first ? exifLine(first) : ''}</span>
+        <span data-gv-meta>{first ? metaLine(first) : ''}</span>
+        <span data-gv-caption>{first?.caption || ''}</span>
+      </div>
+    </div>
+    <span class="gallery-viewer__hint">
+      <span class="gallery-viewer__keys" aria-hidden="true">← →</span>
+      或滑动切换
+    </span>
+  </div>
+
+  {
+    photos.length > 1 && (
+      <div class="gallery-viewer__strip" data-gv-strip role="tablist" aria-label="照片缩略图">
+        {photos.map((photo, index) => (
+          <button
+            class:list={['gallery-viewer__thumb', index === 0 && 'is-active']}
+            type="button"
+            data-gv-go={index}
+            role="tab"
+            aria-selected={index === 0 ? 'true' : 'false'}
+            aria-label={`第 ${index + 1} 张：${photo.title || photo.alt}`}
+          >
+            <img src={photo.url} alt="" loading="lazy" decoding="async" />
+            <span>{pad(index + 1)}</span>
+          </button>
+        ))}
+      </div>
+    )
+  }
+</section>
+
+<script>
+  import '../scripts/gallery-viewer';
+</script>

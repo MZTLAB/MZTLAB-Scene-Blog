@@ -1,0 +1,107 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'media.manage');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="媒体库" subtitle="Assets / Media" active="media">
+  <div data-media-page>
+    <div class="page-head-row">
+      <div>
+        <h2>图片与音频</h2>
+        <p>支持 JPG / PNG / WebP / GIF，以及 MP3 / M4A / OGG / WAV / FLAC；单个文件不超过 12MB。</p>
+      </div>
+      <div class="toolbar-group">
+        <a class="a-btn" href="/admin/galleries"><Icon name="camera" size={14} /> 相册</a>
+      </div>
+    </div>
+
+    <div class="upload-zone" data-upload-zone role="button" tabindex="0" aria-label="上传图片或音频">
+      <Icon name="upload" size={30} />
+      <strong>拖拽图片或音频到这里，或点击选择文件</strong>
+      <span>图片进入相册；音频可在文章编辑器中插入播放器</span>
+      <span data-upload-status style="color: var(--accent); font-family: var(--font-mono); font-size: 9px"></span>
+      <input type="file" accept="image/jpeg,image/png,image/webp,image/gif,audio/*" multiple data-upload-input />
+    </div>
+
+    <div class="admin-toolbar" style="margin-top: 22px">
+      <div class="filter-tabs" data-media-kinds>
+        <button type="button" class="is-active" data-kind="">全部</button>
+        <button type="button" data-kind="image">图片</button>
+        <button type="button" data-kind="audio">音频</button>
+      </div>
+      <label class="admin-search">
+        <Icon name="search" size={14} />
+        <input type="search" placeholder="搜索文件名或替代文字…" data-media-search aria-label="搜索媒体" />
+      </label>
+    </div>
+
+    <div class="media-grid" data-media-grid>
+      <div class="admin-loading" style="grid-column: 1 / -1">
+        <div class="skeleton" style="height: 110px"></div>
+        <div class="skeleton" style="height: 110px"></div>
+      </div>
+    </div>
+
+    <div class="table-footer" data-media-pagination style="margin-top: 18px"></div>
+
+    <div class="modal-backdrop" data-exif-editor>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="exif-editor-title">
+        <form data-exif-form>
+          <div class="modal__head">
+            <h3 id="exif-editor-title" data-exif-editor-title>编辑 EXIF</h3>
+            <button type="button" data-close-exif-editor aria-label="关闭"><Icon name="close" size={15} /></button>
+          </div>
+          <div class="modal__body">
+            <div class="form-grid-2">
+              <div class="a-field">
+                <label for="exif-camera">相机</label>
+                <input id="exif-camera" type="text" maxlength="120" data-exif-camera placeholder="FUJIFILM X-T30 III" />
+              </div>
+              <div class="a-field">
+                <label for="exif-lens">镜头</label>
+                <input id="exif-lens" type="text" maxlength="120" data-exif-lens placeholder="17-70mm F/2.8" />
+              </div>
+              <div class="a-field">
+                <label for="exif-taken">拍摄日期</label>
+                <input id="exif-taken" type="text" maxlength="10" data-exif-taken placeholder="YYYY-MM-DD" />
+              </div>
+              <div class="a-field">
+                <label for="exif-focal">焦距</label>
+                <input id="exif-focal" type="text" maxlength="40" data-exif-focal placeholder="45.1mm" />
+              </div>
+              <div class="a-field">
+                <label for="exif-aperture">光圈</label>
+                <input id="exif-aperture" type="text" maxlength="40" data-exif-aperture placeholder="f/5.6" />
+              </div>
+              <div class="a-field">
+                <label for="exif-exposure">快门</label>
+                <input id="exif-exposure" type="text" maxlength="40" data-exif-exposure placeholder="1/4000s" />
+              </div>
+              <div class="a-field">
+                <label for="exif-iso">ISO</label>
+                <input id="exif-iso" type="number" min="0" max="409600" data-exif-iso placeholder="400" />
+              </div>
+              <div class="a-field">
+                <label for="exif-focal35">等效焦距 <small>mm</small></label>
+                <input id="exif-focal35" type="number" min="0" max="2000" data-exif-focal35 placeholder="68" />
+              </div>
+            </div>
+            <p class="hint" style="margin-top:12px">已有 EXIF 字段为只读，只能补充缺失项；保存只更新媒体库数据，不修改原始图像文件。EXIF 是否公开仍由相册页的「显示 EXIF」决定。</p>
+          </div>
+          <div class="modal__foot">
+            <button class="a-btn" type="button" data-close-exif-editor>取消</button>
+            <button class="a-btn a-btn--primary" type="submit">保存 EXIF</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-media';
+</script>

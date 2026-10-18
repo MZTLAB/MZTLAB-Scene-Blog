@@ -1,0 +1,339 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import CoverArt from '../../components/CoverArt.astro';
+import StoryCard from '../../components/StoryCard.astro';
+import Comments from '../../components/Comments.astro';
+import Icon from '../../components/Icon.astro';
+import { ApiError, apiServer, getPost, getSite } from '../../lib/api';
+import { absoluteUrl, formatDate, initial, number, safeJson } from '../../lib/format';
+import type { Comment, Paginated, PostDetail, SiteInfo } from '../../types';
+
+const { slug } = Astro.params;
+const site: SiteInfo = await getSite();
+let post: PostDetail;
+try {
+  post = await getPost(slug || '');
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) {
+    return Astro.rewrite('/404');
+  }
+  throw error;
+}
+
+let comments: Comment[] = [];
+if (post.allow_comments && site.settings.comments_enabled) {
+  try {
+    const data = await apiServer<Paginated<Comment> & { total: number }>(
+      `/api/comments?post_id=${post.id}`,
+      { cookie: Astro.request.headers.get('cookie') || '' },
+    );
+    comments = data.items;
+  } catch {
+    comments = [];
+  }
+}
+
+const settings = site.settings;
+const category = post.categories?.[0];
+const description = post.seo_description || post.excerpt;
+const canonical = absoluteUrl(settings.site_url, post.url);
+const image = post.cover_image ? absoluteUrl(settings.site_url, post.cover_image) : '';
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'BlogPosting',
+  headline: post.title,
+  description,
+  datePublished: post.published_at,
+  dateModified: post.updated_at,
+  mainEntityOfPage: canonical,
+  author: {
+    '@type': 'Person',
+    name: post.author?.name || settings.author_name,
+  },
+  publisher: { '@type': 'Organization', name: settings.site_title },
+  ...(image ? { image } : {}),
+};
+---
+<BaseLayout
+  site={site}
+  title={post.seo_title || post.title}
+  description={description}
+  image={post.cover_image}
+  type="article"
+>
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={safeJson(jsonLd)}></script>
+  </Fragment>
+
+  <div class="reading-progress" data-reading-progress></div>
+
+  <article data-article data-post-id={post.id}>
+    <header class="container article-header">
+      <span class="eyebrow">
+        <span class="dot"></span>
+        {post.categories?.[0]?.name || '书写'}
+        <span style="opacity: .45">/</span>
+        {post.reading_time} MIN READ
+      </span>
+      <h1>{post.title}</h1>
+      {post.excerpt && <p class="article-deck">{post.excerpt}</p>}
+      <div class="article-meta">
+        {
+          settings.show_author && (
+            <span class="author-chip">
+              <span class="avatar">
+                {post.author?.avatar
+                  ? <img src={post.author.avatar} alt="" />
+                  : initial(post.author?.name || settings.author_name)}
+              </span>
+              {post.author?.name || settings.author_name}
+            </span>
+          )
+        }
+        <time datetime={post.published_at || undefined}>{formatDate(post.published_at, 'long')}</time>
+        {settings.show_reading_time && <span>{post.reading_time} 分钟阅读</span>}
+        {settings.show_views && (
+          <span><Icon name="eye" size={12} /> <span data-article-views>{number(post.view_count)}</span> 次阅读</span>
+        )}
+        {
+          post.updated_at?.slice(0, 10) !== post.published_at?.slice(0, 10) && (
+            <span>更新于 {formatDate(post.updated_at, 'short')}</span>
+          )
+        }
+      </div>
+    </header>
+
+    <div class="article-wrap">
+      <div class="article-main">
+        {
+          post.cover_image && (
+            <div class="article-cover">
+              <CoverArt
+                title={post.title}
+                slug={post.slug}
+                category={category?.name}
+                image={post.cover_image}
+                label={settings.site_title}
+                eager
+              />
+            </div>
+          )
+        }
+        <div class="prose" data-prose set:html={post.content_html} />
+
+        <footer class="article-footer">
+          {
+            post.tags.length > 0 && (
+              <div class="article-tags">
+                {post.tags.map((tag) => (
+                  <a class="tag" href={`/tags/${tag.slug}`}>#{tag.name}</a>
+                ))}
+              </div>
+            )
+          }
+
+          <div class="article-author">
+            <span class="avatar avatar--large">
+              {post.author?.avatar
+                ? <img src={post.author.avatar} alt="" />
+                : initial(post.author?.name || settings.author_name)}
+            </span>
+            <div>
+              <h3>{post.author?.name || settings.author_name}</h3>
+              <p>{post.author?.bio || settings.author_bio || settings.description}</p>
+            </div>
+          </div>
+
+          <nav class="post-nav" aria-label="上一篇和下一篇">
+            {post.prev && (
+              <a href={post.prev.url}>
+                <span class="nav-label">← Previous</span>
+                <strong>{post.prev.title}</strong>
+              </a>
+            )}
+            {post.next && (
+              <a href={post.next.url}>
+                <span class="nav-label">Next →</span>
+                <strong>{post.next.title}</strong>
+              </a>
+            )}
+          </nav>
+        </footer>
+      </div>
+
+      <aside class="article-sidebar">
+        {
+          post.toc.length > 1 && (
+            <div class="toc" data-toc>
+              <div class="toc-title">
+                <span>On this page</span>
+                <span>{String(post.toc.length).padStart(2, '0')}</span>
+              </div>
+              <nav>
+                {post.toc.map((item) => (
+                  <a href={`#${item.id}`} data-level={item.level}>{item.text}</a>
+                ))}
+              </nav>
+            </div>
+          )
+        }
+        <div class="share-box">
+          <span class="label">Share</span>
+          <div class="share-actions">
+            <button type="button" data-copy-link data-url={canonical} aria-label="复制链接" title="复制链接">
+              <Icon name="link" />
+            </button>
+            <button type="button" data-native-share data-url={canonical} data-title={post.title} aria-label="分享" title="分享">
+              <Icon name="share" />
+            </button>
+            <a href={`mailto:?subject=${encodeURIComponent(post.title)}&body=${encodeURIComponent(canonical)}`} aria-label="通过邮件分享" title="邮件">
+              <Icon name="mail" />
+            </a>
+          </div>
+        </div>
+        <div class="share-box">
+          <span class="label">Filed under</span>
+          <div style="display:flex; flex-wrap:wrap; gap:6px">
+            {post.categories.map((item) => (
+              <a class="tag" href={`/categories/${item.slug}`}>{item.name}</a>
+            ))}
+          </div>
+        </div>
+      </aside>
+    </div>
+  </article>
+
+  {
+    post.related.length > 0 && (
+      <section class="container related-section">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow eyebrow--plain">Keep reading</span>
+            <h2>继续阅读</h2>
+          </div>
+          <a class="text-link" href="/archive">全部文章 <Icon name="arrowRight" size={14} /></a>
+        </div>
+        <div class="story-grid">
+          {post.related.map((item, index) => (
+            <StoryCard post={item} site={site} label={settings.site_title} eager={index === 0} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  {site.settings.comments_enabled && post.allow_comments && (
+    <Comments post={post} site={site} comments={comments} />
+  )}
+
+  <script>
+    const article = document.querySelector<HTMLElement>('[data-article]');
+    const prose = document.querySelector<HTMLElement>('[data-prose]');
+    const progress = document.querySelector<HTMLElement>('[data-reading-progress]');
+    const postId = article?.dataset.postId;
+
+    const updateProgress = () => {
+      if (!prose || !progress) return;
+      const rect = prose.getBoundingClientRect();
+      const total = rect.height - window.innerHeight * 0.35;
+      const passed = Math.min(Math.max(-rect.top + 100, 0), Math.max(total, 1));
+      progress.style.width = `${Math.min(100, (passed / Math.max(total, 1)) * 100)}%`;
+    };
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+
+    // Copy buttons for code blocks.
+    prose?.querySelectorAll('pre').forEach((pre) => {
+      const wrapper = pre.parentElement?.classList.contains('highlight') ? pre.parentElement : pre;
+      if (!wrapper || wrapper.querySelector('.copy-code')) return;
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'copy-code';
+      button.textContent = 'COPY';
+      button.addEventListener('click', async () => {
+        const code = pre.querySelector('code')?.innerText || pre.innerText;
+        try {
+          await navigator.clipboard.writeText(code);
+          button.textContent = 'COPIED';
+          setTimeout(() => (button.textContent = 'COPY'), 1600);
+        } catch {
+          button.textContent = 'FAILED';
+        }
+      });
+      wrapper.appendChild(button);
+    });
+
+    document.querySelector('[data-copy-link]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLElement;
+      const url = button.dataset.url || window.location.href;
+      try {
+        await navigator.clipboard.writeText(url);
+        const original = button.innerHTML;
+        button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>';
+        setTimeout(() => (button.innerHTML = original), 1400);
+      } catch {
+        // Clipboard access can fail on insecure origins; fall back to a prompt.
+        window.prompt('复制链接', url);
+      }
+    });
+
+    document.querySelector('[data-native-share]')?.addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLElement;
+      const url = button.dataset.url || window.location.href;
+      const title = button.dataset.title || document.title;
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, url });
+        } catch {
+          // user cancelled
+        }
+      } else {
+        await navigator.clipboard?.writeText(url);
+      }
+    });
+
+    // Active TOC item.
+    const tocLinks = document.querySelectorAll<HTMLAnchorElement>('[data-toc] a');
+    if (tocLinks.length) {
+      const headings = Array.from(tocLinks)
+        .map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))))
+        .filter((heading): heading is HTMLElement => Boolean(heading));
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) return;
+            tocLinks.forEach((link) => link.classList.remove('is-active'));
+            const active = document.querySelector(`[data-toc] a[href="#${CSS.escape(entry.target.id)}"]`);
+            active?.classList.add('is-active');
+          });
+        },
+        { rootMargin: '-15% 0px -70% 0px' },
+      );
+      headings.forEach((heading) => observer.observe(heading));
+    }
+
+    // Count a view once per browser tab/session.
+    if (postId) {
+      const key = `ink-viewed-${postId}`;
+      let alreadyViewed = false;
+      try {
+        alreadyViewed = Boolean(sessionStorage.getItem(key));
+      } catch {
+        alreadyViewed = true;
+      }
+      if (!alreadyViewed) {
+        fetch(`/api/posts/${postId}/view`, { method: 'POST' })
+          .then((response) => (response.ok ? response.json() : null))
+          .then((data) => {
+            if (data?.view_count) {
+              const node = document.querySelector('[data-article-views]');
+              if (node) node.textContent = new Intl.NumberFormat('zh-CN').format(data.view_count);
+            }
+            sessionStorage.setItem(key, '1');
+          })
+          .catch(() => {});
+      }
+    }
+  </script>
+</BaseLayout>
