@@ -68,7 +68,6 @@ export interface SiteInfo {
   post_count: number;
   photo_count: number;
   gallery_count: number;
-  version: string;
 }
 
 export interface Author {

@@ -67,5 +67,4 @@ export const fallbackSite = {
   post_count: 0,
   photo_count: 0,
   gallery_count: 0,
-  version: '2.1.0',
 };

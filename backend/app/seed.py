@@ -531,10 +531,13 @@ def ensure_bootstrap_admin() -> None:
     disable demo content and still bootstrap its account from .env / Docker.
     """
     from .config import BOOTSTRAP_ADMIN_NAME, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USER
-    from .security import hash_password
+    from .security import hash_password, logger, password_policy_error
 
     if not (BOOTSTRAP_ADMIN_USER and BOOTSTRAP_ADMIN_PASSWORD):
         return
+    problem = password_policy_error(BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USER)
+    if problem:
+        logger.warning("bootstrap administrator password is weak: %s", problem)
     now = now_iso()
     with db() as conn:
         exists = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone()

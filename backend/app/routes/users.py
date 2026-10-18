@@ -24,7 +24,7 @@ from ..permissions import (
     role_meta,
 )
 from ..schemas import UserCreateIn, UserUpdateIn
-from ..security import hash_password
+from ..security import hash_password, password_policy_error
 
 router = APIRouter(prefix="/admin", tags=["users"], dependencies=[Depends(require_staff)])
 
@@ -199,6 +199,9 @@ def update_user(
         password_hash = row["password_hash"]
         password_changed = bool(payload.password)
         if password_changed:
+            problem = password_policy_error(payload.password, row["username"])
+            if problem:
+                raise HTTPException(status_code=400, detail=problem)
             password_hash = hash_password(payload.password)
 
         conn.execute(

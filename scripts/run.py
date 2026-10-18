@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import secrets
 import shutil
 import signal
 import subprocess
@@ -112,6 +113,7 @@ def main() -> int:
         raise SystemExit("前端依赖不存在，请先运行：python scripts/setup.py")
 
     backend_port = os.environ.get("BLOG_BACKEND_PORT", "8000")
+    backend_host = os.environ.get("BLOG_BACKEND_HOST", "127.0.0.1")
     frontend_port = os.environ.get("BLOG_FRONTEND_PORT", "4321")
     internal_api = os.environ.get("BLOG_API_INTERNAL_URL", f"http://127.0.0.1:{backend_port}")
 
@@ -120,6 +122,18 @@ def main() -> int:
     env["BLOG_FRONTEND_URL"] = f"http://127.0.0.1:{frontend_port}"
     env.setdefault("HOST", "127.0.0.1")
     env["PORT"] = frontend_port
+    # The Astro proxy proves to FastAPI that X-Blog-Real-IP is trustworthy. A
+    # fresh random secret per run means a client can never forge its own IP to
+    # dodge login rate limits. Docker deployments set this in both containers.
+    if not env.get("BLOG_PROXY_SECRET"):
+        env["BLOG_PROXY_SECRET"] = secrets.token_urlsafe(32)
+
+    if args.dev:
+        print(
+            "\n[安全提示] --dev 启动的是 Vite/Astro 开发服务器，会暴露源码与配置。\n"
+            "          仅限本机开发使用，请勿对外提供访问。\n",
+            flush=True,
+        )
 
     if not args.dev:
         entry = FRONTEND / "dist" / "server" / "entry.mjs"
@@ -135,12 +149,16 @@ def main() -> int:
         "uvicorn",
         "app.main:app",
         "--host",
-        "127.0.0.1",
+        backend_host,
         "--port",
         backend_port,
+        # Never let a client-supplied X-Forwarded-For rewrite request.client.
+        # The backend is an internal service reached through the Astro proxy.
+        "--no-proxy-headers",
+        "--no-server-header",
     ]
     if args.reload:
-        backend_cmd.insert(-4, "--reload")
+        backend_cmd.append("--reload")
     frontend_cmd = (
         npm_command(["run", "dev", "--", "--host", "127.0.0.1", "--port", frontend_port])
         if args.dev
@@ -151,8 +169,8 @@ def main() -> int:
     print("  MZTLAB · Scene", flush=True)
     print(f"  Site     http://127.0.0.1:{frontend_port}", flush=True)
     print(f"  Admin    http://127.0.0.1:{frontend_port}/admin", flush=True)
-    print(f"  API      {internal_api}/api/docs", flush=True)
-    print(f"  Mode     {'development' if args.dev else 'production'}", flush=True)
+    print(f"  API      {internal_api}/api  (仅限本机/内网)", flush=True)
+    print(f"  Mode     {'development (source exposed)' if args.dev else 'production'}", flush=True)
     print("═" * 54 + "\n", flush=True)
 
     backend: subprocess.Popen[bytes] | None = None

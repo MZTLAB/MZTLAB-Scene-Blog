@@ -2,12 +2,21 @@
 
 from __future__ import annotations
 
+import hmac
+import ipaddress
 import sqlite3
 from typing import Any, Callable
 
 from fastapi import HTTPException, Request, Response, status
 
-from .config import COOKIE_SECURE, SESSION_COOKIE, SESSION_DAYS
+from .config import (
+    COOKIE_SECURE,
+    PROXY_SECRET,
+    PROXY_SECRET_HEADER,
+    REAL_IP_HEADER,
+    SESSION_COOKIE,
+    SESSION_DAYS,
+)
 from .db import db, now_iso, setting_flag
 from .permissions import (
     ROLE_LABELS,
@@ -19,13 +28,33 @@ from .permissions import (
 from .security import new_session_token, session_expiry, token_fingerprint
 
 
+def _valid_ip(value: str) -> str | None:
+    try:
+        return str(ipaddress.ip_address(value.strip()))
+    except ValueError:
+        return None
+
+
 def client_ip(request: Request) -> str:
-    # Our Astro proxy overwrites this header. The API is expected to be bound
-    # to localhost or a private network, never exposed directly to the internet.
-    forwarded = request.headers.get("x-blog-real-ip", "").strip()
-    if forwarded and len(forwarded) < 64:
-        return forwarded
-    return request.client.host if request.client else "unknown"
+    """Resolve the browser address, trusting only our own proxy.
+
+    The audit report showed that a forged forwarding header let a client change
+    its rate-limit bucket. The Astro proxy therefore has to prove itself with a
+    shared secret before `X-Blog-Real-IP` is accepted; otherwise we use the
+    actual TCP peer. With `uvicorn --no-proxy-headers` that peer cannot be
+    rewritten by a client-supplied `X-Forwarded-For` either.
+    """
+    peer = request.client.host if request.client else "unknown"
+    if PROXY_SECRET:
+        supplied = request.headers.get(PROXY_SECRET_HEADER, "")
+        forwarded = request.headers.get(REAL_IP_HEADER, "").strip()
+        if (
+            forwarded
+            and len(forwarded) <= 64
+            and hmac.compare_digest(supplied, PROXY_SECRET)
+        ):
+            return _valid_ip(forwarded) or peer
+    return peer
 
 
 def user_public(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:

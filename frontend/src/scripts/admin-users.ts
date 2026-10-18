@@ -47,7 +47,7 @@ if (root) {
     if (passwordInput) {
       passwordInput.value = '';
       passwordInput.required = !member;
-      passwordInput.placeholder = member ? '留空则不修改密码' : '至少 8 位';
+      passwordInput.placeholder = member ? '留空则不修改密码' : '至少 10 位';
     }
     if (passwordLabel) passwordLabel.textContent = member ? '重置密码（可选）' : '初始密码 *';
     if (activeInput) activeInput.checked = member ? member.is_active : true;
@@ -194,13 +194,13 @@ if (root) {
         usernameInput?.focus();
         return;
       }
-      if (password.length < 8) {
-        toast('初始密码至少 8 位', 'error');
+      if (password.length < 10) {
+        toast('初始密码至少 10 位', 'error');
         passwordInput?.focus();
         return;
       }
-    } else if (password && password.length < 8) {
-      toast('新密码至少 8 位', 'error');
+    } else if (password && password.length < 10) {
+      toast('新密码至少 10 位', 'error');
       passwordInput?.focus();
       return;
     }

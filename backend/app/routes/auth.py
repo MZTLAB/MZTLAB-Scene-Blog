@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from ..db import db, get_user_count, now_iso, save_settings
@@ -15,7 +17,16 @@ from ..deps import (
     user_public,
 )
 from ..schemas import LoginIn, SetupIn
-from ..security import hash_password, login_limiter, verify_password
+from ..security import (
+    clear_login_failures,
+    hash_password,
+    logger,
+    login_account_limiter,
+    login_backoff_seconds,
+    login_ip_limiter,
+    login_pair_limiter,
+    verify_password,
+)
 
 router = APIRouter(tags=["auth"])
 
@@ -71,15 +82,41 @@ def setup(payload: SetupIn, request: Request, response: Response) -> dict:
 @router.post("/auth/login")
 def login(payload: LoginIn, request: Request, response: Response) -> dict:
     ip = client_ip(request)
-    if not login_limiter.allow(ip):
+    username = payload.username.strip().lower()
+    pair = f"{ip}|{username}"
+
+    # Hard limits: a single source cannot keep guessing, and neither can a
+    # single source against one account. The per-account limiter below is a
+    # high-ceiling throttle so an attacker cannot cheaply lock out the real
+    # administrator from other addresses.
+    if login_ip_limiter.is_blocked(ip):
+        logger.warning("login rate limited by ip: %s", ip)
         raise HTTPException(status_code=429, detail="尝试次数过多，请五分钟后再试")
+    if login_pair_limiter.is_blocked(pair):
+        logger.warning("login rate limited by ip/account pair: %s", pair)
+        raise HTTPException(status_code=429, detail="尝试次数过多，请五分钟后再试")
+    if login_account_limiter.is_blocked(username):
+        logger.warning("login rate limited by account: %s", username)
+        raise HTTPException(status_code=429, detail="该账号尝试次数过多，请稍后再试")
+
+    # Progressive delay for repeated failures against the same account.
+    failures = login_account_limiter.count(username)
+    delay = login_backoff_seconds(failures)
+    if delay:
+        time.sleep(delay)
+
     with db() as conn:
         row = conn.execute(
-            "SELECT * FROM users WHERE username = ?", (payload.username.lower(),)
+            "SELECT * FROM users WHERE username = ?", (username,)
         ).fetchone()
         if not row or not verify_password(payload.password, row["password_hash"]):
+            login_pair_limiter.record(pair)
+            login_ip_limiter.record(ip)
+            login_account_limiter.record(username)
+            logger.warning("failed login for %r from %s", username, ip)
             raise HTTPException(status_code=401, detail="用户名或密码不正确")
         if not row["is_active"]:
+            logger.warning("login for disabled account %r from %s", username, ip)
             raise HTTPException(status_code=403, detail="该账号已被停用，请联系管理员")
         token, _ = start_session(conn, request, int(row["id"]))
         conn.execute(
@@ -87,6 +124,7 @@ def login(payload: LoginIn, request: Request, response: Response) -> dict:
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (int(row["id"]),)).fetchone()
         user = user_public(conn, row)
+    clear_login_failures(ip, username)
     set_session_cookie(response, token)
     return {"ok": True, "user": user, "redirect": "/admin"}
 

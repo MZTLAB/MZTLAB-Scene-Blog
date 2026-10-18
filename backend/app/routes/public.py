@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Path, Query, Request
 
-from ..config import VERSION
+from ..config import MAX_SQLITE_INT
 from ..db import db, load_settings, now_iso, public_settings
 from ..deps import client_ip
 from ..galleries import (
@@ -35,7 +35,8 @@ router = APIRouter(tags=["public"])
 
 @router.get("/health")
 def health() -> dict:
-    return {"ok": True, "version": VERSION, "time": now_iso()}
+    # Liveness only; do not disclose the exact application version.
+    return {"ok": True, "time": now_iso()}
 
 
 @router.get("/site")
@@ -81,7 +82,6 @@ def site_info() -> dict:
         "tags": tags,
         "post_count": post_count,
         **counts,
-        "version": VERSION,
     }
 
 
@@ -216,7 +216,9 @@ def gallery_detail(slug: str) -> dict[str, Any]:
 
 
 @router.post("/galleries/{gallery_id}/view")
-def record_gallery_view(gallery_id: int) -> dict[str, Any]:
+def record_gallery_view(
+    gallery_id: int = Path(..., ge=1, le=MAX_SQLITE_INT),
+) -> dict[str, Any]:
     with db() as conn:
         cur = conn.execute(
             "UPDATE galleries SET view_count = view_count + 1 WHERE id = ? AND status = 'published'",
@@ -274,7 +276,9 @@ def taxonomy() -> dict[str, Any]:
 
 
 @router.get("/comments")
-def list_comments(post_id: int = Query(..., ge=1)) -> dict[str, Any]:
+def list_comments(
+    post_id: int = Query(..., ge=1, le=MAX_SQLITE_INT),
+) -> dict[str, Any]:
     with db() as conn:
         rows = conn.execute(
             """SELECT id, post_id, author_name, author_url, content, created_at
@@ -286,7 +290,11 @@ def list_comments(post_id: int = Query(..., ge=1)) -> dict[str, Any]:
 
 
 @router.post("/posts/{post_id}/comments", status_code=201)
-def create_comment(post_id: int, payload: CommentIn, request: Request) -> dict[str, Any]:
+def create_comment(
+    payload: CommentIn,
+    request: Request,
+    post_id: int = Path(..., ge=1, le=MAX_SQLITE_INT),
+) -> dict[str, Any]:
     settings = load_settings()
     if not settings.get("comments_enabled", True):
         raise HTTPException(status_code=403, detail="评论功能已关闭")
@@ -333,7 +341,9 @@ def create_comment(post_id: int, payload: CommentIn, request: Request) -> dict[s
 
 
 @router.post("/posts/{post_id}/view")
-def record_view(post_id: int) -> dict[str, Any]:
+def record_view(
+    post_id: int = Path(..., ge=1, le=MAX_SQLITE_INT),
+) -> dict[str, Any]:
     with db() as conn:
         cur = conn.execute(
             """UPDATE posts SET view_count = view_count + 1

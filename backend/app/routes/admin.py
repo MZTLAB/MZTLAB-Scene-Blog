@@ -43,7 +43,7 @@ from ..schemas import (
     ProfileIn,
     TaxonomyIn,
 )
-from ..security import hash_password, verify_password
+from ..security import hash_password, password_policy_error, verify_password
 
 router = APIRouter(
     prefix="/admin",
@@ -835,6 +835,9 @@ def update_profile(
         if payload.new_password:
             if not verify_password(payload.current_password, row["password_hash"]):
                 raise HTTPException(status_code=400, detail="当前密码不正确")
+            problem = password_policy_error(payload.new_password, row["username"])
+            if problem:
+                raise HTTPException(status_code=400, detail=problem)
             password_hash = hash_password(payload.new_password)
         else:
             password_hash = row["password_hash"]

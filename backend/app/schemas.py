@@ -12,6 +12,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .photo_exif import normalize_exif_fields
+from .security import MIN_PASSWORD_LENGTH, password_policy_error
 
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{3,32}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -22,13 +23,20 @@ ROLE_VALUES = ("admin", "editor", "author")
 RoleLiteral = Literal["admin", "editor", "author"]
 
 
+def _check_password(password: str, username: str | None = None) -> str:
+    problem = password_policy_error(password, username)
+    if problem:
+        raise ValueError(problem)
+    return password
+
+
 class StrippedModel(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="ignore")
 
 
 class SetupIn(StrippedModel):
     username: str = Field(min_length=3, max_length=32)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=128)
     display_name: str = Field(min_length=1, max_length=50)
     site_title: str = Field(default="MZTLAB", min_length=1, max_length=50)
     site_description: str = Field(default="", max_length=200)
@@ -39,6 +47,11 @@ class SetupIn(StrippedModel):
         if not USERNAME_RE.match(value):
             raise ValueError("用户名只能包含字母、数字、点、下划线或短横线，长度 3-32")
         return value.lower()
+
+    @model_validator(mode="after")
+    def strong_password(self) -> "SetupIn":
+        _check_password(self.password, self.username)
+        return self
 
 
 class LoginIn(StrippedModel):
@@ -169,8 +182,8 @@ class ProfileIn(StrippedModel):
 
     @model_validator(mode="after")
     def password_pair(self) -> "ProfileIn":
-        if self.new_password and len(self.new_password) < 8:
-            raise ValueError("新密码至少 8 位")
+        if self.new_password:
+            _check_password(self.new_password)
         if self.new_password and not self.current_password:
             raise ValueError("修改密码需要提供当前密码")
         return self
@@ -178,7 +191,7 @@ class ProfileIn(StrippedModel):
 
 class UserCreateIn(StrippedModel):
     username: str = Field(min_length=3, max_length=32)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=128)
     display_name: str = Field(min_length=1, max_length=50)
     email: str = Field(default="", max_length=120)
     bio: str = Field(default="", max_length=500)
@@ -197,6 +210,11 @@ class UserCreateIn(StrippedModel):
         if value and not EMAIL_RE.match(value):
             raise ValueError("邮箱格式不正确")
         return value
+
+    @model_validator(mode="after")
+    def strong_password(self) -> "UserCreateIn":
+        _check_password(self.password, self.username)
+        return self
 
 
 class UserUpdateIn(StrippedModel):
@@ -217,8 +235,8 @@ class UserUpdateIn(StrippedModel):
     @field_validator("password")
     @classmethod
     def password_length(cls, value: str) -> str:
-        if value and len(value) < 8:
-            raise ValueError("新密码至少 8 位")
+        if value:
+            _check_password(value)
         return value
 
 

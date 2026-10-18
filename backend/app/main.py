@@ -1,23 +1,28 @@
 """FastAPI entry point.
 
-Run locally:
-    uvicorn app.main:app --reload --port 8000
+Run locally (never expose this port directly):
+    uvicorn app.main:app --no-proxy-headers --host 127.0.0.1 --port 8000
 """
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from .config import APP_NAME, CORS_ORIGINS, UPLOAD_DIR, VERSION
+from .config import APP_NAME, CORS_ORIGINS, ENABLE_API_DOCS, UPLOAD_DIR
 from .db import clear_expired_sessions, init_db
 from .routes import admin, auth, gallery_admin, media, public, users
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+logger = logging.getLogger("mztlab.api")
 
 
 @asynccontextmanager
@@ -29,11 +34,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=f"{APP_NAME} API",
-    version=VERSION,
     lifespan=lifespan,
-    docs_url="/api/docs",
+    # The API docs reveal the full attack surface. Expose them only when
+    # BLOG_ENABLE_API_DOCS=true is set explicitly (development).
+    docs_url="/api/docs" if ENABLE_API_DOCS else None,
     redoc_url=None,
-    openapi_url="/api/openapi.json",
+    openapi_url="/api/openapi.json" if ENABLE_API_DOCS else None,
 )
 
 if CORS_ORIGINS:
@@ -65,9 +71,48 @@ async def protect_admin_and_add_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault(
+        "Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()"
+    )
+    response.headers.setdefault("Cross-Origin-Resource-Policy", "same-origin")
     if path.startswith("/api/"):
         response.headers.setdefault("Cache-Control", "no-store")
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """Return one readable Chinese message instead of the raw validation list."""
+    detail = "请求参数不正确"
+    errors = exc.errors()
+    if errors:
+        message = str(errors[0].get("msg", "")).removeprefix("Value error, ")
+        detail = message or detail
+    return JSONResponse(status_code=422, content={"detail": detail})
+
+
+@app.exception_handler(OverflowError)
+async def overflow_error_handler(request: Request, exc: OverflowError) -> JSONResponse:
+    # Huge integer ids used to reach SQLite and crash with a 500. Reject them.
+    logger.warning("overflow on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=400, content={"detail": "参数超出范围"})
+
+
+@app.exception_handler(sqlite3.Error)
+async def database_error_handler(
+    request: Request, exc: sqlite3.Error
+) -> JSONResponse:
+    logger.exception("database error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
+
+
+@app.exception_handler(Exception)
+async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+    # Never leak tracebacks, file paths or dependency details to the client.
+    logger.exception("unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "服务器内部错误"})
 
 
 app.include_router(auth.router, prefix="/api")
@@ -84,9 +129,5 @@ app.mount("/media", StaticFiles(directory=UPLOAD_DIR, check_dir=False), name="me
 
 @app.get("/")
 def root() -> dict:
-    return {
-        "name": APP_NAME,
-        "version": VERSION,
-        "docs": "/api/docs",
-        "message": "The MZTLAB site is served by Astro on port 4321 (theme: Scene).",
-    }
+    # Deliberately terse: no version, docs path or deployment details.
+    return {"ok": True}

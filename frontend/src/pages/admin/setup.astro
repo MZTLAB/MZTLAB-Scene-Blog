@@ -36,12 +36,12 @@ try {
       <input id="username" name="username" type="text" autocomplete="username" pattern="[a-zA-Z0-9_.\-]{3,32}" required />
     </div>
     <div class="a-field">
-      <label for="password">密码 <small>至少 8 位</small></label>
-      <input id="password" name="password" type="password" autocomplete="new-password" minlength="8" required />
+      <label for="password">密码 <small>至少 10 位，含大小写字母、数字、符号中的三类</small></label>
+      <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required />
     </div>
     <div class="a-field">
       <label for="confirm_password">确认密码</label>
-      <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required />
+      <input id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="10" required />
     </div>
     <div class="auth-error" data-auth-error role="alert"></div>
     <button class="a-btn a-btn--primary" type="submit" style="justify-content: center; min-height: 42px">

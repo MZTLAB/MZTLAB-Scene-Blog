@@ -21,6 +21,37 @@ const cjsBridgePlugin = {
   },
 };
 
+// Astro/Vite's dev server intentionally exposes source files. The audit report
+// showed /src/*, /astro.config.mjs and /package.json were downloadable. These
+// files are only reachable while running `astro dev`, so production must use
+// the built server; in development we at least refuse the configuration files
+// that are not needed by the browser at all.
+const SENSITIVE_DEV_PATHS = [
+  /^\/package-lock\.json$/,
+  /^\/package\.json$/,
+  /^\/astro\.config\.mjs$/,
+  /^\/tsconfig\.json$/,
+  /^\/\.env(\..*)?$/,
+  /\/\.env(\..*)?$/,
+];
+
+const blockSensitiveDevFiles = {
+  name: 'mztlab-block-sensitive-dev-files',
+  apply: 'serve',
+  configureServer(server) {
+    server.middlewares.use((request, response, next) => {
+      const path = (request.url || '').split('?')[0];
+      if (SENSITIVE_DEV_PATHS.some((pattern) => pattern.test(path))) {
+        response.statusCode = 404;
+        response.setHeader('content-type', 'text/plain; charset=utf-8');
+        response.end('Not found');
+        return;
+      }
+      next();
+    });
+  },
+};
+
 // The Astro server is the single public entry point. It renders pages and
 // proxies /api and /media to FastAPI (see src/pages/api and src/pages/media).
 export default defineConfig({
@@ -34,11 +65,18 @@ export default defineConfig({
   compressHTML: true,
   build: {
     inlineStylesheets: 'auto',
+    // Source maps would make the production bundle as readable as the source.
+    sourcemap: false,
   },
   vite: {
     server: {
       host: process.env.HOST || '127.0.0.1',
+      fs: {
+        strict: true,
+        // Never serve dotfiles or private keys from the dev server.
+        deny: ['.env', '.env.*', '*.pem', '**/.git/**'],
+      },
     },
-    plugins: [cjsBridgePlugin],
+    plugins: [cjsBridgePlugin, blockSensitiveDevFiles],
   },
 });

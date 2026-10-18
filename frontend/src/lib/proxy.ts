@@ -5,6 +5,21 @@ function internalBase(): string {
   return env?.BLOG_API_INTERNAL_URL || 'http://127.0.0.1:8000';
 }
 
+function proxySecret(): string {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return env?.BLOG_PROXY_SECRET || '';
+}
+
+/** Client-supplied forwarding headers must never reach FastAPI unvalidated. */
+const UNTRUSTED_FORWARD_HEADERS = [
+  'forwarded',
+  'x-forwarded-for',
+  'x-forwarded-host',
+  'x-real-ip',
+  'x-blog-real-ip',
+  'x-blog-proxy-secret',
+];
+
 const HOP_BY_HOP = new Set([
   'connection',
   'keep-alive',
@@ -34,7 +49,10 @@ export async function forwardToApi(
   headers.delete('host');
   headers.delete('content-length');
   headers.delete('connection');
+  for (const name of UNTRUSTED_FORWARD_HEADERS) headers.delete(name);
   headers.set('x-blog-real-ip', clientAddress || 'unknown');
+  const secret = proxySecret();
+  if (secret) headers.set('x-blog-proxy-secret', secret);
   const forwardedProto = request.headers.get('x-forwarded-proto');
   if (forwardedProto) headers.set('x-forwarded-proto', forwardedProto);
 

@@ -66,11 +66,11 @@ cd frontend && npm ci
 
 - 站点：<http://127.0.0.1:4321>
 - 后台：<http://127.0.0.1:4321/admin>
-- API 文档：<http://127.0.0.1:4321/api/docs>
+- API 文档：默认关闭（生产安全考虑）。本地开发可设 `BLOG_ENABLE_API_DOCS=true` 后访问 `http://127.0.0.1:4321/api/docs`。
 
-快捷脚本：`.\start.ps1 -Dev` / `.\start.ps1`（Windows），`./start.sh --dev`（macOS / Linux）。
+快捷脚本：`.\start.ps1 -Dev` / `.\start.ps1`（Windows），`./start.sh --dev`（macOS / Linux）。`--dev` 会启动 Astro 开发服务器并暴露源码，只应在本机使用；默认生产模式则先构建再运行 `dist/server/entry.mjs`。
 
-首次访问 `/admin` 会进入 `/admin/setup`，创建管理员。也可以设置 `BLOG_ADMIN_USER` / `BLOG_ADMIN_PASSWORD`，详见 `.env.example`。
+首次访问 `/admin` 会进入 `/admin/setup`，创建管理员。也可以设置 `BLOG_ADMIN_USER` / `BLOG_ADMIN_PASSWORD`，详见 `.env.example`。密码需至少 10 位，并包含小写字母、大写字母、数字、符号中的至少三类；常见弱口令会被拒绝。
 
 演示内容默认包含 3 本相册（程序生成的色块图）、3 篇文章和一个「关于」页面，只写入一次。设置 `BLOG_SEED_DEMO=false` 从空站点开始。旧版本留下的项目数据会保留在数据库中，但不再有公开入口或后台入口。
 
@@ -224,6 +224,14 @@ scripts/                setup / run
 - 数据库升级由 `PRAGMA user_version` 管理（当前 `SCHEMA_VERSION = 5`，定义在 `backend/app/db.py`）。迁移会在启动时幂等执行：补列、回填所有者与 EXIF、把旧主题值映射到 Scene。
 - 测试：`cd backend && .venv/Scripts/python -m unittest discover -s tests`。
 - 构建：`cd frontend && npm run check && npm run build`。
+
+### 安全配置
+
+- **只暴露前端端口**：FastAPI 监听 `127.0.0.1:8000`（Docker 中仅容器内网），并必须带 `--no-proxy-headers` 启动；`8000` 不要映射到公网。
+- **代理密钥**：`scripts/run.py` 每次运行会随机生成 `BLOG_PROXY_SECRET` 供前后端使用；Docker 部署需在启动前设置随机值（例如 `BLOG_PROXY_SECRET=$(python -c "import secrets;print(secrets.token_urlsafe(32))")`，或写入 compose 同目录的 `.env`），后端只信任带该密钥请求中的 `x-blog-real-ip`。
+- **HTTPS**：启用后设置 `BLOG_COOKIE_SECURE=true`（`BLOG_SITE_URL` 以 `https://` 开头时会自动开启），并由反向代理下发 HSTS；站点已内置 CSP、XFO、nosniff、Referrer-Policy、Permissions-Policy。
+- **API 文档**：`/api/docs`、`/api/openapi.json` 默认关闭，仅在 `BLOG_ENABLE_API_DOCS=true` 时开启。
+- **登录防护**：失败限流按 IP、IP+账号、账号三层计数并指数退避；登录成功会清零。会话默认 7 天，改密/停用/改角色会吊销该用户全部会话。
 
 ## FAQ
 

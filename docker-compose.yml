@@ -6,13 +6,20 @@ services:
       BLOG_DATA_DIR: /app/data
       BLOG_FRONTEND_URL: http://127.0.0.1:4321
       BLOG_SEED_DEMO: "true"
-      BLOG_SESSION_DAYS: "14"
+      BLOG_SESSION_DAYS: "7"
+      # Shared with the frontend service; only a request carrying this secret
+      # may set the trusted client-IP header. Generate one with
+      # `python -c "import secrets;print(secrets.token_urlsafe(32))"` and put it
+      # in the shell environment or a .env file next to this compose file.
+      BLOG_PROXY_SECRET: ${BLOG_PROXY_SECRET:?set BLOG_PROXY_SECRET to a random shared secret}
       # Set to "true" after putting the site behind HTTPS.
       BLOG_COOKIE_SECURE: "false"
       # Optional first-run account. Leave empty to use the /admin/setup page.
       BLOG_ADMIN_USER: ""
       BLOG_ADMIN_PASSWORD: ""
       BLOG_ADMIN_NAME: "MZTLAB"
+    # No `ports:` mapping: the API must only be reachable from the frontend
+    # container over the private compose network.
     volumes:
       - blog_data:/app/data
     healthcheck:
@@ -35,6 +42,7 @@ services:
         condition: service_healthy
     environment:
       BLOG_API_INTERNAL_URL: http://backend:8000
+      BLOG_PROXY_SECRET: ${BLOG_PROXY_SECRET:?set BLOG_PROXY_SECRET to a random shared secret}
       HOST: 0.0.0.0
       PORT: 4321
     ports:

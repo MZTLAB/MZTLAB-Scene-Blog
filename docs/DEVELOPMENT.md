@@ -92,7 +92,7 @@ FastAPI  (127.0.0.1:8000，由 Astro 通过 BLOG_API_INTERNAL_URL 访问)
 
 - **浏览器只认识 4321**。`/api`、`/media` 都由 Astro 代理转发（`frontend/src/lib/proxy.ts:24`），因此 Cookie 是第一方 Cookie、无需 CORS、生产环境只暴露一个端口。
 - **公共页面在服务端取数**（Astro frontmatter 里 `await getSite()` / `apiServer()`）；只有后台页面内的交互通过浏览器 `fetch` 调 `/api`。
-- **FastAPI 不应直接暴露到公网**：它信任代理写入的 `x-blog-real-ip` 头（`backend/app/deps.py:22`），并靠 `x-blog-request` 头做 CSRF 防护。
+- **FastAPI 不应直接暴露到公网**：只监听 `127.0.0.1`（或容器内网），且必须用 `uvicorn --no-proxy-headers` 启动，否则客户端伪造 `X-Forwarded-For` 就能改写来源 IP、绕过登录限速。后端只接受携带 `BLOG_PROXY_SECRET` 的请求所附带的 `x-blog-real-ip`（`backend/app/deps.py:22`），CSRF 由 `x-blog-request` 头防护。
 
 ### 1.3 一个请求的完整链路（两类）
 
@@ -114,7 +114,7 @@ GET /posts/hello
 点击"保存"
   → scripts/admin-*.ts 调用 lib/api.ts 的 api()
       fetch('/api/admin/posts/12', { method:'PUT', headers:{ 'x-blog-request':'1' }, credentials:'same-origin' })
-  → Astro /api/[...path] 代理（转发 Cookie、写入 x-blog-real-ip）
+  → Astro /api/[...path] 代理（转发 Cookie、覆盖写 x-blog-real-ip 与 x-blog-proxy-secret）
   → FastAPI 中间件校验 x-blog-request（main.py:49，缺失返回 403）
   → require_staff / require_permission / owns 逐层校验
   → Pydantic schema 校验 → SQL 写库 → 返回 JSON
@@ -125,7 +125,7 @@ GET /posts/hello
 
 1. **公开可见性只由后端 SQL 条件决定**：`posts.PUBLIC_CONDITION`、`galleries.PHOTO_PUBLIC_CONDITION`（见 6.3）。前端不要自行过滤敏感数据，也不要给公开接口加"顺便返回草稿"的开关。
 2. **权限判断在服务端**：前端 `lib/permissions.ts` 只用于隐藏导航/按钮，真正的边界在 `backend/app/deps.py` 与各路由的 `_ensure_owner`。
-3. **SQLite 单进程假设**：限流器 `RateLimiter` 是进程内内存实现（`security.py:82`），若改成多 worker，需改用 Redis 或反向代理限流。
+3. **SQLite 单进程假设**：限流器 `RateLimiter` 是进程内内存实现（`security.py`），若改成多 worker，需改用 Redis 或反向代理限流。
 
 ---
 
@@ -216,14 +216,13 @@ Windows 快捷方式：`.\start.ps1 -Dev` / `.\start.ps1`；macOS / Linux：`./s
 | --- | --- |
 | <http://127.0.0.1:4321> | 站点 |
 | <http://127.0.0.1:4321/admin> | 后台（首次跳 `/admin/setup` 创建管理员） |
-| <http://127.0.0.1:4321/api/docs> | FastAPI Swagger（经 Astro 代理） |
-| <http://127.0.0.1:8000/api/docs> | 直连后端（调试用） |
+| `/api/docs` / `/api/openapi.json` | **默认关闭**；开发时设 `BLOG_ENABLE_API_DOCS=true` 后可用（经 Astro 代理） |
 
 **只启动一半也可以调试**：
 
 ```bash
 # 仅后端（在 backend/ 下）
-.venv/Scripts/python -m uvicorn app.main:app --reload --port 8000
+.venv/Scripts/python -m uvicorn app.main:app --reload --no-proxy-headers --port 8000
 
 # 仅前端
 cd frontend && npm run dev
@@ -243,8 +242,10 @@ cd frontend && npm run dev
 | `BLOG_FRONTEND_URL` | `http://127.0.0.1:4321` | 前端地址（后端日志/跳转用） |
 | `BLOG_SITE_URL` | 空 | 首启动写入 `site_url` 设置（canonical/RSS/sitemap） |
 | `BLOG_SESSION_COOKIE` | `mztlab_session` | Cookie 名 |
-| `BLOG_SESSION_DAYS` | `14` | 会话有效期 |
-| `BLOG_COOKIE_SECURE` | `false` | HTTPS 下必须设 `true` |
+| `BLOG_SESSION_DAYS` | `7` | 会话有效期 |
+| `BLOG_COOKIE_SECURE` | 按 `BLOG_SITE_URL` 是否 HTTPS 自动判断 | 生产 HTTPS 下应保持 `true` |
+| `BLOG_PROXY_SECRET` | 空 | 前后端共享的代理密钥；只有带此密钥的请求才信任 `x-blog-real-ip`。`scripts/run.py` 每次运行随机生成，Docker 需在两端设置同一值 |
+| `BLOG_ENABLE_API_DOCS` | `false` | 是否公开 `/api/docs` 与 `/api/openapi.json` |
 | `BLOG_ADMIN_USER` / `BLOG_ADMIN_PASSWORD` | 空 | 首启动自动建管理员（二者都填且无用户时） |
 | `BLOG_ADMIN_NAME` | `MZTLAB` | 自动创建管理员的显示名 |
 | `BLOG_SEED_DEMO` | `true` | 是否播种演示内容 |
@@ -257,9 +258,12 @@ cd frontend && npm run dev
 ### 3.4 Docker
 
 ```bash
+export BLOG_PROXY_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
 docker compose up --build
 # frontend: http://localhost:4321   backend 仅容器内网络暴露 8000
 ```
+
+`BLOG_PROXY_SECRET` 是必填项（compose 会拒绝空值）：前后端必须使用同一个随机值，否则后端不信任代理写入的客户端 IP。
 
 - `backend/Dockerfile`：`python:3.13-slim`，`BLOG_DATA_DIR=/app/data`，数据挂在 `blog_data` volume。
 - `frontend/Dockerfile`：多阶段构建，产物为 `dist/` + 生产依赖，`node dist/server/entry.mjs`。
@@ -284,15 +288,20 @@ backend/data/
 ### 4.1 入口与中间件（`backend/app/main.py`）
 
 ```python
-app = FastAPI(..., docs_url="/api/docs", openapi_url="/api/openapi.json")
+app = FastAPI(
+    ...,
+    docs_url="/api/docs" if ENABLE_API_DOCS else None,
+    openapi_url="/api/openapi.json" if ENABLE_API_DOCS else None,
+)
 ```
 
-- `lifespan`（`main.py:23`）：启动时 `init_db()`（建表 + 迁移 + 播种 + bootstrap 管理员）与 `clear_expired_sessions()`。
-- `protect_admin_and_add_headers`（`main.py:49`）：
+- `lifespan`（`main.py`）：启动时 `init_db()`（建表 + 迁移 + 播种 + bootstrap 管理员）与 `clear_expired_sessions()`。
+- `protect_admin_and_add_headers`（`main.py`）：
   - **CSRF 防护**：`/api/admin` 下的 POST/PUT/PATCH/DELETE 必须带 `x-blog-request: 1`，否则 403。
-  - 追加安全响应头：`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`；`/api/*` 一律 `Cache-Control: no-store`。
-- 路由挂载（`main.py:73`）：所有 router 都加 `prefix="/api"`；各 router 自己再带 `prefix="/admin"` 或 `tags`。
-- `/media` 用 `StaticFiles(directory=UPLOAD_DIR, check_dir=False)` 直接托管（`main.py:82`）——文件名随机 + 上传已校验，故可公开；生产中由 Astro 代理。
+  - 追加安全响应头：`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、`Cross-Origin-Resource-Policy`；`/api/*` 一律 `Cache-Control: no-store`。
+- **异常处理**：参数校验错误统一返回 `{"detail": "中文消息"}`；超大整数 / SQLite 溢出返回 400/422；其余未处理异常记日志后返回统一 500 JSON，不泄露堆栈与路径。
+- 路由挂载：所有 router 都加 `prefix="/api"`；各 router 自己再带 `prefix="/admin"` 或 `tags`。
+- `/media` 用 `StaticFiles(directory=UPLOAD_DIR, check_dir=False)` 直接托管——文件名随机 + 上传已校验，故可公开；生产中由 Astro 代理。
 
 ### 4.2 配置（`backend/app/config.py`）
 
@@ -360,8 +369,9 @@ _ADDED_COLUMNS = {
 
 ### 4.4 认证与会话（`security.py` + `deps.py`）
 
-- **密码**：`hash_password` 生成 `scrypt$N$r$p$salt$digest`（`security.py:33`），`verify_password` 拆参数重算 + `hmac.compare_digest`。改哈希参数时旧密码仍可验证（参数已编码在字符串里）。
-- **会话**：登录生成 `secrets.token_urlsafe(40)`，DB 只存 `sha256(token)`；Cookie 为 `HttpOnly + SameSite=Lax + path=/`，HTTPS 下由 `COOKIE_SECURE` 控制 `Secure`。
+- **密码**：`hash_password` 生成 `scrypt$N$r$p$salt$digest`（`security.py`），`verify_password` 拆参数重算 + `hmac.compare_digest`。改哈希参数时旧密码仍可验证（参数已编码在字符串里）。
+- **密码策略**：`password_policy_error()` 要求 ≥ 10 位、大小写字母/数字/符号至少三类、拒绝常见弱口令（含 `admin123`/`user1234` 这类常见词+数字）以及包含用户名的密码；初始化、建成员、改密、个人资料修改都会校验。
+- **会话**：登录生成 `secrets.token_urlsafe(40)`，DB 只存 `sha256(token)`；Cookie 为 `HttpOnly + SameSite=Lax + path=/`，`Secure` 由 `BLOG_COOKIE_SECURE` 控制（未显式设置时按 `BLOG_SITE_URL` 是否 HTTPS 自动判断）。默认有效期 7 天；改密/停用/改角色会吊销该用户全部会话。
 - **当前用户**：`get_session_user(request)` 每次请求查 `sessions JOIN users`，并**实时计算权限列表**（`user_public`）——所以后台改 `editor_manage_others` 后无需重新登录。
 - **依赖项**（写新路由时直接用）：
 
@@ -372,7 +382,7 @@ _ADDED_COLUMNS = {
 | `require_permission("x.y")` | staff + 指定权限键，返回 user dict |
 | `require_any_permission("a","b")` | 任一满足即可 |
 
-- **限流**：`login_limiter`（8 次 / 5 分钟 / IP）、`comment_limiter`（5 次 / 10 分钟 / IP），内存实现。IP 来自 `x-blog-real-ip`（由 Astro 代理写入）或 socket。
+- **限流**：登录同时按 IP（30 次 / 5 分钟）、`IP+账号`（6 次 / 5 分钟）、账号（60 次 / 15 分钟）三层计数，只统计失败并在成功后清零；重复失败带指数退避延迟并写警告日志。`comment_limiter` 为 5 次 / 10 分钟 / IP，内存实现。来源 IP 仅在代理密钥匹配时取自 `x-blog-real-ip`，否则用 TCP 对端地址。
 
 ### 4.5 权限模型（`permissions.py`）
 
@@ -469,14 +479,14 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 
 | 模型 | 用途 | 关键限制 |
 | --- | --- | --- |
-| `SetupIn` | 初始化管理员 | 用户名 3–32、密码 ≥ 8 |
+| `SetupIn` | 初始化管理员 | 用户名 3–32、密码满足强度策略（≥ 10 位 + 三类字符） |
 | `LoginIn` | 登录 | — |
 | `PostIn` | 文章/页面 | 标题 ≤ 200、正文 ≤ 500k、tags ≤ 20、categories ≤ 6；`scheduled` 必须有 `published_at` |
 | `CommentIn` | 评论 | 内容 ≤ 3000，`website` 是蜜罐字段 |
 | `GalleryIn` / `PhotoIn` / `PhotoUpdateIn` / `PhotoBatchIn` / `ReorderIn` | 相册与照片 | 状态枚举、EXIF 字段白名单、日期格式 `YYYY-MM(-DD)` |
 | `MediaExifIn` / `MediaAltIn` | 媒体 | ISO ≤ 409600、焦距 ≤ 2000 |
 | `AppearanceIn` | 外观 | 主题/明暗/字体/布局枚举、accent `#RRGGBB`、宽度 720–1600、圆角 0–40 |
-| `UserCreateIn` / `UserUpdateIn` / `ProfileIn` | 成员 | 角色枚举、密码 ≥ 8、改密需旧密码 |
+| `UserCreateIn` / `UserUpdateIn` / `ProfileIn` | 成员 | 角色枚举、密码强度策略、改密需旧密码 |
 
 新增字段时，**先把校验写进 schema**，再改路由与序列化——这样错误信息（422）由 Pydantic 统一产出。
 
@@ -496,7 +506,7 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
-| GET | `/api/health` | 健康检查（版本 + 时间） |
+| GET | `/api/health` | 健康检查（仅 `ok` + 时间，不返回版本） |
 | GET | `/api/site` | 公开设置、分类、标签、计数 |
 | GET | `/api/posts` | 文章列表（`page/per_page/tag/category/q/featured`） |
 | GET | `/api/posts/{slug}` | 文章详情（含 toc/prev/next/related、评论开关） |
@@ -613,8 +623,12 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 output: 'server'                     // SSR，无预渲染
 adapter: node({ mode: 'standalone' }) // 产物 dist/server/entry.mjs
 server: { host: HOST || '127.0.0.1', port: PORT || 4321 }
-vite.plugins: [cjsBridgePlugin]      // 仅 serve 生效：picomatch/yaml/eventemitter3 走 CJS 桥
+build: { sourcemap: false }          // 生产不输出源码映射
+vite.server.fs: { strict: true, deny: ['.env', '*.pem', '**/.git/**'] }
+vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 ```
+
+**关于开发服务器**：`astro dev` 会提供 `/src/*`、`/@vite/client` 等源码入口，**只能在本机开发时使用，不能对外**。生产必须 `npm run build` 后用 `node dist/server/entry.mjs`（`scripts/run.py` 默认即此模式，`--dev` 会打印警告）。额外插件会拦截 `/package.json`、`/astro.config.mjs`、`/tsconfig.json`、`.env` 等配置文件的 dev 请求。
 
 **关于 `cjsBridgePlugin`**：Astro 7 / Vite 8 的 dev SSR 会用内联方式执行部分 CommonJS 依赖，导致 `require` 不可用。`lib/picomatch-esm.mjs`、`lib/yaml-esm.mjs`、`lib/eventemitter3-esm.mjs` 是三个极小的包装文件，把包映射到 `createRequire` 版本。**只在开发期生效，生产打包用真包**；不要删这三个文件。
 
@@ -625,10 +639,12 @@ vite.plugins: [cjsBridgePlugin]      // 仅 serve 生效：picomatch/yaml/evente
 | `pages/api/[...path].ts` | `ALL → forwardToApi(context, '/api')` |
 | `pages/media/[...path].ts` | `ALL → forwardToApi(context, '/media')` |
 
+`src/middleware.ts` 对每个响应统一追加安全头：`Content-Security-Policy`（仅生产构建；开发期由 Vite HMR 需要内联/eval）、`X-Content-Type-Options`、`X-Frame-Options`、`Referrer-Policy`、`Permissions-Policy`、`Cross-Origin-Opener-Policy`；请求经 HTTPS（含 `x-forwarded-proto: https`）时再追加 HSTS。
+
 `lib/proxy.ts:24` 做的事：
 
 1. 拼接 `BLOG_API_INTERNAL_URL + 前缀 + path + query`；
-2. 复制请求头，删除 `host/content-length/connection`，写入 `x-blog-real-ip`（供后端限流/审计）；
+2. 复制请求头，删除 `host/content-length/connection` 与客户端可能伪造的 `forwarded/x-forwarded-for/x-real-ip/x-blog-real-ip`，再写入可信的 `x-blog-real-ip` 与 `x-blog-proxy-secret`（供后端限流/审计）；
 3. 非 GET/HEAD 时读取 `arrayBuffer()` 转发 body，`redirect: 'manual'`，20s 超时；
 4. 过滤 hop-by-hop 头；删除 `content-encoding/content-length`（Node fetch 已解压）；用 `getSetCookie()` 逐条转发 Set-Cookie；
 5. fetch 抛错 → 返回 502 JSON：`后端服务暂时不可用，请确认 FastAPI 已启动`。
@@ -1176,7 +1192,7 @@ def media_usage(user: dict = Depends(require_staff)) -> dict[str, Any]:
 - 权限：读用 `require_staff`；写用 `require_permission("…")`；涉及他人数据再 `_ensure_owner`。
 - router 已在 `main.py` 挂载，无需再改入口。新建 router 才需要 `app.include_router(new.router, prefix="/api")`。
 - 前端调用：`const data = await api<{count:number;bytes:number}>('/api/admin/media/usage');`
-- 在 `/api/docs`（Swagger）里确认参数、响应模型是否正确。
+- 在 `BLOG_ENABLE_API_DOCS=true` 启动后的 `/api/docs`（Swagger）里确认参数、响应模型是否正确。
 
 ---
 
@@ -1424,7 +1440,7 @@ cd frontend && npm run build
 
 # 运行
 cd frontend && node dist/server/entry.mjs          # 需要 BLOG_API_INTERNAL_URL
-cd backend  && .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd backend  && .venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-proxy-headers
 ```
 
 或 `python scripts/run.py`（非 `--dev` 会自动先 build）。
@@ -1438,10 +1454,11 @@ docker compose logs -f backend
 
 上线后必须做：
 
-1. 设 `BLOG_COOKIE_SECURE=true`（在 HTTPS 之后）；
+1. 设 `BLOG_COOKIE_SECURE=true`（在 HTTPS 之后）；若 `BLOG_SITE_URL` 已是 `https://`，默认即启用；
 2. 用 Nginx/Caddy 把 `:4321` 暴露到公网并终止 TLS，**不要**暴露 `:8000`；
-3. 备份 `blog_data` volume（或 `backend/data`）：`blog.db` + `uploads/`；
-4. 设置 `BLOG_SITE_URL` 为正式域名（或在后台 → 设置里改）。
+3. 为前后端设置同一个随机 `BLOG_PROXY_SECRET`（compose 里两端都读取该变量）；
+4. 备份 `blog_data` volume（或 `backend/data`）：`blog.db` + `uploads/`；
+5. 设置 `BLOG_SITE_URL` 为正式域名（或在后台 → 设置里改）。
 
 ### 10.4 升级步骤（部署新版本时）
 
@@ -1453,10 +1470,12 @@ docker compose logs -f backend
 
 ### 10.5 安全清单
 
-- 密码哈希用 scrypt，Session 只存 SHA-256 摘要，Cookie `HttpOnly + SameSite=Lax`；
+- 密码哈希用 scrypt，密码强度策略拒绝弱口令，Session 只存 SHA-256 摘要，Cookie `HttpOnly + SameSite=Lax`（HTTPS 下自动 `Secure`）；
 - 管理端写操作有 CSRF 头校验；所有富文本经 bleach 白名单；
 - 上传做格式魔数 + 尺寸校验，路径做穿越防护；
 - 公开设置与导出不会带出私有设置/密码哈希；
+- 登录限流按 IP + 账号双维度、失败退避并记录告警；代理来源 IP 需要共享密钥，后端以 `--no-proxy-headers` 启动；
+- `/api/docs`、`/api/openapi.json`、版本号与服务器指纹默认不外露；前端统一安全响应头 + CSP；
 - 限流是单进程内存实现：多 worker 时换 Redis 或网关限流；
 - 后台无二次验证，生产上建议加 IP 白名单或反向代理 Basic Auth。
 
@@ -1487,7 +1506,7 @@ docker compose logs -f backend
 | `content.py` 白名单 ↔ `audio-embed.ts` 输出 | 标签/属性必须被允许 |
 | `db.py SCHEMA_VERSION` ↔ 迁移函数 | 版本号与 `if version >= N` 判定 |
 | `gallery_dict` / `photo_dict` ↔ `types.ts Photo/Gallery` ↔ 组件 | EXIF 字段与 `exif_fields` |
-| `proxy.ts` ↔ `main.py` 中间件 | `x-blog-real-ip`、`x-blog-request`、Set-Cookie 转发 |
+| `proxy.ts` ↔ `main.py` 中间件 | `x-blog-real-ip`、`x-blog-proxy-secret`、`x-blog-request`、Set-Cookie 转发 |
 | `AdminLayout` nav ↔ 各 `guardAdmin` 权限 | 导航可见性与页面守卫要一致 |
 
 ### 11.3 Pull Request / 提交前自检
