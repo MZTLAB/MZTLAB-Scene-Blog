@@ -14,7 +14,9 @@ if (root) {
   const pickerSearch = root.querySelector<HTMLInputElement>('[data-picker-search]');
   const confirmButton = root.querySelector<HTMLButtonElement>('[data-confirm-picker]');
   const coverSelect = root.querySelector<HTMLSelectElement>('[data-field="cover"]');
-  const saveButton = root.querySelector<HTMLButtonElement>('[data-save]');
+  // The save button lives in the AdminLayout actions slot, outside the
+  // [data-gallery-detail] wrapper.
+  const saveButton = document.querySelector<HTMLButtonElement>('[data-save]');
 
   let gallery: Gallery | null = null;
   const selected = new Set<number>();
