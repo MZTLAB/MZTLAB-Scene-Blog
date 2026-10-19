@@ -32,7 +32,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Text defaults mirror the owner's current appearance configuration, so a
     # fresh database starts from the same copy that is live today.
     "site_title": "MZTLAB",
-    "site_subtitle": "U'vB tHere B4",
+    "site_subtitle": "Scene",
     "tagline": "影像、项目与文字。",
     "description": "MZTLAB 是一间以影像、项目与文字为媒介的独立工作室档案。",
     "site_url": "http://127.0.0.1:4321",
@@ -155,7 +155,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     # Team ---------------------------------------------------------------
     # Off by default: an editor only manages their own posts, galleries and
     # media. Admins can widen this from 设置 → 协作与权限.
-    "editor_manage_others": False,
+    # Editors can see and manage every member's content by default. The owner
+    # can narrow this back to own-only in 设置 → 协作与权限.
+    "editor_manage_others": True,
 
     # Navigation / footer ----------------------------------------------------
     "nav": [

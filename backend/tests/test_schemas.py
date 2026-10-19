@@ -33,6 +33,12 @@ class ProjectKindTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             PostIn(title="x", project_kind="x" * 41)
 
+    def test_author_transfer_target_must_be_positive(self) -> None:
+        self.assertEqual(PostIn(title="x", author_id=3).author_id, 3)
+        self.assertIsNone(PostIn(title="x").author_id)
+        with self.assertRaises(ValidationError):
+            PostIn(title="x", author_id=0)
+
 
 if __name__ == "__main__":
     unittest.main()

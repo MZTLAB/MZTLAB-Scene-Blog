@@ -65,7 +65,7 @@ def user_public(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
     everyone to sign in again.
     """
     role = normalize_role(row["role"])
-    manage_others = setting_flag(conn, "editor_manage_others", False)
+    manage_others = setting_flag(conn, "editor_manage_others", True)
     permissions = effective_permissions(role, manage_others=manage_others)
     return {
         "id": row["id"],

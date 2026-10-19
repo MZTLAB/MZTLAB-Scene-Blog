@@ -18,7 +18,7 @@ export const appConfig = {
 export const fallbackSite = {
   settings: {
     site_title: 'MZTLAB',
-    site_subtitle: "U'vB tHere B4",
+    site_subtitle: "Scene",
     tagline: '影像、项目与文字。',
     description: 'MZTLAB 是一间以影像、项目与文字为媒介的独立工作室档案。',
     author_name: 'MightZero',

@@ -17,7 +17,7 @@ from typing import Any, Iterator
 from .config import DB_PATH
 from .defaults import default_settings
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -244,6 +244,7 @@ def init_db() -> None:
         _migrate_mono(conn)
         _migrate_scene_v22(conn)
         _migrate_project_kind_text(conn)
+        _migrate_editor_manage_others(conn)
         _migrate_scene_wording(conn)
         _migrate_scene_demo_project(conn)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
@@ -564,6 +565,22 @@ def _migrate_project_kind_text(conn: sqlite3.Connection) -> None:
     conn.execute(
         "UPDATE posts SET project_kind = '影像' "
         "WHERE type = 'project' AND LOWER(TRIM(project_kind)) = 'video'"
+    )
+
+
+def _migrate_editor_manage_others(conn: sqlite3.Connection) -> None:
+    """Editors can now see/manage everyone's content by default (v8).
+
+    Existing databases stored the old opt-in default `false`; widen them once.
+    The owner can still switch it off from 设置 → 协作与权限.
+    """
+    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    if version >= 8:
+        return
+    conn.execute(
+        "UPDATE settings SET value = 'true', updated_at = ? "
+        "WHERE key = 'editor_manage_others' AND value = 'false'",
+        (now_iso(),),
     )
 
 

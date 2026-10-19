@@ -89,8 +89,8 @@ if (root) {
                         </span>
                       </div>
                     </td>
-                    <td>${statusBadge(post.raw_status || post.status)}</td>
                     <td><span style="color:var(--ink-soft);font-size:11px">${escapeHtml(post.author?.name || '—')}</span></td>
+                    <td>${statusBadge(post.raw_status || post.status)}</td>
                     <td><span style="color:var(--ink-faint);font-size:10px">${escapeHtml(
                       formatDate(isPage ? post.updated_at : post.published_at || post.updated_at, 'short'),
                     )}</span></td>

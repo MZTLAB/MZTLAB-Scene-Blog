@@ -3,8 +3,8 @@ import type { AdminUser } from '../types';
 /**
  * Client- and server-safe permission check mirrored from
  * backend/app/permissions.py. Editors do not own `content.others` statically:
- * the backend adds it to the session list only when the site owner enables
- * 设置 → 协作与权限 → 编辑可管理他人内容.
+ * the backend adds it to the session list from the site setting
+ * 设置 → 协作与权限 → 编辑可管理他人内容 (default on).
  */
 export const ROLE_PERMISSIONS: Record<string, string[]> = {
   admin: [

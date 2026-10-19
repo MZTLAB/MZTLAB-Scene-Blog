@@ -1,4 +1,4 @@
-﻿---
+---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import PostEditor from '../../../components/admin/PostEditor.astro';
 import { guardAdmin } from '../../../lib/auth';
@@ -7,6 +7,6 @@ const guard = await guardAdmin(Astro, 'content.others');
 if (guard instanceof Response) return guard;
 const user = guard;
 ---
-<AdminLayout user={user} title="鏂板缓椤甸潰" subtitle="Content / New page" active="pages" showCompose={false}>
-  <PostEditor mode="new" postType="page" />
+<AdminLayout user={user} title="新建页面" subtitle="Content / New page" active="pages" showCompose={false}>
+  <PostEditor mode="new" postType="page" user={user} />
 </AdminLayout>

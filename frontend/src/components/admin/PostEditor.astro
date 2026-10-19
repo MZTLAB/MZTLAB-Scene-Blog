@@ -2,15 +2,20 @@
 import Icon from '../Icon.astro';
 import AudioEmbedDialog from './AudioEmbedDialog.astro';
 import { formatDateInput, safeJson } from '../../lib/format';
-import type { AdminPost } from '../../types';
+import { hasPermission } from '../../lib/permissions';
+import type { AdminPost, AdminUser } from '../../types';
 
 interface Props {
   mode: 'new' | 'edit';
   postType: 'post' | 'page' | 'project';
   post?: AdminPost | null;
+  /** The signed-in member, used for ownership/author controls. */
+  user?: AdminUser | null;
 }
 
-const { mode, postType, post = null } = Astro.props;
+const { mode, postType, post = null, user = null } = Astro.props;
+const canManageOthers = hasPermission(user, 'content.others');
+const currentUserId = user?.id || 0;
 const isPage = postType === 'page';
 const isProject = postType === 'project';
 const id = post?.id || null;
@@ -33,6 +38,8 @@ const initialData = {
   mode,
   type: postType,
   post,
+  canManageOthers,
+  currentUserId,
 };
 ---
 <div
@@ -164,6 +171,18 @@ const initialData = {
               data-published
             />
           </div>
+          {
+            canManageOthers && (
+              <div class="a-field" style="margin-top:12px">
+                <label for="editor-author">作者 <small>转移所有权</small></label>
+                <select id="editor-author" data-author>
+                  <option value={post?.author_id || ''}>
+                    {post?.author?.name || user?.display_name || '当前账号'}
+                  </option>
+                </select>
+              </div>
+            )
+          }
           {
             !isPage && (
               <label class="check-row">
@@ -378,12 +397,14 @@ const initialData = {
   } from '../../lib/admin-client';
   import { api, ApiError } from '../../lib/api';
   import { formatDate } from '../../lib/format';
-  import type { AdminPost, MediaItem, Paginated, Revision } from '../../types';
+  import type { AdminPost, AuthorOption, MediaItem, Paginated, Revision } from '../../types';
 
   interface EditorData {
     mode: 'new' | 'edit';
     type: 'post' | 'page' | 'project';
     post: AdminPost | null;
+    canManageOthers?: boolean;
+    currentUserId?: number;
   }
 
   const root = document.querySelector<HTMLElement>('[data-editor]');
@@ -404,6 +425,7 @@ const initialData = {
     const categoryInput = root.querySelector<HTMLInputElement>('[data-category]');
     const statusSelect = root.querySelector<HTMLSelectElement>('[data-status]')!;
     const publishedInput = root.querySelector<HTMLInputElement>('[data-published]')!;
+    const authorSelect = root.querySelector<HTMLSelectElement>('[data-author]');
     const featuredInput = root.querySelector<HTMLInputElement>('[data-featured]');
     const commentsInput = root.querySelector<HTMLInputElement>('[data-comments]');
     const seoTitleInput = root.querySelector<HTMLInputElement>('[data-seo-title]')!;
@@ -601,6 +623,7 @@ const initialData = {
         project_client: projectClientInput?.value.trim() || '',
         project_kind: projectKindInput?.value.trim() || '',
         project_url: projectUrlInput?.value.trim() || '',
+        ...(authorSelect?.value ? { author_id: Number(authorSelect.value) } : {}),
         tags: isPage || isProject ? [] : tags,
         categories: isPage || isProject ? [] : categoryInput?.value.trim() ? [categoryInput.value.trim()] : [],
       };
@@ -887,6 +910,35 @@ const initialData = {
       }
     };
 
+    const loadAuthors = async () => {
+      if (!authorSelect) return;
+      const selected = data.post?.author_id
+        ? String(data.post.author_id)
+        : data.mode === 'new'
+          ? String(data.currentUserId || '')
+          : '';
+      try {
+        const result = await api<{ items: AuthorOption[] }>('/api/admin/content-authors');
+        authorSelect.innerHTML = [
+          '<option value="">未指定 / 保持当前</option>',
+          ...result.items.map(
+            (item) =>
+              `<option value="${item.id}" ${item.is_active ? '' : 'disabled'}>${escapeHtml(item.name)}${
+                item.role_label ? ` · ${escapeHtml(item.role_label)}` : ''
+              }${item.is_active ? '' : '（已停用）'}</option>`,
+          ),
+        ].join('');
+        if (selected) authorSelect.value = selected;
+      } catch (error) {
+        if (authorSelect) {
+          authorSelect.innerHTML = `<option value="${selected}">${escapeHtml(
+            data.post?.author?.name || '当前账号',
+          )}</option>`;
+        }
+        toast(errorMessage(error), 'error');
+      }
+    };
+
     // Initial state -------------------------------------------------------
     renderTags();
     updateCover();
@@ -894,6 +946,7 @@ const initialData = {
     updateButtons();
     schedulePreview(true);
     loadTaxonomyOptions();
+    if (data.canManageOthers) loadAuthors();
     if (isEdit) loadRevisions();
 
     try {

@@ -37,7 +37,7 @@ from ..defaults import (
 )
 from ..deps import require_permission, require_staff
 from ..galleries import public_counts
-from ..permissions import can, owns
+from ..permissions import ROLE_LABELS, can, owns
 from ..posts import fetch_posts, get_post, pagination, serialize_post, serialize_posts
 from ..schemas import (
     AppearanceIn,
@@ -190,6 +190,28 @@ def _assert_can_edit(user: dict[str, Any], row: Any, *, action: str = "编辑") 
     if can(user, "content.others") or owns(user, row):
         return
     raise HTTPException(status_code=403, detail=f"只能{action}自己创建的内容")
+
+
+def _resolve_author_id(
+    user: dict[str, Any],
+    conn: sqlite3.Connection,
+    requested: int | None,
+    current: int | None,
+) -> int | None:
+    """Validate an ownership transfer request (or keep the current author)."""
+    if requested is None or requested == current:
+        return current
+    if not can(user, "content.others"):
+        raise HTTPException(
+            status_code=403,
+            detail="只有管理员或可管理他人内容的编辑可以转移作者",
+        )
+    target = conn.execute(
+        "SELECT id, role, is_active FROM users WHERE id = ?", (requested,)
+    ).fetchone()
+    if not target or not target["is_active"]:
+        raise HTTPException(status_code=400, detail="目标作者不存在或已停用")
+    return int(target["id"])
 
 
 def _post_request(payload: PostIn, user_id: int, post_type: str) -> dict[str, Any]:
@@ -382,8 +404,9 @@ def create_post(
     if payload.status != "draft" and not can(user, "content.publish"):
         raise HTTPException(status_code=403, detail="当前角色没有发布权限")
     is_page = type == "page"
-    post = _post_request(payload, int(user["id"]), type)
     with db() as conn:
+        author_id = _resolve_author_id(user, conn, payload.author_id, int(user["id"]))
+        post = _post_request(payload, int(author_id), type)
         slug = _unique_slug(conn, post["slug_source"], is_page=is_page)
         now = now_iso()
         cur = conn.execute(
@@ -425,6 +448,7 @@ def update_post(
             raise HTTPException(status_code=404, detail="文章不存在")
         _assert_can_edit(user, row)
         is_page = row["type"] == "page"
+        author_id = _resolve_author_id(user, conn, payload.author_id, row["author_id"])
         post = _post_request(payload, int(user["id"]), row["type"])
         _save_revision(conn, row, int(user["id"]))
         slug = _unique_slug(
@@ -439,7 +463,7 @@ def update_post(
                    allow_comments = ?, published_at = ?, updated_at = ?,
                    seo_title = ?, seo_description = ?,
                    project_year = ?, project_role = ?, project_client = ?,
-                   project_kind = ?, project_url = ?
+                   project_kind = ?, project_url = ?, author_id = ?
                WHERE id = ?""",
             (
                 post["title"], slug, post["excerpt"], post["content_md"],
@@ -447,7 +471,7 @@ def update_post(
                 post["featured"], post["allow_comments"], post["published_at"],
                 now_iso(), post["seo_title"], post["seo_description"],
                 post["project_year"], post["project_role"], post["project_client"],
-                post["project_kind"], post["project_url"], post_id,
+                post["project_kind"], post["project_url"], author_id, post_id,
             ),
         )
         _set_terms(conn, post_id, payload)
@@ -530,6 +554,33 @@ def restore_revision(
         assert fresh is not None
         item = serialize_post(conn, fresh, detail=True, admin=True)
     return item
+
+
+@router.get("/content-authors")
+def content_authors(
+    user: dict = Depends(require_permission("content.others")),
+) -> dict[str, Any]:
+    """Members who can own content, used by the editor's author selector."""
+    with db() as conn:
+        rows = conn.execute(
+            """SELECT id, username, display_name, role, is_active FROM users
+               ORDER BY is_active DESC,
+                        CASE role WHEN 'admin' THEN 0 WHEN 'editor' THEN 1 ELSE 2 END,
+                        display_name COLLATE NOCASE ASC"""
+        ).fetchall()
+    return {
+        "items": [
+            {
+                "id": int(row["id"]),
+                "username": row["username"],
+                "name": row["display_name"],
+                "role": row["role"],
+                "role_label": ROLE_LABELS.get(row["role"], row["role"]),
+                "is_active": bool(row["is_active"]),
+            }
+            for row in rows
+        ]
+    }
 
 
 @router.post("/preview")

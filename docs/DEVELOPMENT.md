@@ -3,7 +3,7 @@
 > 面向后续开发者 / 维护者的工程手册：项目框架、模块职责、数据流、扩展与修改代码的具体路径。
 >
 > 目标版本：`2.2.0`（`backend/app/config.py` → `VERSION`，`frontend/package.json` → `version`）
-> 数据库结构版本：`7`（`backend/app/db.py` → `SCHEMA_VERSION`）
+> 数据库结构版本：`8`（`backend/app/db.py` → `SCHEMA_VERSION`）
 > 主题：**Scene**（2.2 重建：三列内容区 + 可配置文案 + 项目内容类型）
 >
 > 相关文档：[`README.md`](../README.md) 偏使用说明与功能概览；本文偏实现与二次开发。
@@ -349,7 +349,7 @@ PRAGMA journal_mode = WAL
 
 **迁移机制**（无 Alembic，靠 `PRAGMA user_version`）：
 
-1. `SCHEMA_VERSION = 7`（`db.py:20`）。
+1. `SCHEMA_VERSION = 8`（`db.py:20`）。
 2. `init_db()`：读旧版本 → `executescript(SCHEMA)`（`CREATE TABLE IF NOT EXISTS` 不改已有表）→ `_ensure_columns` → 条件回填 → 默认设置 → 场景迁移 → 写回版本号 → 播种。
 3. 加列走 `_ADDED_COLUMNS`（`db.py:253`）：
 
@@ -411,7 +411,7 @@ _ADDED_COLUMNS = {
 | `users.manage` | ✅ | ❌ | ❌ |
 | `data.export` | ✅ | ✅ | ❌ |
 
-\* `content.others` 不是静态授予：由 `effective_permissions(role, manage_others=setting)` 决定，`setting` 即设置项 `editor_manage_others`（默认 false）。
+\* `content.others` 不是静态授予：由 `effective_permissions(role, manage_others=setting)` 决定，`setting` 即设置项 `editor_manage_others`（默认 true；v8 迁移会把旧库的 false 打开一次，管理员仍可在设置里关闭）。
 
 **所有权**：`owns(user, item)` 依次尝试 `author_id` / `owner_id` / `uploaded_by`，任一命中且等于当前用户即视为拥有。所有"编辑他人内容"的入口都写成：
 
@@ -533,7 +533,8 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 | 方法 | 路径 | 额外权限 | 行号 |
 | --- | --- | --- | --- |
 | GET | `/api/admin/stats` | staff | 214 |
-| GET | `/api/admin/posts` | staff（作者仅自己） | 301 |
+| GET | `/api/admin/posts` | staff（无 `content.others` 时仅自己） | 301 |
+| GET | `/api/admin/content-authors` | `content.others`，文章编辑器作者选择 | 563 |
 | GET | `/api/admin/posts/{id}` | staff + 所有权 | 329 |
 | POST | `/api/admin/posts?type=post\|page\|project` | `content.write`（非草稿还需 `content.publish`） | 347 |
 | PUT | `/api/admin/posts/{id}` | `content.write` + 所有权 | 381 |
@@ -944,7 +945,7 @@ PHOTO_PUBLIC_CONDITION = (
 
 ### 6.4 与旧版本的兼容
 
-- `posts.type` 现有 `post` / `project` / `page` 三种；项目字段 `project_year/role/client/kind/url` 与历史列共用，`project_kind` 为 v6 新增；v2.2 之后它是纯文本（无预设、无枚举），v7 迁移会把旧的 `code` / `video` 改写为「代码」/「影像」。
+- `posts.type` 现有 `post` / `project` / `page` 三种；项目字段 `project_year/role/client/kind/url` 与历史列共用，`project_kind` 为 v6 新增；v2.2 之后它是纯文本（无预设、无枚举），v7 迁移会把旧的 `code` / `video` 改写为「代码」/「影像」；v8 会把 `editor_manage_others` 的旧默认 `false` 打开一次。
 - `media.uploaded_by` 是旧列，`owner_id` 是现值；所有查询用 `COALESCE(owner_id, uploaded_by)`；
 - `_migrate_scene` / `_migrate_mono` / `_migrate_scene_v22` 会把旧默认值与色板映射到 2.2 版 Scene，但只在值仍等于旧默认值时覆盖；`_migrate_scene_v22` 在导航仍等于 Scene v2 默认值时补上「项目」，并删除已废弃的 `home_projects_*` / `home_*_title` 键。
 - `/galleries`（索引）保留 301 到 `/photos`；`/projects` 与 `/api/projects` 在 2.2 版 Scene 中恢复。
@@ -1368,7 +1369,7 @@ _ADDED_COLUMNS = {
 
 **改结构 / 数据回填 / 删列** —— 走版本化迁移：
 
-1. `SCHEMA_VERSION` +1（例如 6 → 7）；
+1. `SCHEMA_VERSION` +1（例如 7 → 8）；
 2. 在 `db.py` 里写幂等函数：
 
 ```python
@@ -1654,9 +1655,9 @@ docker compose logs -f backend
 | 公开条件 | `PUBLIC_CONDITION` 等 SQL 片段，决定什么内容能被公网看到 |
 | CSRF 头 | 管理端写请求必须携带的 `x-blog-request: 1` |
 | 所有权 | `author_id`/`owner_id`/`uploaded_by` 与当前用户匹配 |
-| `content.others` | "可管理他人内容"的权限键，由设置 `editor_manage_others` 动态授予 |
+| `content.others` | "可管理他人内容"的权限键，由设置 `editor_manage_others` 动态授予（默认开启；同时允许转移文章作者） |
 
 ---
 
-*本文档基于仓库当前代码整理（`2.2.0` / schema `7`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
+*本文档基于仓库当前代码整理（`2.2.0` / schema `8`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
 

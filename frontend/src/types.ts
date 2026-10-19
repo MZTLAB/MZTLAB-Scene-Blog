@@ -344,6 +344,15 @@ export interface AdminUser {
   created_at?: string;
 }
 
+export interface AuthorOption {
+  id: number;
+  username: string;
+  name: string;
+  role: string;
+  role_label: string;
+  is_active: boolean;
+}
+
 export interface Member extends AdminUser {
   role_label: string;
   is_active: boolean;

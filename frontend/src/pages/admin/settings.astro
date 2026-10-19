@@ -172,7 +172,7 @@ const user = guard;
             <div class="setting-row">
               <div class="setting-row__label">
                 <strong>编辑可管理他人内容</strong>
-                <span>关闭（默认）时，编辑只能编辑、删除自己创建的文章 / 相册，以及自己上传的媒体；评论审核、分类与导出不受影响。</span>
+                <span>开启（默认）时，编辑可以查看并管理所有成员的文章 / 相册与媒体；关闭后只能编辑、删除自己的内容（评论审核、分类与导出不受影响）。</span>
               </div>
               <label class="switch" data-switch><input type="checkbox" data-setting="editor_manage_others" hidden /><span></span></label>
             </div>
@@ -182,7 +182,7 @@ const user = guard;
           <div class="admin-card__body">
             <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7">
               所有权规则：文章 / 页面与相册记录 <code>author_id</code>，媒体记录 <code>owner_id</code>。
-              越权请求由后端返回 403，后台列表只会显示当前成员可管理的内容。
+              越权请求由后端返回 403；关闭上面的开关后，后台列表只会显示当前成员自己的内容。
             </p>
           </div>
         </div>

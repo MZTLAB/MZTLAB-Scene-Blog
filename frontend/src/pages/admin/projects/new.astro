@@ -8,5 +8,5 @@ if (guard instanceof Response) return guard;
 const user = guard;
 ---
 <AdminLayout user={user} title="新建项目" subtitle="Studio / New project" active="projects" showCompose={false}>
-  <PostEditor mode="new" postType="project" />
+  <PostEditor mode="new" postType="project" user={user} />
 </AdminLayout>

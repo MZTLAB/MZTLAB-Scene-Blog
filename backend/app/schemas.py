@@ -69,6 +69,9 @@ class PostIn(StrippedModel):
     featured: bool = False
     allow_comments: bool = True
     published_at: str | None = None
+    # Transfer ownership to another active member. Only callers with
+    # `content.others` may change it; the route validates the target.
+    author_id: int | None = Field(default=None, ge=1)
     seo_title: str = Field(default="", max_length=200)
     seo_description: str = Field(default="", max_length=400)
     tags: list[str] = Field(default_factory=list, max_length=20)
@@ -78,8 +81,7 @@ class PostIn(StrippedModel):
     project_year: str = Field(default="", max_length=20)
     project_role: str = Field(default="", max_length=100)
     project_client: str = Field(default="", max_length=100)
-    # A free-form label. `code` / `video` are the built-in presets, but the
-    # owner may type any type (设计、字体、装置 …) without a schema change.
+    # A free-form label (代码 / 影像 / 设计 …); no enum to maintain.
     project_kind: str = Field(default="", max_length=40)
     project_url: str = Field(default="", max_length=300)
 

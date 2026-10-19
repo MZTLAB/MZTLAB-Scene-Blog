@@ -30,5 +30,5 @@ if (post.type === 'post') return Astro.redirect(`/admin/posts/${post.id}`);
       <a class="a-btn" href={post.url} target="_blank" rel="noopener"><Icon name="external" size={14} /> 查看项目</a>
     )}
   </Fragment>
-  <PostEditor mode="edit" postType="project" post={post} />
+  <PostEditor mode="edit" postType="project" post={post} user={user} />
 </AdminLayout>

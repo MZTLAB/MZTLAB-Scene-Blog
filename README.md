@@ -233,12 +233,12 @@ cd frontend && npm ci
 | 角色 | 说明 |
 | --- | --- |
 | `admin` | 全部内容、影像、评论、分类、外观、成员、导出 |
-| `editor` | 自己的文章 / 相册 / 媒体，评论、分类、导出；可被授权管理他人内容 |
+| `editor` | 默认查看并管理所有人的文章 / 相册 / 媒体，评论、分类、导出；可在设置里关闭“编辑可管理他人内容” |
 | `author` | 自己的文章 / 相册 / 媒体 |
 
 权限键：`content.read`、`content.write`、`content.publish`、`content.delete`、`content.others`、`media.manage`、`gallery.manage`、`comment.moderate`、`taxonomy.manage`、`settings.manage`、`users.manage`、`data.export`。
 
-文章 / 页面 / 相册使用 `author_id`，媒体使用 `owner_id`。越权请求由后端返回 403。
+文章 / 页面 / 相册使用 `author_id`，媒体使用 `owner_id`。越权请求由后端返回 403。拥有 `content.others` 的成员可以在文章编辑器的“发布”面板里把文章 / 页面 / 项目的作者转移给其他成员（所有权随之转移）。
 
 ## 项目结构
 
@@ -296,7 +296,7 @@ scripts/                setup / run
 
 - 数据：`backend/data/blog.db` + `backend/data/uploads/`。备份整个目录即可。
 - 导出：后台 → 设置 → 导出；包含文章、项目、页面、相册、照片、媒体元数据、评论、分类、标签与公开设置，不含密码哈希与媒体二进制。
-- 数据库升级由 `PRAGMA user_version` 管理（当前 `SCHEMA_VERSION = 7`，定义在 `backend/app/db.py`）。迁移会在启动时幂等执行：补列（含 `project_kind`）、回填所有者与 EXIF、把旧主题值映射到 Scene、把旧的 `code` / `video` 项目类型转为「代码」/「影像」文本，并在导航未被修改时补上「项目」。
+- 数据库升级由 `PRAGMA user_version` 管理（当前 `SCHEMA_VERSION = 8`，定义在 `backend/app/db.py`）。迁移会在启动时幂等执行：补列（含 `project_kind`）、回填所有者与 EXIF、把旧主题值映射到 Scene、把旧的 `code` / `video` 项目类型转为「代码」/「影像」文本、把 `editor_manage_others` 旧默认改为开启，并在导航未被修改时补上「项目」。
 - 测试：`cd backend && .venv/Scripts/python -m unittest discover -s tests`。
 - 构建：`cd frontend && npm run check && npm run build`。
 

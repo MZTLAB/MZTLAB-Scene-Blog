@@ -119,7 +119,7 @@ def list_users(
                 "GROUP BY COALESCE(owner_id, uploaded_by)"
             )
         }
-        manage_others = setting_flag(conn, "editor_manage_others", False)
+        manage_others = setting_flag(conn, "editor_manage_others", True)
     items = [
         _serialize(
             row,
@@ -169,7 +169,7 @@ def create_user(
             ),
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-        manage_others = setting_flag(conn, "editor_manage_others", False)
+        manage_others = setting_flag(conn, "editor_manage_others", True)
     return {"ok": True, "user": _serialize(row, manage_others=manage_others)}
 
 
@@ -221,7 +221,7 @@ def update_user(
         if password_changed or not payload.is_active or role != row["role"]:
             revoke_user_sessions(conn, user_id)
         updated = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        manage_others = setting_flag(conn, "editor_manage_others", False)
+        manage_others = setting_flag(conn, "editor_manage_others", True)
     return {"ok": True, "user": _serialize(updated, manage_others=manage_others)}
 
 

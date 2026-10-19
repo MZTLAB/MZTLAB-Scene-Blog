@@ -6,14 +6,14 @@ onto them, so the same checks serve the API, the admin UI and the templates.
 
 Roles:
     admin   — owns the site: content, people, settings, data.
-    editor  — runs the desk: own content, media and galleries, comments,
-              taxonomy and exports. By default an editor *cannot* touch other
-              people's work; the owner can opt in from 设置 → 协作与权限.
+    editor  — runs the desk: sees and manages all content, media and
+              galleries, comments, taxonomy and exports. The owner can narrow
+              this back to "own content only" in 设置 → 协作与权限.
     author  — writes: own articles / galleries and the media needed for them.
 
 `content.others` is the switch that turns "my work" into "everyone's work".
 It is never granted statically to editors: a session's permission list is
-computed from the site setting `editor_manage_others` (default off), so the
+computed from the site setting `editor_manage_others` (default on), so the
 same switch governs posts, media and galleries.
 """
 
@@ -46,7 +46,7 @@ ROLE_LABELS: dict[str, str] = {
 
 ROLE_SUMMARIES: dict[str, str] = {
     "admin": "拥有全部权限，包括成员、权限与站点设置。",
-    "editor": "管理自己的文章、媒体与相册，并负责评论与分类；默认不能管理他人内容。",
+    "editor": "查看并管理所有人的文章、媒体与相册，负责评论与分类；可在设置里收紧为只管自己的内容。",
     "author": "撰写文章，管理自己的相册与媒体。",
 }
 

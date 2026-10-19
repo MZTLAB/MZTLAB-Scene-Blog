@@ -31,5 +31,5 @@ if (post.type !== 'page') {
       <a class="a-btn" href={post.url} target="_blank" rel="noopener"><Icon name="external" size={14} /> 查看页面</a>
     )}
   </Fragment>
-  <PostEditor mode="edit" postType="page" post={post} />
+  <PostEditor mode="edit" postType="page" post={post} user={user} />
 </AdminLayout>
