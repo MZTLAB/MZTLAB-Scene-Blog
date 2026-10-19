@@ -1,0 +1,66 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+import Icon from '../../components/Icon.astro';
+import { apiServer, getSite } from '../../lib/api';
+import type { Paginated, PostSummary, SiteInfo } from '../../types';
+
+const site: SiteInfo = await getSite();
+const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
+
+const data = await apiServer<Paginated<PostSummary>>('/api/projects?per_page=60').catch(
+  () => ({ items: [] as PostSummary[], total: 0, page: 1, per_page: 60, pages: 1, has_prev: false, has_next: false }),
+);
+const projects = data.items;
+const two = (value: number) => String(value).padStart(2, '0');
+// Types are free-form now; show the three most common values (presets stay
+// CODE / VIDEO, custom values are shown as typed).
+const kindCounts = new Map<string, number>();
+for (const project of projects) {
+  const kind = (project.project_kind || '').trim();
+  if (!kind) continue;
+  kindCounts.set(kind, (kindCounts.get(kind) || 0) + 1);
+}
+const kindMeta = Array.from(kindCounts.entries())
+  .sort((left, right) => right[1] - left[1])
+  .slice(0, 3)
+  .map(([kind, count]) => `${two(count)} ${kind}`);
+---
+<BaseLayout site={site} title={copy('copy_projects_title', '项目')} description={copy('copy_projects_lead', '代码与设计，记录做法与结果。')}>
+  <section class="container page-hero page-hero--code">
+    <span class="eyebrow">{copy('copy_projects_eyebrow', '// PROJECTS')}</span>
+    <h1>{copy('copy_projects_title', '项目')}</h1>
+    <p>{copy('copy_projects_lead', '代码与设计，记录做法与结果。')}</p>
+    <div class="page-hero__meta">
+      <span>{two(projects.length)} PROJECTS</span>
+      {kindMeta.map((item) => (<><span>/</span><span>{item}</span></>))}
+      <span>/</span>
+      <span>TEXT INTROS ONLY</span>
+    </div>
+  </section>
+
+  <div class="container">
+    {
+      projects.length > 0 ? (
+        <div class="project-grid">
+          {projects.map((project, index) => (
+            <ProjectCard project={project} index={index} />
+          ))}
+        </div>
+      ) : (
+        <div class="empty-state">
+          <span class="empty-mark">[ ]</span>
+          <h2>{copy('copy_projects_empty_title', '还没有项目')}</h2>
+          <p>{copy('copy_projects_empty_text', '新建一个项目，写下它解决的问题。')}</p>
+          <a class="btn" href="/admin/projects" style="margin-top: 18px">
+            {copy('copy_projects_empty_cta', '管理项目')} <Icon name="arrowRight" size={14} />
+          </a>
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>

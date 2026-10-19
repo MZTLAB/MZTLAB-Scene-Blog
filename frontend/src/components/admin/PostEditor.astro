@@ -6,18 +6,29 @@ import type { AdminPost } from '../../types';
 
 interface Props {
   mode: 'new' | 'edit';
-  postType: 'post' | 'page';
+  postType: 'post' | 'page' | 'project';
   post?: AdminPost | null;
 }
 
 const { mode, postType, post = null } = Astro.props;
 const isPage = postType === 'page';
+const isProject = postType === 'project';
 const id = post?.id || null;
 const status = post?.raw_status || 'draft';
-const typeLabel = isPage ? '页面' : '文章';
-const listUrl = isPage ? '/admin/pages' : '/admin/posts';
-const urlPrefix = isPage ? '' : 'posts/';
-const titlePlaceholder = isPage ? '页面标题' : '文章标题';
+const typeLabel = isPage ? '页面' : isProject ? '项目' : '文章';
+const listUrl = isPage ? '/admin/pages' : isProject ? '/admin/projects' : '/admin/posts';
+const urlPrefix = isPage ? '' : isProject ? 'projects/' : 'posts/';
+const titlePlaceholder = isPage ? '页面标题' : isProject ? '项目名称' : '文章标题';
+const projectYear = (post as unknown as { project_year?: string } | null)?.project_year || '';
+const projectRole = (post as unknown as { project_role?: string } | null)?.project_role || '';
+const projectClient = (post as unknown as { project_client?: string } | null)?.project_client || '';
+const projectKind = (post as unknown as { project_kind?: string } | null)?.project_kind || '';
+const projectUrl = (post as unknown as { project_url?: string } | null)?.project_url || '';
+const contentPlaceholder = isPage
+  ? '页面内容，支持 Markdown…'
+  : isProject
+    ? '写下这个项目解决的问题、做法与结果。支持 Markdown…'
+    : '开始写。支持 Markdown 与图片…';
 const initialData = {
   mode,
   type: postType,
@@ -116,7 +127,7 @@ const initialData = {
         <div class="editor-write">
           <textarea
             class="editor-textarea"
-            placeholder={isPage ? '页面内容，支持 Markdown…' : '开始写。支持 Markdown 与图片…'}
+            placeholder={contentPlaceholder}
             spellcheck="false"
             data-content>{post?.content_md || ''}</textarea>
         </div>
@@ -159,13 +170,13 @@ const initialData = {
                 <input type="checkbox" data-featured checked={Boolean(post?.featured)} />
                 <div>
                   <strong>设为精选</strong>
-                  <span>在首页优先展示</span>
+                  <span>{isProject ? '在项目页中优先展示' : '在首页优先展示'}</span>
                 </div>
               </label>
             )
           }
           {
-            !isPage && (
+            !isPage && !isProject && (
               <label class="check-row">
                 <input type="checkbox" data-comments checked={post ? Boolean(post.allow_comments) : true} />
                 <div>
@@ -177,6 +188,43 @@ const initialData = {
           }
         </div>
       </div>
+
+      {
+        isProject && (
+          <div class="side-card">
+            <div class="side-card__head"><h3>项目信息</h3><span>PROJECT</span></div>
+            <div class="side-card__body">
+              <div class="a-field" style="margin-top:12px">
+                <label>类型</label>
+                <input
+                  type="text"
+                  maxlength="40"
+                  placeholder="例如 代码、影像、字体设计"
+                  value={projectKind}
+                  data-project-kind
+                />
+                <p class="hint">自由文本，按你填写的原样展示。视频项目只放文字介绍，站点不嵌视频。</p>
+              </div>
+              <div class="a-field" style="margin-top:12px">
+                <label>年份</label>
+                <input type="text" maxlength="20" placeholder="2026" value={projectYear} data-project-year />
+              </div>
+              <div class="a-field" style="margin-top:12px">
+                <label>角色</label>
+                <input type="text" maxlength="100" placeholder="设计 / 全栈" value={projectRole} data-project-role />
+              </div>
+              <div class="a-field" style="margin-top:12px">
+                <label>上下文 <small>客户或使用场景</small></label>
+                <input type="text" maxlength="100" placeholder="内部工具" value={projectClient} data-project-client />
+              </div>
+              <div class="a-field" style="margin-top:12px">
+                <label>项目链接</label>
+                <input type="text" maxlength="300" placeholder="https:// 或 /" value={projectUrl} data-project-url />
+              </div>
+            </div>
+          </div>
+        )
+      }
 
       <div class="side-card">
         <div class="side-card__head">
@@ -201,7 +249,7 @@ const initialData = {
       </div>
 
       {
-        !isPage && (
+        !isPage && !isProject && (
           <>
             <div class="side-card">
               <div class="side-card__head"><h3>分类</h3><span>ONE</span></div>
@@ -328,13 +376,13 @@ const initialData = {
     escapeHtml,
     toast,
   } from '../../lib/admin-client';
-  import { api } from '../../lib/api';
+  import { api, ApiError } from '../../lib/api';
   import { formatDate } from '../../lib/format';
   import type { AdminPost, MediaItem, Paginated, Revision } from '../../types';
 
   interface EditorData {
     mode: 'new' | 'edit';
-    type: 'post' | 'page';
+    type: 'post' | 'page' | 'project';
     post: AdminPost | null;
   }
 
@@ -343,8 +391,9 @@ const initialData = {
     const dataNode = document.getElementById('editor-data');
     const data: EditorData = dataNode ? JSON.parse(dataNode.textContent || '{}') : { mode: 'new', type: 'post', post: null };
     const isPage = data.type === 'page';
-    const urlPrefix = isPage ? '' : 'posts/';
-    const editorRoot = isPage ? '/admin/pages' : '/admin/posts';
+    const isProject = data.type === 'project';
+    const urlPrefix = isPage ? '' : isProject ? 'projects/' : 'posts/';
+    const editorRoot = isPage ? '/admin/pages' : isProject ? '/admin/projects' : '/admin/posts';
     const isEdit = data.mode === 'edit' && Boolean(data.post);
     const id = data.post?.id || null;
 
@@ -360,6 +409,11 @@ const initialData = {
     const seoTitleInput = root.querySelector<HTMLInputElement>('[data-seo-title]')!;
     const seoDescriptionInput = root.querySelector<HTMLTextAreaElement>('[data-seo-description]')!;
     const coverUrlInput = root.querySelector<HTMLInputElement>('[data-cover-url]')!;
+    const projectYearInput = root.querySelector<HTMLInputElement>('[data-project-year]');
+    const projectRoleInput = root.querySelector<HTMLInputElement>('[data-project-role]');
+    const projectClientInput = root.querySelector<HTMLInputElement>('[data-project-client]');
+    const projectKindInput = root.querySelector<HTMLInputElement>('[data-project-kind]');
+    const projectUrlInput = root.querySelector<HTMLInputElement>('[data-project-url]');
     const saveState = root.querySelector<HTMLElement>('[data-save-state]');
     const saveLabel = root.querySelector<HTMLElement>('[data-save-label]');
     const saveText = root.querySelector<HTMLElement>('[data-save-text]');
@@ -385,6 +439,14 @@ const initialData = {
     let dirty = false;
     let saving = false;
     let previewTimer: number | undefined;
+    let currentView: 'write' | 'preview' | 'split' =
+      (root.dataset.view as 'write' | 'preview' | 'split') || 'write';
+    // The preview only fetches when the payload changed since the last success,
+    // so switching tabs or revisiting identical content never hits the API.
+    let lastPreviewContent: string | null = null;
+    let previewRequestId = 0;
+    let previewController: AbortController | null = null;
+    let previewBlockedUntil = 0;
     let mediaContext: 'cover' | 'content' = 'cover';
 
     const setDirty = (value: boolean) => {
@@ -534,8 +596,13 @@ const initialData = {
         published_at: publishedValue ? new Date(publishedValue).toISOString() : null,
         seo_title: seoTitleInput.value.trim(),
         seo_description: seoDescriptionInput.value.trim(),
-        tags: isPage ? [] : tags,
-        categories: isPage ? [] : categoryInput?.value.trim() ? [categoryInput.value.trim()] : [],
+        project_year: projectYearInput?.value.trim() || '',
+        project_role: projectRoleInput?.value.trim() || '',
+        project_client: projectClientInput?.value.trim() || '',
+        project_kind: projectKindInput?.value.trim() || '',
+        project_url: projectUrlInput?.value.trim() || '',
+        tags: isPage || isProject ? [] : tags,
+        categories: isPage || isProject ? [] : categoryInput?.value.trim() ? [categoryInput.value.trim()] : [],
       };
     };
 
@@ -598,15 +665,33 @@ const initialData = {
       }
     };
 
-    const renderPreview = async () => {
+    const previewPayload = () => contentInput.value || '*还没有内容。*';
+
+    const renderPreview = async (force = false) => {
       if (!preview) return;
+      // No preview requests while composing: the tab is not visible and the
+      // content will change again anyway.
+      if (currentView === 'write') return;
+      const content = previewPayload();
+      if (!force && content === lastPreviewContent) return;
+      if (Date.now() < previewBlockedUntil) {
+        if (previewStatus) previewStatus.textContent = '预览刷新过于频繁，请稍后再试';
+        return;
+      }
+      previewController?.abort();
+      const controller = new AbortController();
+      previewController = controller;
+      const requestId = ++previewRequestId;
       if (previewStatus) previewStatus.textContent = '正在渲染…';
       try {
         const result = await api<{ html: string; reading_time: number }>('/api/admin/preview', {
           method: 'POST',
-          body: { content_md: contentInput.value || '*还没有内容。*' },
+          body: { content_md: content },
+          signal: controller.signal,
         });
+        if (requestId !== previewRequestId) return;
         preview.innerHTML = result.html;
+        lastPreviewContent = content;
         if (previewStatus) previewStatus.textContent = '';
         preview.querySelectorAll('pre').forEach((pre) => {
           const wrapper = pre.parentElement?.classList.contains('highlight') ? pre.parentElement : pre;
@@ -627,16 +712,30 @@ const initialData = {
           wrapper.appendChild(button);
         });
       } catch (error) {
+        if (controller.signal.aborted || requestId !== previewRequestId) return;
+        if (error instanceof ApiError && error.status === 429) {
+          previewBlockedUntil = Date.now() + 10_000;
+          if (previewStatus) previewStatus.textContent = '预览刷新过于频繁，请稍后再试';
+          return;
+        }
         if (previewStatus) previewStatus.textContent = errorMessage(error);
+      } finally {
+        if (previewController === controller) previewController = null;
       }
     };
 
-    const schedulePreview = (immediate = false) => {
+    const schedulePreview = (immediate = false, force = false) => {
       window.clearTimeout(previewTimer);
-      previewTimer = window.setTimeout(renderPreview, immediate ? 0 : 380);
+      if (currentView === 'write') return;
+      const content = previewPayload();
+      if (!force && content === lastPreviewContent) return;
+      previewTimer = window.setTimeout(() => {
+        void renderPreview(force);
+      }, immediate ? 0 : 380);
     };
 
     const setView = (view: 'write' | 'preview' | 'split') => {
+      currentView = view;
       root.dataset.view = view;
       const main = root.querySelector<HTMLElement>('.editor-main');
       if (main) main.dataset.view = view;
@@ -645,7 +744,13 @@ const initialData = {
       root.querySelectorAll<HTMLElement>('[data-view-tab]').forEach((button) => {
         button.classList.toggle('is-active', button.dataset.viewTab === view);
       });
-      if (view !== 'write') schedulePreview(true);
+      if (view === 'write') {
+        // Drop pending work; composing should stay network-free.
+        window.clearTimeout(previewTimer);
+        previewController?.abort();
+        return;
+      }
+      schedulePreview(true);
     };
 
     const insertAround = (before: string, after: string, placeholder: string) => {
@@ -892,13 +997,14 @@ const initialData = {
         else if (action === 'audio') {
           document.dispatchEvent(new CustomEvent('audio-embed:open'));
         } else if (action === 'hr') insertAround('\n\n---\n\n', '', '');
-        else if (action === 'preview') schedulePreview(true);
+        else if (action === 'preview') schedulePreview(true, true);
       });
     });
 
     document.addEventListener('audio-embed:insert', (event) => {
-      const html = (event as CustomEvent<{ html?: string }>).detail?.html;
-      if (html) insertBlock(html);
+      const detail = (event as CustomEvent<{ markdown?: string; html?: string }>).detail;
+      const block = detail?.markdown || detail?.html;
+      if (block) insertBlock(block);
     });
 
     root.querySelectorAll<HTMLButtonElement>('[data-view-tab]').forEach((button) => {

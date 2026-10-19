@@ -1,0 +1,108 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ProjectCard from '../../components/ProjectCard.astro';
+import Icon from '../../components/Icon.astro';
+import { ApiError, apiServer, getSite } from '../../lib/api';
+import { absoluteUrl, formatDate, safeJson } from '../../lib/format';
+import type { PostDetail, SiteInfo } from '../../types';
+
+const { slug } = Astro.params;
+const site: SiteInfo = await getSite();
+const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
+
+let project: PostDetail;
+try {
+  project = await apiServer<PostDetail>(`/api/projects/${encodeURIComponent(slug || '')}`);
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) {
+    return Astro.rewrite('/404');
+  }
+  throw error;
+}
+
+const description = project.seo_description || project.excerpt;
+const canonical = absoluteUrl(settings.site_url, project.url);
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'CreativeWork',
+  name: project.title,
+  description,
+  dateCreated: project.project_year || project.published_at,
+  url: canonical,
+  creator: { '@type': 'Person', name: project.author?.name || settings.author_name },
+};
+const kindLabel = (project.project_kind || '').trim();
+const meta = [
+  { label: copy('copy_project_kind', '类型'), value: kindLabel },
+  { label: copy('copy_project_year', '年份'), value: project.project_year || project.published_at?.slice(0, 4) || '' },
+  { label: copy('copy_project_role', '角色'), value: project.project_role || '' },
+  { label: copy('copy_project_client', '上下文'), value: project.project_client || '' },
+].filter((item) => item.value);
+const related = (project.related || []) as typeof project.related;
+---
+<BaseLayout site={site} title={project.seo_title || project.title} description={description} type="article">
+  <Fragment slot="head">
+    <script type="application/ld+json" set:html={safeJson(jsonLd)}></script>
+  </Fragment>
+
+  <article class="container project-detail">
+    <header class="project-header">
+      <a class="text-link project-header__back" href="/projects">
+        <Icon name="arrowLeft" size={13} /> {copy('copy_project_back', '返回项目')}
+      </a>
+      <span class="eyebrow">{copy('copy_projects_eyebrow', '// PROJECTS')} / {project.project_year || formatDate(project.published_at, 'short')}</span>
+      <h1>{project.title}</h1>
+      {project.excerpt && <p class="project-header__deck">{project.excerpt}</p>}
+
+      {meta.length > 0 && (
+        <dl class="project-meta">
+          {meta.map((item) => (
+            <div>
+              <dt>{item.label}</dt>
+              <dd>{item.value}</dd>
+            </div>
+          ))}
+          {project.project_url && (
+            <div>
+              <dt>LINK</dt>
+              <dd>
+                <a class="text-link" href={project.project_url} target="_blank" rel="noopener noreferrer">
+                  {copy('copy_project_link', '访问项目')} <Icon name="arrowUpRight" size={12} />
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </header>
+
+    <div class="project-body">
+      <div class="prose" data-prose set:html={project.content_html} />
+    </div>
+  </article>
+
+  {
+    related.length > 0 && (
+      <section class="container related-section">
+        <div class="section-head">
+          <div>
+            <span class="section-code">// NEXT</span>
+            <h2>{copy('copy_project_related', '其他项目')}</h2>
+          </div>
+          <a class="text-link" href="/projects">
+            {copy('copy_projects_link', '全部项目')} <Icon name="arrowRight" size={14} />
+          </a>
+        </div>
+        <div class="project-grid project-grid--related">
+          {related.map((item, index) => (
+            <ProjectCard project={item} index={index} />
+          ))}
+        </div>
+      </section>
+    )
+  }
+</BaseLayout>

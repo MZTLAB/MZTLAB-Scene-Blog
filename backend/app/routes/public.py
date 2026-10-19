@@ -11,6 +11,7 @@ from ..db import db, load_settings, now_iso, public_settings
 from ..deps import client_ip
 from ..galleries import (
     fetch_galleries,
+    fetch_photos,
     gallery_dict,
     gallery_photo_rows,
     get_gallery,
@@ -75,12 +76,19 @@ def site_info() -> dict:
                  AND published_at <= ?""",
             (now_iso(),),
         ).fetchone()["n"]
+        project_count = conn.execute(
+            """SELECT COUNT(*) AS n FROM posts
+               WHERE type = 'project' AND status IN ('published', 'scheduled')
+                 AND published_at <= ?""",
+            (now_iso(),),
+        ).fetchone()["n"]
         counts = public_counts(conn)
     return {
         "settings": settings,
         "categories": categories,
         "tags": tags,
         "post_count": post_count,
+        "project_count": project_count,
         **counts,
     }
 
@@ -153,6 +161,46 @@ def page_detail(slug: str) -> dict[str, Any]:
         if not row:
             raise HTTPException(status_code=404, detail="页面不存在")
         return serialize_post(conn, row, detail=True)
+
+
+@router.get("/projects")
+def list_projects(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(24, ge=1, le=60),
+    featured: bool | None = None,
+) -> dict[str, Any]:
+    with db() as conn:
+        rows, total = fetch_posts(
+            conn,
+            post_type="project",
+            page=page,
+            per_page=per_page,
+            featured=featured,
+        )
+        items = serialize_posts(conn, rows)
+    return {"items": items, **pagination(page, per_page, total)}
+
+
+@router.get("/projects/{slug}")
+def project_detail(slug: str) -> dict[str, Any]:
+    with db() as conn:
+        row = get_post(conn, slug=slug, post_type="project", public=True)
+        if not row:
+            raise HTTPException(status_code=404, detail="项目不存在或尚未发布")
+        item = serialize_post(conn, row, detail=True)
+        related = list(
+            conn.execute(
+                """SELECT p.*, u.display_name AS author_name, u.avatar AS author_avatar
+                   FROM posts p LEFT JOIN users u ON u.id = p.author_id
+                   WHERE p.type = 'project' AND p.status IN ('published', 'scheduled')
+                     AND p.published_at <= ? AND p.id != ?
+                   ORDER BY p.published_at DESC LIMIT 3""",
+                (now_iso(), row["id"]),
+            )
+        )
+        item["related"] = serialize_posts(conn, related)
+        item["canonical"] = public_url(row)
+    return item
 
 
 @router.get("/archive")
@@ -236,15 +284,27 @@ def record_gallery_view(
 def search(q: str = Query("", max_length=100)) -> dict[str, Any]:
     needle = q.strip()
     if not needle:
-        return {"query": "", "articles": [], "galleries": []}
+        return {"query": "", "articles": [], "projects": [], "galleries": [], "photos": []}
     with db() as conn:
         articles = serialize_posts(
             conn,
             fetch_posts(conn, post_type="post", q=needle, per_page=12)[0],
         )
+        projects = serialize_posts(
+            conn,
+            fetch_posts(conn, post_type="project", q=needle, per_page=12)[0],
+        )
         gallery_rows, _ = fetch_galleries(conn, q=needle, per_page=12)
         galleries = [gallery_dict(conn, row) for row in gallery_rows]
-    return {"query": needle, "articles": articles, "galleries": galleries}
+        photo_rows, _ = fetch_photos(conn, q=needle, per_page=12)
+        photos = [photo_dict(row) for row in photo_rows]
+    return {
+        "query": needle,
+        "articles": articles,
+        "projects": projects,
+        "galleries": galleries,
+        "photos": photos,
+    }
 
 
 @router.get("/taxonomy")

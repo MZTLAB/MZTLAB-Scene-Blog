@@ -12,7 +12,13 @@ interface Props {
 
 const { site, featuredGallery } = Astro.props;
 const settings = site.settings;
-const titleLines = String(settings.hero_title || '光落下。\n场景生成。')
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
+
+const defaultTitle = '光落下，\n场景生成。';
+const titleLines = String(settings.hero_title || defaultTitle)
   .split('\n')
   .map((line) => line.trim())
   .filter(Boolean);
@@ -22,7 +28,7 @@ const style = ['split', 'minimal', 'image'].includes(String(settings.hero_style)
   ? settings.hero_style
   : 'split';
 const heroClass =
-  style === 'minimal' ? 'hero hero--minimal' : style === 'image' ? 'hero hero--image' : 'hero';
+  style === 'minimal' ? 'masthead masthead--minimal' : style === 'image' ? 'masthead masthead--image' : 'masthead';
 const lead = settings.hero_subtitle || settings.description;
 const frame = featuredGallery?.cover || null;
 const image = settings.hero_image || frame?.url || '';
@@ -39,20 +45,21 @@ const captionMeta = frame
       .join(' / ')
   : settings.tagline;
 const stats = [
-  { value: site.photo_count, label: 'FRAMES' },
-  { value: site.gallery_count, label: 'ALBUMS' },
-  { value: site.post_count, label: 'TEXTS' },
+  { value: site.photo_count, label: copy('copy_stat_photos', 'PHOTOS'), href: '/photos' },
+  { value: site.project_count, label: copy('copy_stat_projects', 'PROJECTS'), href: '/projects' },
+  { value: site.post_count, label: copy('copy_stat_texts', 'TEXTS'), href: '/archive' },
 ];
 const galleryHref = featuredGallery?.url || '/photos';
+const primaryUrl = copy('copy_hero_primary_url', '/photos');
+const secondaryUrl = copy('copy_hero_secondary_url', '/projects');
 ---
 <section class:list={['container', heroClass]} data-hero>
-  <div class="hero-copy">
-    <div class="hero-code">
-      <span class="code-comment">//</span>
-      <span>{settings.hero_eyebrow || 'MZTLAB // VISUAL_ARCHIVE'}</span>
-      <span class="code-cursor" aria-hidden="true">_</span>
-    </div>
-    <h1 class="hero-title">
+  <div class="masthead__copy">
+    <p class="masthead__eyebrow">
+      <span class="mark" aria-hidden="true">//</span>
+      <span>{settings.hero_eyebrow || 'MZTLAB // SCENE'}</span>
+    </p>
+    <h1 class="masthead__title">
       {firstLine}
       {
         restLines.length > 0 && (
@@ -63,25 +70,23 @@ const galleryHref = featuredGallery?.url || '/photos';
         )
       }
     </h1>
-    <p class="hero-lead">{lead}</p>
-    <div class="hero-actions">
-      <a class="btn" href="/photos">
-        影像索引
+    <p class="masthead__lead">{lead}</p>
+    <div class="masthead__actions">
+      <a class="btn" href={primaryUrl}>
+        {copy('copy_hero_primary_label', '浏览影像')}
         <Icon name="arrowRight" size={14} />
       </a>
-      <a class="text-link" href="/archive">
-        文字档案 <Icon name="arrowUpRight" size={13} />
+      <a class="text-link" href={secondaryUrl}>
+        {copy('copy_hero_secondary_label', '查看项目')} <Icon name="arrowUpRight" size={13} />
       </a>
     </div>
-    <div class="hero-stats">
+    <div class="masthead__stats">
       {
-        stats.map((stat, index) => (
-          <>
-            {index > 0 && <i class="sep" aria-hidden="true"></i>}
-            <span>
-              <strong>{String(stat.value).padStart(2, '0')}</strong> {stat.label}
-            </span>
-          </>
+        stats.map((stat) => (
+          <a href={stat.href}>
+            <strong>{String(stat.value).padStart(2, '0')}</strong>
+            <span>{stat.label}</span>
+          </a>
         ))
       }
     </div>
@@ -90,43 +95,34 @@ const galleryHref = featuredGallery?.url || '/photos';
   {
     style === 'image' ? (
       image && (
-        <div class="hero-figure">
+        <div class="masthead__image">
           <img src={image} alt="" loading="eager" decoding="async" fetchpriority="high" />
         </div>
       )
     ) : style === 'split' ? (
-      <div class="hero-media">
-        <div class="code-window">
-          <div class="code-window__bar">
-            <span class="code-window__lights" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span>{featuredGallery ? `gallery/${featuredGallery.slug}` : 'gallery/index'}</span>
-            <span>READ_ONLY</span>
-          </div>
-          <a class="hero-media__frame" href={galleryHref} aria-label={featuredGallery?.title || '浏览影像相册'}>
-            {image ? (
-              <img
-                src={image}
-                alt={frame?.alt || ''}
-                loading="eager"
-                decoding="async"
-                fetchpriority="high"
-              />
-            ) : (
-              <CoverArt
-                title={settings.tagline || settings.site_title}
-                slug="hero"
-                category={settings.site_subtitle || 'Scene'}
-                label={settings.site_title}
-                eager
-              />
-            )}
-            <span class="frame-scan" aria-hidden="true"></span>
-            <span class="frame-index" aria-hidden="true">01 / {String(site.photo_count).padStart(2, '0')}</span>
-          </a>
-          <div class="code-window__foot">
-            <span>{frame?.filename?.split('/').pop() || 'SCENE.LOG'}</span>
-            <span>{captionMeta || 'NO EXIF'}</span>
-          </div>
+      <div class="masthead__media">
+        <a class="masthead__frame" href={galleryHref} aria-label={featuredGallery?.title || '浏览影像相册'}>
+          {image ? (
+            <img
+              src={image}
+              alt={frame?.alt || ''}
+              loading="eager"
+              decoding="async"
+              fetchpriority="high"
+            />
+          ) : (
+            <CoverArt
+              title={settings.tagline || settings.site_title}
+              slug="hero"
+              category={settings.site_subtitle || 'Scene'}
+              label={settings.site_title}
+              eager
+            />
+          )}
+        </a>
+        <div class="masthead__caption">
+          <span>{featuredGallery?.title || settings.site_title}</span>
+          <span>{captionMeta || 'NO EXIF'}</span>
         </div>
       </div>
     ) : null

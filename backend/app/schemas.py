@@ -73,6 +73,15 @@ class PostIn(StrippedModel):
     seo_description: str = Field(default="", max_length=400)
     tags: list[str] = Field(default_factory=list, max_length=20)
     categories: list[str] = Field(default_factory=list, max_length=6)
+    # Projects reuse the posts table so code work sits next to writing and
+    # photography without a second CRUD stack.
+    project_year: str = Field(default="", max_length=20)
+    project_role: str = Field(default="", max_length=100)
+    project_client: str = Field(default="", max_length=100)
+    # A free-form label. `code` / `video` are the built-in presets, but the
+    # owner may type any type (设计、字体、装置 …) without a schema change.
+    project_kind: str = Field(default="", max_length=40)
+    project_url: str = Field(default="", max_length=300)
 
     @field_validator("slug")
     @classmethod
@@ -82,6 +91,19 @@ class PostIn(StrippedModel):
         if not SLUG_RE.match(value):
             raise ValueError("别名只能包含文字、数字、下划线或短横线")
         return value.strip("-").lower().strip("-")
+
+    @field_validator("project_kind")
+    @classmethod
+    def clean_project_kind(cls, value: str) -> str:
+        value = "".join(character for character in value if character.isprintable())
+        return re.sub(r"\s+", " ", value).strip()[:40]
+
+    @field_validator("project_url")
+    @classmethod
+    def project_link(cls, value: str) -> str:
+        if value and not (value.startswith("/") or re.match(r"^https?://", value)):
+            raise ValueError("项目链接需要以 http://、https:// 或 / 开头")
+        return value
 
     @field_validator("tags", "categories")
     @classmethod
@@ -256,10 +278,6 @@ class AppearanceIn(StrippedModel):
     hero_title: str = Field(default="", max_length=120)
     hero_subtitle: str = Field(default="", max_length=400)
     hero_image: str = Field(default="", max_length=500)
-    home_section_title: str = Field(default="", max_length=60)
-    home_section_subtitle: str = Field(default="", max_length=160)
-    home_gallery_title: str = Field(default="", max_length=60)
-    home_gallery_subtitle: str = Field(default="", max_length=160)
     gallery_columns: int = Field(default=3, ge=2, le=4)
     custom_css: str = Field(default="", max_length=60_000)
 

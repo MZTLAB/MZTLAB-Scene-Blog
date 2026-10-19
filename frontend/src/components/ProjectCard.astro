@@ -1,0 +1,38 @@
+---
+import type { PostSummary } from '../types';
+import { formatDate } from '../lib/format';
+
+interface Props {
+  project: PostSummary;
+  index?: number;
+  compact?: boolean;
+}
+
+const { project, index = 0, compact = false } = Astro.props;
+const year = project.project_year || (project.published_at || '').slice(0, 4);
+const role = project.project_role || '';
+const client = project.project_client || '';
+const kindLabel = (project.project_kind || '').trim();
+const label = `P${String(index + 1).padStart(2, '0')}`;
+---
+<a class:list={['project-card', compact && 'project-card--compact']} href={project.url}>
+  <span class="project-card__plate" aria-hidden="true">
+    <span class="project-card__plate-code">{label}</span>
+    <span class="project-card__plate-year">{year || '----'}</span>
+  </span>
+  <span class="project-card__body">
+    <span class="project-card__topline">
+      {kindLabel && <span class="project-card__kind">{kindLabel}</span>}
+      <span>{year || formatDate(project.published_at, 'short')}</span>
+      {role && <span>{role}</span>}
+    </span>
+    <strong class="project-card__title">{project.title}</strong>
+    {!compact && project.excerpt && <span class="project-card__desc">{project.excerpt}</span>}
+    {!compact && (client || project.project_url) && (
+      <span class="project-card__foot">
+        {client && <span>{client}</span>}
+        {project.project_url && <span>LINK ↗</span>}
+      </span>
+    )}
+  </span>
+</a>

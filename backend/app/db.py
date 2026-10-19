@@ -17,7 +17,7 @@ from typing import Any, Iterator
 from .config import DB_PATH
 from .defaults import default_settings
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 7
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS posts (
     project_year      TEXT NOT NULL DEFAULT '',
     project_role      TEXT NOT NULL DEFAULT '',
     project_client    TEXT NOT NULL DEFAULT '',
+    project_kind      TEXT NOT NULL DEFAULT '',   -- free-form project type
     project_url       TEXT NOT NULL DEFAULT '',
     view_count        INTEGER NOT NULL DEFAULT 0
 );
@@ -241,6 +242,10 @@ def init_db() -> None:
         _ensure_default_settings(conn)
         _migrate_scene(conn)
         _migrate_mono(conn)
+        _migrate_scene_v22(conn)
+        _migrate_project_kind_text(conn)
+        _migrate_scene_wording(conn)
+        _migrate_scene_demo_project(conn)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
     from .seed import ensure_bootstrap_admin, seed_demo_content  # avoid circular import
 
@@ -259,6 +264,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
         "project_year": "TEXT NOT NULL DEFAULT ''",
         "project_role": "TEXT NOT NULL DEFAULT ''",
         "project_client": "TEXT NOT NULL DEFAULT ''",
+        "project_kind": "TEXT NOT NULL DEFAULT ''",
         "project_url": "TEXT NOT NULL DEFAULT ''",
     },
     "photos": {
@@ -354,7 +360,7 @@ def _migrate_scene(conn: sqlite3.Connection) -> None:
     from .defaults import DEFAULT_SETTINGS, LEGACY_DEFAULTS, LEGACY_PALETTES
 
     version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= SCHEMA_VERSION:
+    if version >= 5:
         return
 
     stored: dict[str, Any] = {}
@@ -388,7 +394,7 @@ def _migrate_mono(conn: sqlite3.Connection) -> None:
     from .defaults import DEFAULT_SETTINGS, SCENE_V1_COPY
 
     version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= SCHEMA_VERSION:
+    if version >= 5:
         return
 
     stored: dict[str, Any] = {}
@@ -429,6 +435,138 @@ def _migrate_mono(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM settings WHERE key IN ('home_projects_title', 'home_projects_subtitle')")
 
 
+def _migrate_scene_v22(conn: sqlite3.Connection) -> None:
+    """Apply the Scene 2.2 rebuild once (v6).
+
+    The public theme was rebuilt around three equal columns — photos, projects
+    and texts — and almost every line of copy became a setting. Existing sites
+    move over only where the stored value is still the previous Scene default;
+    customised copy and navigation are preserved. Projects return to the
+    default navigation when the owner never edited the list.
+    """
+    from .defaults import DEFAULT_SETTINGS, SCENE_V2_COPY, SCENE_V2_NAV
+
+    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    if version >= 6:
+        return
+
+    stored: dict[str, Any] = {}
+    for row in conn.execute("SELECT key, value FROM settings"):
+        try:
+            stored[row["key"]] = json.loads(row["value"])
+        except (json.JSONDecodeError, TypeError):
+            stored[row["key"]] = row["value"]
+
+    patch: dict[str, Any] = {}
+    for key, legacy in SCENE_V2_COPY.items():
+        if stored.get(key) == legacy and DEFAULT_SETTINGS.get(key) != legacy:
+            patch[key] = DEFAULT_SETTINGS[key]
+
+    if stored.get("nav") == SCENE_V2_NAV:
+        patch["nav"] = DEFAULT_SETTINGS["nav"]
+
+    now = now_iso()
+    for key, value in patch.items():
+        conn.execute(
+            "INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (key, json.dumps(value, ensure_ascii=False), now),
+        )
+    # The Scene rebuild owns these; older keys belonged to the removed project
+    # section or to section titles that are now `copy_*` settings. They must
+    # not linger in /api/admin/settings.
+    conn.execute(
+        "DELETE FROM settings WHERE key IN ("
+        "'home_projects_title', 'home_projects_subtitle', 'home_projects_lead', "
+        "'home_gallery_title', 'home_gallery_subtitle', "
+        "'home_section_title', 'home_section_subtitle'"
+        ")"
+    )
+
+
+def _migrate_scene_wording(conn: sqlite3.Connection) -> None:
+    """Rename the short-lived "Index" wording back to Scene (场景).
+
+    The 2.2 rebuild briefly named the theme Index. This pass runs on every
+    start but only rewrites values that still equal one of those old default
+    strings, so hand-edited copy always survives.
+    """
+    from .defaults import DEFAULT_SETTINGS, SCENE_INDEX_COPY
+
+    stored: dict[str, Any] = {}
+    for row in conn.execute("SELECT key, value FROM settings"):
+        try:
+            stored[row["key"]] = json.loads(row["value"])
+        except (json.JSONDecodeError, TypeError):
+            stored[row["key"]] = row["value"]
+
+    patch = {
+        key: DEFAULT_SETTINGS[key]
+        for key, old in SCENE_INDEX_COPY.items()
+        if key in DEFAULT_SETTINGS and stored.get(key) == old and DEFAULT_SETTINGS[key] != old
+    }
+    if not patch:
+        return
+    now = now_iso()
+    for key, value in patch.items():
+        conn.execute(
+            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ?",
+            (json.dumps(value, ensure_ascii=False), now, key),
+        )
+
+
+def _migrate_scene_demo_project(conn: sqlite3.Connection) -> None:
+    """Rename the bundled demo project away from the old Index wording.
+
+    Only the untouched demo row is rewritten (same slug and title); any edited
+    project is left alone.
+    """
+    from .content import render_markdown
+    from .seed import PROJECTS
+
+    entry = next((item for item in PROJECTS if item["slug"] == "index-portfolio"), None)
+    if not entry:
+        return
+    row = conn.execute(
+        "SELECT id, title FROM posts WHERE type = 'project' AND slug = ?",
+        (entry["slug"],),
+    ).fetchone()
+    if not row or row["title"] != "Index / 索引式作品集":
+        return
+    content = entry["content"].strip() + "\n"
+    conn.execute(
+        """UPDATE posts SET title = ?, excerpt = ?, content_md = ?,
+               content_html = ?, updated_at = ? WHERE id = ?""",
+        (
+            entry["title"],
+            entry.get("excerpt", ""),
+            content,
+            render_markdown(content),
+            now_iso(),
+            row["id"],
+        ),
+    )
+
+
+def _migrate_project_kind_text(conn: sqlite3.Connection) -> None:
+    """Move the old `code` / `video` enum values to plain display text (v7).
+
+    Project types are now a free-text field; the two former presets become the
+    readable values the rest of the site used to render.
+    """
+    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    if version >= 7:
+        return
+    conn.execute(
+        "UPDATE posts SET project_kind = '代码' "
+        "WHERE type = 'project' AND LOWER(TRIM(project_kind)) = 'code'"
+    )
+    conn.execute(
+        "UPDATE posts SET project_kind = '影像' "
+        "WHERE type = 'project' AND LOWER(TRIM(project_kind)) = 'video'"
+    )
+
+
 def _ensure_default_settings(conn: sqlite3.Connection) -> None:
     from .config import SITE_URL
 
@@ -439,6 +577,16 @@ def _ensure_default_settings(conn: sqlite3.Connection) -> None:
             "INSERT OR IGNORE INTO settings(key, value, updated_at) VALUES (?, ?, ?)",
             (key, json.dumps(value, ensure_ascii=False), now),
         )
+    # Settings that the Scene rebuild retired. Deleting them on every start
+    # also cleans databases that were already upgraded.
+    conn.execute(
+        "DELETE FROM settings WHERE key IN ("
+        "'home_gallery_title', 'home_gallery_subtitle', "
+        "'home_section_title', 'home_section_subtitle', "
+        "'home_projects_title', 'home_projects_subtitle', 'home_projects_lead', "
+        "'copy_project_kind_code', 'copy_project_kind_video'"
+        ")"
+    )
     # BLOG_SITE_URL is a first-boot convenience for deployments. Once the URL
     # has been changed in the admin it is left alone.
     if SITE_URL:

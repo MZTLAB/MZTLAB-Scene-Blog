@@ -29,6 +29,10 @@ from ..defaults import (
     HERO_STYLES,
     POST_LAYOUTS,
     THEMES,
+    UPLOAD_AUDIO_FORMATS,
+    UPLOAD_FILE_FORMATS,
+    UPLOAD_FORMAT_ALIASES,
+    UPLOAD_IMAGE_FORMATS,
     default_settings,
 )
 from ..deps import require_permission, require_staff
@@ -43,7 +47,12 @@ from ..schemas import (
     ProfileIn,
     TaxonomyIn,
 )
-from ..security import hash_password, password_policy_error, verify_password
+from ..security import (
+    hash_password,
+    password_policy_error,
+    preview_limiter,
+    verify_password,
+)
 
 router = APIRouter(
     prefix="/admin",
@@ -57,7 +66,7 @@ RESERVED_PAGE_SLUGS = {
     "sitemap.xml", "robots.txt", "setup", "login",
 }
 
-PostType = Literal["post", "page"]
+PostType = Literal["post", "page", "project"]
 
 
 # ---------------------------------------------------------------------------
@@ -189,6 +198,7 @@ def _post_request(payload: PostIn, user_id: int, post_type: str) -> dict[str, An
     if content:
         content += "\n"
     is_page = post_type == "page"
+    is_project = post_type == "project"
     return {
         "type": post_type,
         "title": payload.title,
@@ -198,10 +208,15 @@ def _post_request(payload: PostIn, user_id: int, post_type: str) -> dict[str, An
         "cover_image": payload.cover_image,
         "status": status,
         "featured": 1 if payload.featured and not is_page else 0,
-        "allow_comments": 1 if payload.allow_comments and not is_page else 0,
+        "allow_comments": 1 if payload.allow_comments and not is_page and not is_project else 0,
         "published_at": published,
         "seo_title": payload.seo_title,
         "seo_description": payload.seo_description,
+        "project_year": payload.project_year if is_project else "",
+        "project_role": payload.project_role if is_project else "",
+        "project_client": payload.project_client if is_project else "",
+        "project_kind": payload.project_kind if is_project else "",
+        "project_url": payload.project_url if is_project else "",
         "user_id": user_id,
         "slug_source": payload.slug or payload.title,
     }
@@ -218,6 +233,7 @@ def stats() -> dict[str, Any]:
             return int(conn.execute(sql, args).fetchone()[0])
 
         post_counts = _page_counts(conn, "post")
+        project_counts = _page_counts(conn, "project")
         recent = serialize_posts(
             conn,
             list(
@@ -225,6 +241,17 @@ def stats() -> dict[str, Any]:
                     """SELECT p.*, u.display_name AS author_name, u.avatar AS author_avatar
                        FROM posts p LEFT JOIN users u ON u.id = p.author_id
                        WHERE p.type = 'post' ORDER BY p.updated_at DESC LIMIT 5"""
+                )
+            ),
+            admin=True,
+        )
+        recent_projects = serialize_posts(
+            conn,
+            list(
+                conn.execute(
+                    """SELECT p.*, u.display_name AS author_name, u.avatar AS author_avatar
+                       FROM posts p LEFT JOIN users u ON u.id = p.author_id
+                       WHERE p.type = 'project' ORDER BY p.updated_at DESC LIMIT 5"""
                 )
             ),
             admin=True,
@@ -277,6 +304,7 @@ def stats() -> dict[str, Any]:
         ]
     return {
         "posts": post_counts,
+        "projects": project_counts,
         "pages": pages_count,
         "comments": comment_counts,
         "media": media_count,
@@ -286,6 +314,7 @@ def stats() -> dict[str, Any]:
         "tags": tag_count,
         "categories": category_count,
         "recent_posts": recent,
+        "recent_projects": recent_projects,
         "recent_galleries": recent_galleries,
         "pending_comments": pending,
         "recent_comments": recent_comments,
@@ -361,13 +390,17 @@ def create_post(
             """INSERT INTO posts(
                    type, title, slug, excerpt, content_md, content_html, cover_image,
                    status, featured, allow_comments, author_id, published_at,
-                   created_at, updated_at, seo_title, seo_description, view_count
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
+                   created_at, updated_at, seo_title, seo_description,
+                   project_year, project_role, project_client, project_kind, project_url,
+                   view_count
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)""",
             (
                 post["type"], post["title"], slug, post["excerpt"], post["content_md"],
                 post["content_html"], post["cover_image"], post["status"], post["featured"],
                 post["allow_comments"], post["user_id"], post["published_at"],
                 now, now, post["seo_title"], post["seo_description"],
+                post["project_year"], post["project_role"], post["project_client"],
+                post["project_kind"], post["project_url"],
             ),
         )
         post_id = int(cur.lastrowid)
@@ -404,13 +437,17 @@ def update_post(
             """UPDATE posts SET title = ?, slug = ?, excerpt = ?, content_md = ?,
                    content_html = ?, cover_image = ?, status = ?, featured = ?,
                    allow_comments = ?, published_at = ?, updated_at = ?,
-                   seo_title = ?, seo_description = ?
+                   seo_title = ?, seo_description = ?,
+                   project_year = ?, project_role = ?, project_client = ?,
+                   project_kind = ?, project_url = ?
                WHERE id = ?""",
             (
                 post["title"], slug, post["excerpt"], post["content_md"],
                 post["content_html"], post["cover_image"], post["status"],
                 post["featured"], post["allow_comments"], post["published_at"],
-                now_iso(), post["seo_title"], post["seo_description"], post_id,
+                now_iso(), post["seo_title"], post["seo_description"],
+                post["project_year"], post["project_role"], post["project_client"],
+                post["project_kind"], post["project_url"], post_id,
             ),
         )
         _set_terms(conn, post_id, payload)
@@ -497,6 +534,12 @@ def restore_revision(
 
 @router.post("/preview")
 def preview(payload: PreviewIn, user: dict = Depends(require_permission("content.write"))) -> dict[str, Any]:
+    if not preview_limiter.allow(f"preview:{user['id']}"):
+        raise HTTPException(
+            status_code=429,
+            detail="预览刷新过于频繁，请稍后再试",
+            headers={"Retry-After": "10"},
+        )
     html = render_markdown(payload.content_md)
     from ..content import extract_toc
 
@@ -713,6 +756,19 @@ def _as_text(value: Any, max_len: int) -> str:
     return value[:max_len]
 
 
+def _sanitize_upload_formats(
+    value: Any, allowed: tuple[str, ...], aliases: dict[str, str]
+) -> list[str]:
+    """Keep only known format tokens, in the canonical order."""
+    if not isinstance(value, str):
+        return []
+    tokens = {
+        aliases.get(token.strip().lower().lstrip("."), token.strip().lower().lstrip("."))
+        for token in value.replace(";", ",").split(",")
+    }
+    return [format_ for format_ in allowed if format_ in tokens]
+
+
 def _sanitize_links(value: Any, label_key: str = "label") -> list[dict[str, str]]:
     if not isinstance(value, list):
         return []
@@ -745,8 +801,6 @@ def update_settings(
         "author_bio": 500, "author_avatar": 500, "footer_text": 200,
         "footer_note": 200, "icp": 80, "seo_description": 300,
         "seo_keywords": 200, "og_image": 500, "announcement": 300,
-        "home_section_title": 60, "home_section_subtitle": 200,
-        "home_gallery_title": 60, "home_gallery_subtitle": 200,
         "hero_eyebrow": 100, "hero_title": 160, "hero_subtitle": 500,
         "hero_image": 500, "custom_css": 60_000, "head_html": 30_000,
     }
@@ -770,6 +824,22 @@ def update_settings(
                 clean[key] = max(2, min(4, int(value)))
             except (TypeError, ValueError):
                 continue
+        elif key == "upload_max_mb":
+            try:
+                clean[key] = max(1, min(200, int(value)))
+            except (TypeError, ValueError):
+                continue
+        elif key == "upload_image_formats":
+            formats = _sanitize_upload_formats(value, UPLOAD_IMAGE_FORMATS, UPLOAD_FORMAT_ALIASES)
+            if formats:
+                clean[key] = ",".join(formats)
+        elif key == "upload_audio_formats":
+            formats = _sanitize_upload_formats(value, UPLOAD_AUDIO_FORMATS, {})
+            if formats:
+                clean[key] = ",".join(formats)
+        elif key == "upload_file_formats":
+            formats = _sanitize_upload_formats(value, UPLOAD_FILE_FORMATS, {})
+            clean[key] = ",".join(formats)
         elif key == "layout_width":
             try:
                 clean[key] = max(720, min(1600, int(value)))
@@ -799,6 +869,14 @@ def update_settings(
         ):
             clean[key] = value.lower()
         elif key in {"site_url", "logo", "favicon", "og_image", "author_avatar", "hero_image"}:
+            clean[key] = _as_text(value, 500)
+        elif key.endswith("_url"):
+            # Copy keys such as copy_hero_primary_url are rendered as links.
+            url = _as_text(value, 500).strip()
+            if not url or url.startswith(("/", "#")) or re.match(r"^https?://", url):
+                clean[key] = url
+        elif isinstance(value, str):
+            # Theme copy: free text lines, editable from 外观 → 页面文案.
             clean[key] = _as_text(value, 500)
     if "site_url" in clean:
         url = str(clean["site_url"]).rstrip("/")

@@ -240,6 +240,11 @@ login_account_limiter = RateLimiter(limit=60, window_seconds=900)
 
 comment_limiter = RateLimiter(limit=5, window_seconds=600)
 
+# Editor previews are debounced client-side, but a misbehaving client (or a
+# held-down key in split view) could still hammer the Markdown renderer. The
+# limit is generous for normal writing and stops runaway request loops.
+preview_limiter = RateLimiter(limit=60, window_seconds=60)
+
 
 def login_backoff_seconds(failures: int) -> float:
     """Exponential delay after repeated failures, capped to keep threads free."""

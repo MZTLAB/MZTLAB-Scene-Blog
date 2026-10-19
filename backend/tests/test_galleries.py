@@ -42,8 +42,8 @@ class UrlShapeTests(unittest.TestCase):
     def test_content_types_get_their_own_section(self) -> None:
         self.assertEqual(public_url({"type": "post", "slug": "hello"}), "/posts/hello")
         self.assertEqual(public_url({"type": "page", "slug": "about"}), "/about")
-        # Project rows from the old schema are no longer routed.
-        self.assertEqual(public_url({"type": "project", "slug": "form-01"}), "/posts/form-01")
+        # Projects are a first-class content type again (Index theme).
+        self.assertEqual(public_url({"type": "project", "slug": "form-01"}), "/projects/form-01")
 
     def test_photo_exposes_technical_exif(self) -> None:
         item = photo_dict(

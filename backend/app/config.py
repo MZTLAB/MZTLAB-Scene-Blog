@@ -19,7 +19,7 @@ load_dotenv(ROOT_DIR / ".env")
 load_dotenv(BASE_DIR / ".env", override=True)
 
 APP_NAME = "MZTLAB"
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 
 # Largest integer SQLite can bind (signed 64-bit). Request parameters are
 # capped to this so oversized ids return 422 instead of an unhandled 500.
@@ -72,6 +72,12 @@ BOOTSTRAP_ADMIN_NAME = os.getenv("BLOG_ADMIN_NAME", "MZTLAB").strip() or "MZTLAB
 
 SEED_DEMO = _flag("BLOG_SEED_DEMO", True)
 MAX_UPLOAD_BYTES = int(os.getenv("BLOG_MAX_UPLOAD_MB", "12")) * 1024 * 1024
+# Administrators ignore the configured upload policy; this technical ceiling
+# keeps a single upload from exhausting memory/disk. Raise it deliberately.
+ADMIN_MAX_UPLOAD_MB = max(
+    1, int(os.getenv("BLOG_ADMIN_MAX_UPLOAD_MB", "200"))
+)
+ADMIN_MAX_UPLOAD_BYTES = ADMIN_MAX_UPLOAD_MB * 1024 * 1024
 CORS_ORIGINS = [
     origin.strip()
     for origin in os.getenv("BLOG_CORS_ORIGINS", "").split(",")

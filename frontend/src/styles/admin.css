@@ -4017,3 +4017,54 @@ html[data-theme="scene"] input[type="range"]::-moz-range-thumb {
   }
 }
 
+/* Extra file cards in the media library ---------------------------------- */
+
+.media-card__file {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-sunken);
+}
+
+.media-card__file-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 120px;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.media-card__file-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.media-card__file-ext {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.media-card__file-name {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.media-card__file-hint {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+

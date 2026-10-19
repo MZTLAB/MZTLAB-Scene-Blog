@@ -44,6 +44,38 @@ class MarkdownTests(unittest.TestCase):
         self.assertIn("<source", html)
         self.assertIn('type="audio/mpeg"', html)
 
+    def test_expands_audio_fence_to_player(self) -> None:
+        html = render_markdown(
+            "前面的文字\n\n"
+            "```audio\n"
+            "src: /media/2026/01/track.mp3\n"
+            "title: Night Walk\n"
+            "artist: MZTLAB\n"
+            "```\n\n"
+            "后面的文字"
+        )
+        self.assertIn('<figure class="audio-embed">', html)
+        self.assertIn('class="audio-embed__title">Night Walk<', html)
+        self.assertIn('class="audio-embed__artist">MZTLAB<', html)
+        self.assertIn('src="/media/2026/01/track.mp3"', html)
+        self.assertIn('type="audio/mpeg"', html)
+        self.assertIn("前面的文字", html)
+        self.assertIn("后面的文字", html)
+        self.assertNotIn("```audio", html)
+
+    def test_invalid_audio_fence_is_left_as_code(self) -> None:
+        html = render_markdown("```audio\nsrc: javascript:alert(1)\n```")
+        self.assertNotIn("<audio", html)
+        self.assertIn("javascript:alert(1)", html)
+
+    def test_audio_fence_is_hidden_from_excerpt(self) -> None:
+        excerpt = make_excerpt(
+            "正文开头。\n\n```audio\nsrc: /media/track.mp3\ntitle: Track\n```\n\n结尾。"
+        )
+        self.assertNotIn("src:", excerpt)
+        self.assertNotIn("track.mp3", excerpt)
+        self.assertIn("正文开头", excerpt)
+
     def test_toc_extraction(self) -> None:
         html = render_markdown("## 第一节\n\n文字\n\n### 小节\n\n## 第二节")
         toc = extract_toc(html)

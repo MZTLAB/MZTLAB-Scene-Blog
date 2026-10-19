@@ -12,12 +12,11 @@ const path = Astro.url.pathname;
 const fallbackNav = [
   { label: '首页', url: '/' },
   { label: '影像', url: '/photos' },
+  { label: '项目', url: '/projects' },
   { label: '文章', url: '/archive' },
   { label: '关于', url: '/about' },
 ];
-const nav = (settings.nav?.length ? settings.nav : fallbackNav).filter(
-  (item) => !item.url.startsWith('/projects'),
-);
+const nav = settings.nav?.length ? settings.nav : fallbackNav;
 const markSrc = settings.favicon || '/favicon.svg';
 
 function isExternal(url: string): boolean {

@@ -77,6 +77,8 @@ def effective_status(row: dict[str, Any] | sqlite3.Row) -> str:
 def public_url(row: dict[str, Any] | sqlite3.Row) -> str:
     if row["type"] == "page":
         return f"/{quote_slug(row['slug'])}"
+    if row["type"] == "project":
+        return f"/projects/{quote_slug(row['slug'])}"
     return f"/posts/{quote_slug(row['slug'])}"
 
 
@@ -117,6 +119,11 @@ def serialize_post(
         "tags": data["tags"],
         "seo_title": data.get("seo_title", ""),
         "seo_description": data.get("seo_description", ""),
+        "project_year": data.get("project_year", ""),
+        "project_role": data.get("project_role", ""),
+        "project_client": data.get("project_client", ""),
+        "project_kind": data.get("project_kind", ""),
+        "project_url": data.get("project_url", ""),
     }
     if detail:
         item["content_html"] = data["content_html"]
@@ -178,6 +185,11 @@ def _list_item(data: dict[str, Any], *, admin: bool) -> dict[str, Any]:
         },
         "categories": data["categories"],
         "tags": data["tags"],
+        "project_year": data.get("project_year", ""),
+        "project_role": data.get("project_role", ""),
+        "project_client": data.get("project_client", ""),
+        "project_kind": data.get("project_kind", ""),
+        "project_url": data.get("project_url", ""),
     }
     if admin:
         item.update(
@@ -261,11 +273,22 @@ def fetch_posts(
         where.append("p.featured = ?")
         args.append(1 if featured else 0)
     if q:
+        # Search the body *and* the metadata: project fields, taxonomy names and
+        # the author, so "2025" or "全栈" can find a project too.
         where.append(
-            "(p.title LIKE ? OR p.excerpt LIKE ? OR p.content_md LIKE ? OR p.seo_description LIKE ?)"
+            "(p.title LIKE ? OR p.excerpt LIKE ? OR p.content_md LIKE ? "
+            "OR p.seo_description LIKE ? OR p.project_year LIKE ? "
+            "OR p.project_role LIKE ? OR p.project_client LIKE ? "
+            "OR p.project_kind LIKE ? "
+            "OR (SELECT uq.display_name FROM users uq WHERE uq.id = p.author_id) LIKE ? "
+            "OR EXISTS (SELECT 1 FROM post_tags ptq JOIN tags tq ON tq.id = ptq.tag_id "
+            "           WHERE ptq.post_id = p.id AND tq.name LIKE ?) "
+            "OR EXISTS (SELECT 1 FROM post_categories pcq "
+            "           JOIN categories cq ON cq.id = pcq.category_id "
+            "           WHERE pcq.post_id = p.id AND cq.name LIKE ?))"
         )
         needle = f"%{q.strip()}%"
-        args.extend([needle, needle, needle, needle])
+        args.extend([needle] * 11)
 
     base = _base_select()
     if joins:

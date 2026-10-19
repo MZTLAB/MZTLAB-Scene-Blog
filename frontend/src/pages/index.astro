@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HomeHero from '../components/HomeHero.astro';
-import GalleryCard from '../components/GalleryCard.astro';
+import ProjectCard from '../components/ProjectCard.astro';
 import Icon from '../components/Icon.astro';
 import { apiServer, getSite } from '../lib/api';
 import { fallbackSite } from '../config';
@@ -10,117 +10,194 @@ import type { Gallery, Paginated, PostSummary, SiteInfo } from '../types';
 
 let site: SiteInfo = fallbackSite as unknown as SiteInfo;
 let galleries: Gallery[] = [];
+let projects: PostSummary[] = [];
 let articles: PostSummary[] = [];
 let loadError = '';
 
 try {
   site = await getSite();
-  const [galleryResult, articleResult] = await Promise.allSettled([
+  const [galleryResult, projectResult, articleResult] = await Promise.allSettled([
     apiServer<Paginated<Gallery>>('/api/galleries?per_page=6'),
+    apiServer<Paginated<PostSummary>>('/api/projects?per_page=6'),
     apiServer<Paginated<PostSummary>>('/api/posts?per_page=4'),
   ]);
   if (galleryResult.status === 'fulfilled') galleries = galleryResult.value.items;
+  if (projectResult.status === 'fulfilled') projects = projectResult.value.items;
   if (articleResult.status === 'fulfilled') articles = articleResult.value.items;
 } catch (error) {
   loadError = error instanceof Error ? error.message : '无法连接内容服务';
 }
 
-const featuredGallery = galleries.find((gallery) => gallery.featured) || galleries[0] || null;
-const selectedGalleries = galleries.slice(0, 3);
 const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
+
+const featuredGallery = galleries.find((gallery) => gallery.featured) || galleries[0] || null;
+const photoItems = galleries.slice(0, 3);
+const projectItems = projects.slice(0, 3);
+const articleItems = articles.slice(0, 3);
+const isEmpty = photoItems.length === 0 && projectItems.length === 0 && articleItems.length === 0;
+
+const counts = {
+  photos: site.photo_count || 0,
+  projects: site.project_count || 0,
+  texts: site.post_count || 0,
+};
+const two = (value: number) => String(value).padStart(2, '0');
 ---
 <BaseLayout site={site} description={site.settings.description || site.settings.seo_description}>
   {loadError ? (
     <section class="container empty-state" style="min-height: 52vh">
       <span class="empty-mark">!</span>
-      <h2>内容服务离线</h2>
-      <p>启动 FastAPI 后端后刷新。</p>
+      <h2>{copy('copy_load_error_title', '内容服务离线')}</h2>
+      <p>{copy('copy_load_error_text', '启动 FastAPI 后端后刷新。')}</p>
       <p><code>{loadError}</code></p>
     </section>
   ) : (
     <>
       {settings.hero_show !== false && <HomeHero site={site} featuredGallery={featuredGallery} />}
 
-      {
-        selectedGalleries.length > 0 && (
-          <section class="container section--tight">
-            <div class="section-head">
-              <div>
-                <span class="section-code">// 01 / ALBUMS</span>
-                <h2>{settings.home_gallery_title || '影像相册'}</h2>
+      {!isEmpty && (
+        <section class="container index-section" id="index">
+          <header class="index-head">
+            <span class="section-code">// SCENE</span>
+            <div class="index-head__row">
+              <h2>{copy('copy_index_title', '场景')}</h2>
+              <p>{copy('copy_index_lead', '三个入口：照片、项目与文字。各自独立，也彼此参照。')}</p>
+            </div>
+          </header>
+
+          <div class="pillars">
+            <article class="pillar" data-pillar="photos">
+              <header class="pillar__head">
+                <a class="pillar__title" href="/photos">
+                  <span class="pillar__index">01</span>
+                  <h3>{copy('copy_photos_title', '影像')}</h3>
+                  <span class="pillar__count">{two(counts.photos)}</span>
+                </a>
+                <p>{copy('copy_photos_lead', '以相册整理光线、空间与痕迹。')}</p>
+              </header>
+
+              <div class="pillar__body">
+                {photoItems.length > 0 ? (
+                  photoItems.map((gallery) => (
+                    <a class="pillar__photo" href={gallery.url}>
+                      <span class="pillar__thumb">
+                        {gallery.cover ? (
+                          <img
+                            src={gallery.cover.url}
+                            alt={gallery.cover.alt}
+                            loading="lazy"
+                            decoding="async"
+                          />
+                        ) : (
+                          <span class="pillar__thumb-empty" aria-hidden="true">[ {two(gallery.photo_count)} ]</span>
+                        )}
+                      </span>
+                      <span class="pillar__meta">
+                        <strong>{gallery.title}</strong>
+                        <span>{two(gallery.photo_count)} FRAMES</span>
+                      </span>
+                    </a>
+                  ))
+                ) : (
+                  <p class="pillar__empty">{copy('copy_photos_empty_text', '新建相册，再从媒体库选照片。')}</p>
+                )}
               </div>
-              <div class="section-head__side">
+
+              <footer class="pillar__foot">
                 <a class="text-link" href="/photos">
-                  索引 {String(site.gallery_count).padStart(2, '0')} 本 <Icon name="arrowRight" size={14} />
+                  {copy('copy_photos_link', '全部影像')} <Icon name="arrowRight" size={13} />
                 </a>
-              </div>
-            </div>
-            <div class="gallery-grid gallery-grid--home">
-              {selectedGalleries.map((gallery, index) => (
-                <GalleryCard gallery={gallery} label={settings.site_title} index={index + 1} />
-              ))}
-            </div>
-          </section>
-        )
-      }
+              </footer>
+            </article>
 
-      {
-        articles.length > 0 && (
-          <section class="container section">
-            <div class="section-head">
-              <div>
-                <span class="section-code">// 02 / TEXTS</span>
-                <h2>{settings.home_section_title || '文字'}</h2>
+            <article class="pillar" data-pillar="projects">
+              <header class="pillar__head">
+                <a class="pillar__title" href="/projects">
+                  <span class="pillar__index">02</span>
+                  <h3>{copy('copy_projects_title', '项目')}</h3>
+                  <span class="pillar__count">{two(counts.projects)}</span>
+                </a>
+                <p>{copy('copy_projects_lead', '代码与设计，记录做法与结果。')}</p>
+              </header>
+
+              <div class="pillar__body">
+                {projectItems.length > 0 ? (
+                  projectItems.map((project, index) => (
+                    <ProjectCard project={project} index={index} compact />
+                  ))
+                ) : (
+                  <p class="pillar__empty">{copy('copy_projects_empty_text', '新建一个项目，写下它解决的问题。')}</p>
+                )}
               </div>
-              <div class="section-head__side">
+
+              <footer class="pillar__foot">
+                <a class="text-link" href="/projects">
+                  {copy('copy_projects_link', '全部项目')} <Icon name="arrowRight" size={13} />
+                </a>
+              </footer>
+            </article>
+
+            <article class="pillar" data-pillar="texts">
+              <header class="pillar__head">
+                <a class="pillar__title" href="/archive">
+                  <span class="pillar__index">03</span>
+                  <h3>{copy('copy_texts_title', '文字')}</h3>
+                  <span class="pillar__count">{two(counts.texts)}</span>
+                </a>
+                <p>{copy('copy_texts_lead', '笔墨之痕，以篇章留存。')}</p>
+              </header>
+
+              <div class="pillar__body">
+                {articleItems.length > 0 ? (
+                  articleItems.map((post, index) => (
+                    <a class="pillar__text" href={post.url}>
+                      <span class="pillar__text-index">{String(index + 1).padStart(2, '0')}</span>
+                      <span class="pillar__meta">
+                        <strong>{post.title}</strong>
+                        <span>{formatDate(post.published_at, 'short')} {post.reading_time ? `· ${post.reading_time} MIN` : ''}</span>
+                      </span>
+                    </a>
+                  ))
+                ) : (
+                  <p class="pillar__empty">{copy('copy_texts_empty_text', '写下一篇文章，让时间有迹可循。')}</p>
+                )}
+              </div>
+
+              <footer class="pillar__foot">
                 <a class="text-link" href="/archive">
-                  全部 {String(site.post_count).padStart(2, '0')} 篇 <Icon name="arrowRight" size={14} />
+                  {copy('copy_texts_link', '全部文字')} <Icon name="arrowRight" size={13} />
                 </a>
-              </div>
-            </div>
-            <div class="journal-list">
-              {articles.map((post, index) => (
-                <a class="journal-item" href={post.url}>
-                  <time datetime={post.published_at || undefined}>
-                    {formatDate(post.published_at, 'short')}
-                  </time>
-                  <div>
-                    <span class="journal-item__index">[{String(index + 1).padStart(2, '0')}]</span>
-                    <h3>{post.title}</h3>
-                    {post.excerpt && <p>{post.excerpt}</p>}
-                  </div>
-                  <span class="journal-item__aside">
-                    {post.reading_time} MIN READ
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
-        )
-      }
+              </footer>
+            </article>
+          </div>
+        </section>
+      )}
 
-      {
-        galleries.length === 0 && articles.length === 0 && (
-          <section class="container empty-state">
-            <span class="empty-mark">[ ]</span>
-            <h2>空索引</h2>
-            <p>上传照片、建立相册，或写一篇文章。</p>
-            <a class="btn" href="/admin" style="margin-top: 18px">
-              进入后台 <Icon name="arrowRight" size={14} />
-            </a>
-          </section>
-        )
-      }
+      {isEmpty && (
+        <section class="container empty-state">
+          <span class="empty-mark">[ ]</span>
+          <h2>{copy('copy_home_empty_title', '空场景')}</h2>
+          <p>{copy('copy_home_empty_text', '上传照片、建立相册，或写一篇文章。')}</p>
+          <a class="btn" href="/admin" style="margin-top: 18px">
+            {copy('copy_home_empty_cta', '进入后台')} <Icon name="arrowRight" size={14} />
+          </a>
+        </section>
+      )}
 
       <section class="container">
         <div class="cta-band">
           <div>
             <span class="section-code">// SYNDICATION</span>
-            <h3>通过 RSS 订阅。</h3>
+            <h3>{copy('copy_cta_title', '保持联系。')}</h3>
+            <p>{copy('copy_cta_text', '订阅 RSS，或者先从场景里挑一个入口。')}</p>
           </div>
           <div class="cta-actions">
-            <a class="btn btn--ghost" href="/rss.xml"><Icon name="rss" size={14} /> RSS</a>
-            <a class="btn" href="/search">搜索 <Icon name="search" size={14} /></a>
+            <a class="btn btn--ghost" href="/rss.xml"><Icon name="rss" size={14} /> {copy('copy_cta_rss', 'RSS')}</a>
+            <a class="btn" href="/search">{copy('copy_cta_search', '搜索')} <Icon name="search" size={14} /></a>
           </div>
         </div>
       </section>

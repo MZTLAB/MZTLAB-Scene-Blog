@@ -144,13 +144,159 @@ HABITAT 想回答一个很朴素的问题：人们如何在自己的居住空间
 ABOUT_PAGE = """\
 ## MZTLAB
 
-影像与文字。
+影像、项目与文字。
 
 - **影像**：自然光、空间与痕迹。
+- **项目**：把想法做成可以运行、可以维护的东西。
 - **文字**：方法、过程与回看。
 
-少说一点，多看一会儿。
+少说一点，多看一会儿，多动手一次。
 """
+
+
+# Code projects reuse the posts table (`type = 'project'`), so the three
+# columns on the home page share one content pipeline and one admin editor.
+PROJECTS: list[dict[str, Any]] = [
+    {
+        "title": "Scene Engine / 博客引擎",
+        "slug": "scene-engine",
+        "kind": "代码",
+        "year": "2026",
+        "role": "设计 / 全栈",
+        "client": "内部工具",
+        "url": "https://github.com/",
+        "featured": 1,
+        "days_ago": 6,
+        "views": 87,
+        "excerpt": "一个刻意保持小的博客系统：Astro 负责页面，FastAPI + SQLite 负责内容与权限。",
+        "content": """\
+## 要解决的问题
+
+我想让写文章、整理相册和发布图片发生在同一个地方，并且不引入 Redis、任务队列或前端框架。整个站点只有两个进程和一个 SQLite 文件。
+
+```text
+浏览器 → Astro SSR → FastAPI → SQLite
+```
+
+## 做法
+
+- **数据先行**：文章、页面、相册、照片、项目共用一套所有权与权限；
+- **少依赖**：Markdown 用 `markdown` + `bleach`，图片用 Pillow，认证用 scrypt；
+- **可迁移**：数据库升级靠 `PRAGMA user_version`，不装迁移框架；
+- **慢一点**：不追求实时，服务端渲染已经足够。
+
+## 结果
+
+部署成本是一台最小规格的机器。备份只需要复制 `backend/data` 目录。
+
+> 工具应该消失在内容后面。""",
+    },
+    {
+        "title": "Scene Grid / 场景式作品集",
+        "slug": "index-portfolio",
+        "kind": "代码",
+        "year": "2025",
+        "role": "信息架构 / 前端",
+        "client": "独立工作室",
+        "url": "",
+        "featured": 0,
+        "days_ago": 40,
+        "views": 132,
+        "excerpt": "把照片、项目与文字放进同一组等宽列里，让三种工作获得同等的注意力。",
+        "content": """\
+## 问题
+
+作品集很容易变成某一种内容的展示柜：照片最大、文字最少，项目只是附件。但三种工作其实是同一件事的三个侧面。
+
+## 结构
+
+首页只保留一个内容区，横向三列：
+
+1. **影像** — 以相册为单位；
+2. **项目** — 以「年份 / 角色 / 上下文」为单位；
+3. **文字** — 以时间为单位。
+
+每列只露出三条，数量、字号、留白完全一致。读者自己决定往哪个方向走。
+
+## 细节
+
+- 三列共用一套网格与行高；
+- 不设置主次，避免「精选」压过其他内容；
+- 移动端按同一顺序纵向堆叠。
+
+平衡不是平均，而是每种内容都有同等被看见的机会。""",
+    },
+    {
+        "title": "Field Notes / 田野记录器",
+        "slug": "field-notes-cli",
+        "kind": "代码",
+        "year": "2025",
+        "role": "命令行工具",
+        "client": "个人项目",
+        "url": "https://github.com/",
+        "featured": 0,
+        "days_ago": 90,
+        "views": 64,
+        "excerpt": "在户外用一个命令记下时间、位置与一段文字，回到工作室自动整理成 Markdown。",
+        "content": """\
+## 背景
+
+拍摄时最缺的是记录：光线的方向、当时的声音、为什么按下这一次快门。手机备忘录会把这些打散。
+
+## 工具
+
+一个很小的 Python 命令行程序：
+
+```bash
+fieldnote "下午四点的侧面光" --tag light --tag studio
+```
+
+- 写入一行 JSONL，包含时间、坐标与标签；
+- 回到工作室运行 `fieldnote build`，按日期生成 Markdown；
+- 输出目录正好是博客的文章目录。
+
+## 收获
+
+记录的门槛要足够低，低到不需要决定「这算不算一篇文章」。先记下来，再决定它的形状。""",
+    },
+    {
+        "title": "Slow Light / 光的短片",
+        "slug": "slow-light-film",
+        "kind": "影像",
+        "year": "2024",
+        "role": "导演 / 摄影 / 剪辑",
+        "client": "独立短片 · 12 分钟",
+        "url": "",
+        "featured": 0,
+        "days_ago": 18,
+        "views": 41,
+        "excerpt": "一部关于清晨光线的短片。这里只放文字介绍，影像本身在别处放映。",
+        "content": """\
+## 说明
+
+这是一部视频项目的文字档案。站点本身不承载视频文件，也不嵌入播放器——只记录它是什么、为什么拍、以及后来发生了什么。
+
+## 短片
+
+**《Slow Light》**，12 分钟，彩色，2024 年。
+
+镜头跟随一间朝东的工作室，从日出前一小时到上午十点。没有旁白，没有配乐，只有环境声与光在墙面上的移动。
+
+## 拍摄方式
+
+- 固定机位，三个月的清晨，每天拍同一条时间线；
+- 不补光，不调色，只做最基本的曝光匹配；
+- 剪辑顺序按光的入射角排列，而不是按拍摄日期。
+
+## 为什么放出文字而不是视频
+
+视频需要合适的带宽与播放环境。这里保留它的观看说明、场次与制作笔记；观看链接只在私下分享，不放在公开页面上。
+
+## 后来
+
+短片在两次小型放映中出现，之后一直放在硬盘里。它教给我的事比它本身更重要：**有些作品的价值在于过程被完整地走了一遍**。""",
+    },
+]
 
 
 # ---------------------------------------------------------------------------
@@ -232,8 +378,11 @@ def _insert_post(
         """INSERT INTO posts(
                type, title, slug, excerpt, content_md, content_html, cover_image,
                status, featured, allow_comments, author_id, published_at,
-               created_at, updated_at, seo_title, seo_description, view_count
-           ) VALUES (?, ?, ?, ?, ?, ?, '', 'published', ?, ?, ?, ?, ?, ?, '', '', ?)""",
+               created_at, updated_at, seo_title, seo_description,
+               project_year, project_role, project_client, project_kind, project_url,
+               view_count
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, '', '',
+                     ?, ?, ?, ?, ?, ?)""",
         (
             post_type,
             entry["title"],
@@ -241,12 +390,18 @@ def _insert_post(
             entry.get("excerpt") or make_excerpt(content),
             content,
             render_markdown(content),
+            entry.get("cover_image", ""),
             1 if entry.get("featured") else 0,
-            0 if post_type == "page" else 1,
+            0 if post_type in {"page", "project"} else 1,
             author_id,
             published,
             published,
             published,
+            entry.get("year", ""),
+            entry.get("role", ""),
+            entry.get("client", ""),
+            entry.get("kind", ""),
+            entry.get("url", ""),
             int(entry.get("views", 0)),
         ),
     )
@@ -432,7 +587,7 @@ def _seed_galleries(conn: sqlite3.Connection, author_id: int | None) -> None:
         )
 
 
-DEMO_SEED_VERSION = 3
+DEMO_SEED_VERSION = 5
 
 
 def seed_demo_content() -> None:
@@ -453,6 +608,9 @@ def seed_demo_content() -> None:
 
         has_articles = conn.execute(
             "SELECT 1 FROM posts WHERE type = 'post' LIMIT 1"
+        ).fetchone()
+        has_projects = conn.execute(
+            "SELECT 1 FROM posts WHERE type = 'project' LIMIT 1"
         ).fetchone()
         has_about = conn.execute(
             "SELECT 1 FROM posts WHERE type = 'page' AND slug = 'about'"
@@ -497,11 +655,34 @@ def seed_demo_content() -> None:
         if article_ids and not has_comments:
             _seed_comments(conn, article_ids[0])
 
+        author_id = _first_admin_id(conn)
+        if not has_projects:
+            for entry in PROJECTS:
+                _insert_post(conn, entry, None, [], post_type="project", author_id=author_id)
+        else:
+            # Projects existed from an earlier demo seed (before the video
+            # project was added). Only fill in the missing one, never duplicate.
+            has_video = conn.execute(
+                "SELECT 1 FROM posts WHERE type = 'project' "
+                "AND project_kind IN ('video', '影像') LIMIT 1"
+            ).fetchone()
+            if not has_video:
+                for entry in PROJECTS:
+                    if entry.get("kind") != "影像":
+                        continue
+                    exists = conn.execute(
+                        "SELECT 1 FROM posts WHERE slug = ?", (entry["slug"],)
+                    ).fetchone()
+                    if not exists:
+                        _insert_post(
+                            conn, entry, None, [], post_type="project", author_id=author_id
+                        )
+
         if not has_about:
             entry = {
                 "title": "关于 MZTLAB",
                 "slug": "about",
-                "excerpt": "影像与文字。",
+                "excerpt": "影像、项目与文字。",
                 "content": ABOUT_PAGE,
                 "views": 0,
             }

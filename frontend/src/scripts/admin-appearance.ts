@@ -141,7 +141,7 @@ if (root) {
   const save = async () => {
     if (saveButton) saveButton.disabled = true;
     try {
-      const result = await api<{ settings: SiteSettings }>('/api/admin/appearance', {
+      const result = await api<{ settings: SiteSettings }>('/api/admin/settings', {
         method: 'PUT',
         body: collect(),
       });

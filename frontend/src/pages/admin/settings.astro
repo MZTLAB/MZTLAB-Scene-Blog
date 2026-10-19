@@ -16,6 +16,7 @@ const user = guard;
     <nav class="settings-nav" aria-label="设置分类">
       <button type="button" class="is-active" data-settings-tab="general">常规</button>
       <button type="button" data-settings-tab="reading">阅读与评论</button>
+      <button type="button" data-settings-tab="uploads">上传与媒体</button>
       <button type="button" data-settings-tab="team">协作与权限</button>
       <button type="button" data-settings-tab="navigation">导航</button>
       <button type="button" data-settings-tab="footer">页脚与社交</button>
@@ -122,6 +123,43 @@ const user = guard;
         </div>
       </section>
 
+      <section class="settings-panel" data-settings-panel="uploads">
+        <div class="admin-page-intro">
+          <div><h2>上传与媒体</h2><p>控制媒体库与编辑器能上传的文件大小和格式，保存后立即生效。</p></div>
+        </div>
+        <div class="admin-card">
+          <div class="admin-card__body">
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>最大文件大小</strong><span>单次上传上限，建议 5–50MB。</span></div>
+              <div class="a-field" style="max-width:200px;display:flex;align-items:center;gap:8px">
+                <input type="number" min="1" max="200" step="1" data-setting="upload_max_mb" />
+                <span style="color:var(--ink-faint);font-family:var(--font-mono);font-size:10px">MB</span>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>允许的图片格式</strong><span>用英文逗号分隔，仅支持 jpg / png / webp / gif。</span></div>
+              <div class="a-field"><input type="text" maxlength="80" data-setting="upload_image_formats" placeholder="jpg,png,webp,gif" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>允许的音频格式</strong><span>用英文逗号分隔，仅支持 mp3 / m4a / ogg / oga / wav / flac。</span></div>
+              <div class="a-field"><input type="text" maxlength="80" data-setting="upload_audio_formats" placeholder="mp3,m4a,ogg,oga,wav,flac" /></div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-row__label"><strong>允许的其他文件</strong><span>PDF / ZIP / TXT / MD / CSV / JSON / DOCX / XLSX / PPTX 的子集，用英文逗号分隔；留空则只允许图片和音频。</span></div>
+              <div class="a-field"><input type="text" maxlength="120" data-setting="upload_file_formats" placeholder="pdf,zip,txt,md,csv" /></div>
+            </div>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card__body">
+            <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7">
+              限制只影响新的上传；已上传的文件仍可正常访问与删除。留空或填写未知格式时会回退为全部受支持格式，避免把自己锁在门外。
+              <strong style="color:var(--accent)">管理员账号不受这里的格式与大小限制</strong>（仅受服务端技术上限约束），如需限制请用编辑 / 作者账号上传。
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section class="settings-panel" data-settings-panel="team">
         <div class="admin-page-intro">
           <div>
@@ -158,7 +196,7 @@ const user = guard;
           <div class="admin-card__head"><h3>主导航</h3><button class="a-btn a-btn--sm" type="button" data-add-link="nav"><Icon name="plus" size={13} /> 添加</button></div>
           <div class="admin-card__body">
             <div class="nav-editor" data-links="nav"></div>
-            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">建议保留「首页 / 文章 / 关于」三项。拖拽排序暂未支持。</p>
+            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">建议保留「首页 / 影像 / 项目 / 文章 / 关于」。拖拽排序暂未支持。</p>
           </div>
         </div>
       </section>

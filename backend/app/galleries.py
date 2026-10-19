@@ -208,9 +208,18 @@ def fetch_galleries(
         where.append("g.author_id = ?")
         args.append(author_id)
     if q:
-        where.append("(g.title LIKE ? OR g.description LIKE ?)")
+        # Galleries are searchable by their own copy and by the metadata of the
+        # published photos inside them (title, caption, place, camera, date).
+        where.append(
+            "(g.title LIKE ? OR g.description LIKE ? OR EXISTS ("
+            "  SELECT 1 FROM photos phq WHERE phq.gallery_id = g.id "
+            "  AND phq.status = 'published' AND ("
+            "    phq.title LIKE ? OR phq.caption LIKE ? OR phq.location LIKE ? "
+            "    OR phq.camera LIKE ? OR phq.lens LIKE ? OR phq.taken_at LIKE ?"
+            "  )))"
+        )
         needle = f"%{q.strip()}%"
-        args.extend([needle, needle])
+        args.extend([needle] * 8)
     clause = f" WHERE {' AND '.join(where)}" if where else ""
     total = int(
         conn.execute(f"SELECT COUNT(*) FROM galleries g{clause}", args).fetchone()[0]
@@ -293,10 +302,11 @@ def fetch_photos(
         args.append(author_id)
     if q:
         where.append(
-            "(ph.title LIKE ? OR ph.caption LIKE ? OR ph.location LIKE ? OR g.title LIKE ?)"
+            "(ph.title LIKE ? OR ph.caption LIKE ? OR ph.location LIKE ? OR g.title LIKE ? "
+            "OR ph.camera LIKE ? OR ph.lens LIKE ? OR ph.taken_at LIKE ?)"
         )
         needle = f"%{q.strip()}%"
-        args.extend([needle, needle, needle, needle])
+        args.extend([needle] * 7)
     clause = f" WHERE {' AND '.join(where)}" if where else ""
     total = int(
         conn.execute(

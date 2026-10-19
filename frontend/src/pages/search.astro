@@ -1,45 +1,61 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GalleryCard from '../components/GalleryCard.astro';
+import ProjectCard from '../components/ProjectCard.astro';
 import Icon from '../components/Icon.astro';
 import { apiServer, getSite } from '../lib/api';
 import { formatDate } from '../lib/format';
-import type { SearchResults, SiteInfo } from '../types';
+import type { Photo, SearchResults, SiteInfo } from '../types';
 
 const site: SiteInfo = await getSite();
+const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
 const query = (Astro.url.searchParams.get('q') || '').trim();
-let results: SearchResults = { query: '', articles: [], galleries: [] };
+let results: SearchResults = { query: '', articles: [], projects: [], galleries: [], photos: [] };
 let error = '';
 if (query) {
   try {
     results = await apiServer<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`);
+    results.projects = results.projects || [];
+    results.photos = results.photos || [];
   } catch (exception) {
     error = exception instanceof Error ? exception.message : '搜索失败';
   }
 }
-const total = results.articles.length + results.galleries.length;
+const total =
+  results.articles.length +
+  (results.projects?.length || 0) +
+  results.galleries.length +
+  (results.photos?.length || 0);
+const photoMeta = (photo: Photo) =>
+  [photo.location, photo.camera, photo.taken_at?.slice(0, 10)]
+    .filter(Boolean)
+    .join(' / ');
 ---
 <BaseLayout
   site={site}
-  title={query ? `搜索「${query}」` : '搜索'}
-  description={`搜索 ${site.settings.site_title} 的相册与文章。`}
+  title={query ? `搜索「${query}」` : copy('copy_search_title', '搜索')}
+  description={`${copy('copy_search_lead', '在标题、正文、器材与项目信息之间查找。')} ${settings.site_title}`}
   noindex={!query}
 >
   <section class="container page-hero">
-    <span class="eyebrow">// SEARCH</span>
-    <h1>搜索</h1>
-    <p>相册与文章。</p>
+    <span class="eyebrow">{copy('copy_search_eyebrow', '// SEARCH')}</span>
+    <h1>{copy('copy_search_title', '搜索')}</h1>
+    <p>{copy('copy_search_lead', '在标题、正文、器材与项目信息之间查找。')}</p>
     <form class="search-form" action="/search" method="get" role="search">
       <Icon name="search" size={15} />
       <input
         name="q"
         type="search"
         value={query}
-        placeholder="关键词…"
+        placeholder={copy('copy_search_placeholder', '输入关键词')}
         aria-label="搜索全站"
         autofocus={!query}
       />
-      <button class="btn btn--small" type="submit">搜索</button>
+      <button class="btn btn--small" type="submit">{copy('copy_cta_search', '搜索')}</button>
     </form>
     {
       query && !error && (
@@ -63,33 +79,69 @@ const total = results.articles.length + results.galleries.length;
       ) : !query ? (
         <div class="empty-state">
           <span class="empty-mark">⌕</span>
-          <h2>输入关键词</h2>
-          <p>地点、器材、标题。</p>
-          <div style="display:flex;gap:10px;margin-top:16px">
-            <a class="btn btn--ghost" href="/photos">影像索引</a>
-            <a class="btn btn--ghost" href="/archive">文章</a>
+          <h2>{copy('copy_search_placeholder', '输入关键词')}</h2>
+          <p>{copy('copy_search_suggestions', '试试标题、正文、地点、器材、年份或角色。')}</p>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+            <a class="btn btn--ghost" href="/photos">{copy('copy_photos_title', '影像')}</a>
+            <a class="btn btn--ghost" href="/projects">{copy('copy_projects_title', '项目')}</a>
+            <a class="btn btn--ghost" href="/archive">{copy('copy_texts_title', '文字')}</a>
           </div>
         </div>
       ) : total === 0 ? (
         <div class="empty-state">
           <span class="empty-mark">—</span>
-          <h2>没有匹配</h2>
-          <p>换一个更短的词。</p>
-          <div style="display:flex;gap:10px;margin-top:16px">
-            <a class="btn btn--ghost" href="/photos">影像</a>
-            <a class="btn btn--ghost" href="/archive">文章</a>
+          <h2>{copy('copy_search_empty', '没有找到匹配的内容。')}</h2>
+          <p>{copy('copy_search_suggestions', '试试标题、正文、地点、器材、年份或角色。')}</p>
+          <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+            <a class="btn btn--ghost" href="/photos">{copy('copy_photos_title', '影像')}</a>
+            <a class="btn btn--ghost" href="/projects">{copy('copy_projects_title', '项目')}</a>
+            <a class="btn btn--ghost" href="/archive">{copy('copy_texts_title', '文字')}</a>
           </div>
         </div>
       ) : (
         <>
+          {(results.projects?.length || 0) > 0 && (
+            <section class="result-group">
+              <h2>
+                {copy('copy_search_projects', '项目')} <span>{String(results.projects.length).padStart(2, '0')}</span>
+              </h2>
+              <div class="project-grid project-grid--compact">
+                {results.projects.map((project, index) => (
+                  <ProjectCard project={project} index={index} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(results.photos?.length || 0) > 0 && (
+            <section class="result-group">
+              <h2>
+                {copy('copy_search_photo_items', '照片')} <span>{String(results.photos.length).padStart(2, '0')}</span>
+              </h2>
+              <div class="search-photo-grid">
+                {results.photos.map((photo) => (
+                  <a class="search-photo" href={photo.gallery ? photo.gallery.url : photo.url}>
+                    <span class="search-photo__thumb">
+                      <img src={photo.url} alt={photo.alt} loading="lazy" decoding="async" />
+                    </span>
+                    <span class="search-photo__body">
+                      <strong>{photo.title || photo.gallery?.title || '照片'}</strong>
+                      <span>{photoMeta(photo) || photo.gallery?.title || ''}</span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
+
           {results.galleries.length > 0 && (
             <section class="result-group">
               <h2>
-                ALBUMS <span>{String(results.galleries.length).padStart(2, '0')}</span>
+                {copy('copy_search_photos', '影像')} <span>{String(results.galleries.length).padStart(2, '0')}</span>
               </h2>
               <div class="gallery-grid">
                 {results.galleries.map((gallery, index) => (
-                  <GalleryCard gallery={gallery} label={site.settings.site_title} index={index + 1} />
+                  <GalleryCard gallery={gallery} label={settings.site_title} index={index + 1} />
                 ))}
               </div>
             </section>
@@ -98,7 +150,7 @@ const total = results.articles.length + results.galleries.length;
           {results.articles.length > 0 && (
             <section class="result-group">
               <h2>
-                TEXTS <span>{String(results.articles.length).padStart(2, '0')}</span>
+                {copy('copy_search_texts', '文字')} <span>{String(results.articles.length).padStart(2, '0')}</span>
               </h2>
               <div class="journal-list">
                 {results.articles.map((post) => (

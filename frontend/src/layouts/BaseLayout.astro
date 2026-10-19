@@ -4,6 +4,8 @@ import SiteFooter from '../components/SiteFooter.astro';
 import Lightbox from '../components/Lightbox.astro';
 import '../styles/global.css';
 import '../styles/mono.css';
+import '../styles/index.css';
+import '../styles/audio-player.css';
 import { absoluteUrl, stripStyleClose } from '../lib/format';
 import type { SiteInfo } from '../types';
 
@@ -28,6 +30,10 @@ const {
 } = Astro.props;
 
 const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
 const siteTitle = settings.site_title || 'MZTLAB';
 const pageTitle = title ? `${title} — ${siteTitle}` : `${siteTitle} · ${settings.site_subtitle || 'Scene'}`;
 const metaDescription = description || settings.seo_description || settings.description || '';
@@ -120,7 +126,7 @@ const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
   </head>
 
   <body class:list={['site-body', bodyClass]} id="top">
-    <a class="skip-link" href="#main">跳到正文</a>
+    <a class="skip-link" href="#main">{copy('copy_skip_link', '跳到正文')}</a>
     {settings.announcement && (
       <div class="announcement">
         <div class="container">{settings.announcement}</div>
@@ -180,6 +186,9 @@ const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
       window.addEventListener('resize', () => {
         if (window.innerWidth > 900) closeMenu();
       });
+    </script>
+    <script>
+      import '../scripts/audio-player';
     </script>
   </body>
 </html>

@@ -7,7 +7,7 @@ if (root) {
   const saveButton = document.querySelector<HTMLButtonElement>('[data-save-settings]');
   let settings: SiteSettings | null = null;
   const links: Record<'nav' | 'social', NavLink[]> = { nav: [], social: [] };
-  const numericKeys = new Set(['posts_per_page']);
+  const numericKeys = new Set(['posts_per_page', 'upload_max_mb']);
   const booleanKeys = new Set([
     'show_reading_time',
     'show_author',

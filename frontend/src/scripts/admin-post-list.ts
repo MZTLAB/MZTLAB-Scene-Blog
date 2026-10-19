@@ -9,10 +9,13 @@ interface ListResponse extends Paginated<PostSummary> {
 
 const root = document.querySelector<HTMLElement>('[data-post-list]');
 if (root) {
-  const type = root.dataset.type === 'page' ? 'page' : 'post';
+  const rawType = root.dataset.type || 'post';
+  const type = rawType === 'page' || rawType === 'project' ? rawType : 'post';
   const isPage = type === 'page';
-  const base = isPage ? '/admin/pages' : '/admin/posts';
-  const itemWord = isPage ? '页面' : '文章';
+  const isProject = type === 'project';
+  const base = isPage ? '/admin/pages' : isProject ? '/admin/projects' : '/admin/posts';
+  const itemWord = isPage ? '页面' : isProject ? '项目' : '文章';
+  const emptyWord = isPage ? '还没有独立页面。' : isProject ? '还没有项目，去创建第一个吧。' : '还没有文章，去写第一篇吧。';
   const tableHost = root.querySelector<HTMLElement>('[data-table]');
   const paginationHost = root.querySelector<HTMLElement>('[data-pagination]');
   const searchInput = root.querySelector<HTMLInputElement>('[data-search]');
@@ -58,7 +61,7 @@ if (root) {
       if (!data.items.length) {
         tableHost!.innerHTML = `<div class="admin-empty">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
-          <p>${state.q ? '没有匹配的内容。' : isPage ? '还没有独立页面。' : '还没有文章，去写第一篇吧。'}</p>
+          <p>${state.q ? '没有匹配的内容。' : emptyWord}</p>
           <a class="a-btn a-btn--sm" style="margin-top:12px" href="${base}/new">立即创建</a>
         </div>`;
       } else {

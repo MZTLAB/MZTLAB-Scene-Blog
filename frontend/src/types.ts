@@ -30,12 +30,82 @@ export interface SiteSettings {
   show_reading_time: boolean;
   show_author: boolean;
   show_views: boolean;
-  home_section_title: string;
-  home_section_subtitle: string;
-  home_gallery_title: string;
-  home_gallery_subtitle: string;
+  /** Theme copy — every public text line is a setting (Scene theme). */
+  copy_hero_primary_label: string;
+  copy_hero_primary_url: string;
+  copy_hero_secondary_label: string;
+  copy_hero_secondary_url: string;
+  copy_index_title: string;
+  copy_index_lead: string;
+  copy_photos_title: string;
+  copy_photos_lead: string;
+  copy_photos_link: string;
+  copy_projects_title: string;
+  copy_projects_lead: string;
+  copy_projects_link: string;
+  copy_texts_title: string;
+  copy_texts_lead: string;
+  copy_texts_link: string;
+  copy_stat_photos: string;
+  copy_stat_projects: string;
+  copy_stat_texts: string;
+  copy_home_empty_title: string;
+  copy_home_empty_text: string;
+  copy_home_empty_cta: string;
+  copy_cta_title: string;
+  copy_cta_text: string;
+  copy_cta_rss: string;
+  copy_cta_search: string;
+  copy_photos_eyebrow: string;
+  copy_photos_empty_title: string;
+  copy_photos_empty_text: string;
+  copy_photos_empty_cta: string;
+  copy_projects_eyebrow: string;
+  copy_projects_empty_title: string;
+  copy_projects_empty_text: string;
+  copy_projects_empty_cta: string;
+  copy_project_year: string;
+  copy_project_role: string;
+  copy_project_client: string;
+  copy_project_kind: string;
+  copy_project_link: string;
+  copy_project_back: string;
+  copy_project_related: string;
+  copy_texts_eyebrow: string;
+  copy_texts_empty_title: string;
+  copy_texts_empty_text: string;
+  copy_texts_empty_cta: string;
+  copy_search_eyebrow: string;
+  copy_search_title: string;
+  copy_search_lead: string;
+  copy_search_placeholder: string;
+  copy_search_empty: string;
+  copy_search_projects: string;
+  copy_search_photos: string;
+  copy_search_photo_items: string;
+  copy_search_texts: string;
+  copy_search_suggestions: string;
+  copy_load_error_title: string;
+  copy_load_error_text: string;
+  copy_notfound_title: string;
+  copy_notfound_text: string;
+  copy_notfound_cta: string;
+  copy_footer_admin: string;
+  copy_skip_link: string;
+  copy_back_to_top: string;
+  copy_comments_title: string;
+  copy_comments_empty: string;
+  copy_comments_closed: string;
+  copy_article_related: string;
+  copy_article_all: string;
+  copy_article_share: string;
+  copy_article_filed: string;
   posts_per_page: number;
   gallery_columns: number;
+  upload_max_mb: number;
+  upload_image_formats: string;
+  upload_audio_formats: string;
+  upload_file_formats: string;
   announcement: string;
   comments_enabled: boolean;
   comment_moderation: boolean;
@@ -66,6 +136,7 @@ export interface SiteInfo {
   categories: Term[];
   tags: Term[];
   post_count: number;
+  project_count: number;
   photo_count: number;
   gallery_count: number;
 }
@@ -79,7 +150,7 @@ export interface Author {
 
 export interface PostSummary {
   id: number;
-  type: 'post' | 'page';
+  type: 'post' | 'page' | 'project';
   title: string;
   slug: string;
   url: string;
@@ -97,12 +168,25 @@ export interface PostSummary {
   author: Author;
   categories: Term[];
   tags: Term[];
+  project_year?: string;
+  project_role?: string;
+  project_client?: string;
+  project_kind?: string;
+  project_url?: string;
   raw_status?: string;
   author_id?: number | null;
   owner_id?: number | null;
   seo_title?: string;
   seo_description?: string;
   revision_count?: number;
+}
+
+export interface Project extends PostSummary {
+  type: 'project';
+}
+
+export interface ProjectDetail extends PostDetail {
+  type: 'project';
 }
 
 export interface TocItem {
@@ -233,7 +317,9 @@ export interface Paginated<T> {
 export interface SearchResults {
   query: string;
   articles: PostSummary[];
+  projects: PostSummary[];
   galleries: Gallery[];
+  photos: Photo[];
 }
 
 export interface SiteStatus {
@@ -317,7 +403,7 @@ export interface MediaItem {
   id: number;
   filename: string;
   original_name: string;
-  kind: 'image' | 'audio';
+  kind: 'image' | 'audio' | 'file';
   mime: string;
   size: number;
   width: number;
@@ -333,6 +419,7 @@ export interface MediaItem {
 
 export interface Stats {
   posts: { all: number; published: number; draft: number; scheduled: number };
+  projects: { all: number; published: number; draft: number; scheduled: number };
   pages: number;
   comments: { all: number; pending: number; approved: number; spam: number };
   media: number;
@@ -342,6 +429,7 @@ export interface Stats {
   tags: number;
   categories: number;
   recent_posts: PostSummary[];
+  recent_projects: PostSummary[];
   recent_galleries: Array<{
     id: number;
     title: string;

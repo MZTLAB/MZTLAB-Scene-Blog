@@ -46,7 +46,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
     response.headers.set(name, value);
   }
-  if (!import.meta.env.DEV) {
+  if (!import.meta.env.DEV && !response.headers.has('Content-Security-Policy')) {
+    // Upstream may already send a stricter policy (e.g. the sandbox CSP for
+    // admin-uploaded HTML/SVG files served as downloads); keep that one.
     response.headers.set('Content-Security-Policy', CONTENT_SECURITY_POLICY);
   }
   if (isHttps(context)) {

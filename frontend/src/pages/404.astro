@@ -12,16 +12,22 @@ try {
   // The fallback site keeps the 404 usable even when the API is down.
 }
 Astro.response.status = 404;
+const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
 ---
 <BaseLayout site={site} title="404" noindex>
   <section class="container notfound">
     <strong>404</strong>
-    <h1>场景不存在</h1>
-    <p>链接可能已失效。</p>
+    <h1>{copy('copy_notfound_title', '场景不存在')}</h1>
+    <p>{copy('copy_notfound_text', '换一个地址，或者回到首页。')}</p>
     <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px">
-      <a class="btn" href="/"><Icon name="home" size={14} /> 首页</a>
-      <a class="btn btn--ghost" href="/photos">影像 <Icon name="arrowRight" size={14} /></a>
-      <a class="btn btn--ghost" href="/archive">文字</a>
+      <a class="btn" href="/"><Icon name="home" size={14} /> {copy('copy_notfound_cta', '回到首页')}</a>
+      <a class="btn btn--ghost" href="/photos">{copy('copy_photos_title', '影像')} <Icon name="arrowRight" size={14} /></a>
+      <a class="btn btn--ghost" href="/projects">{copy('copy_projects_title', '项目')}</a>
+      <a class="btn btn--ghost" href="/archive">{copy('copy_texts_title', '文字')}</a>
     </div>
   </section>
 </BaseLayout>

@@ -21,7 +21,9 @@ try {
 } catch {
   return Astro.redirect('/admin/posts');
 }
-if (post.type !== 'post') return Astro.redirect(`/admin/pages/${post.id}`);
+if (post.type !== 'post') {
+  return Astro.redirect(post.type === 'page' ? `/admin/pages/${post.id}` : `/admin/projects/${post.id}`);
+}
 ---
 <AdminLayout user={user} title="编辑文章" subtitle="Content / Edit post" active="posts" showCompose={false}>
   <Fragment slot="actions">

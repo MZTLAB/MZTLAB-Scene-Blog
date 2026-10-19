@@ -1,0 +1,57 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import Icon from '../../../components/Icon.astro';
+import { guardAdmin } from '../../../lib/auth';
+
+const guard = await guardAdmin(Astro, 'content.read');
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="项目" subtitle="Studio / Projects" active="projects">
+  <div data-post-list data-type="project">
+    <div class="page-head-row">
+      <div>
+        <h2>代码项目</h2>
+        <p>与影像、文字并列的第三组内容：记录做法、角色与结果。</p>
+      </div>
+      <div class="toolbar-group">
+        <a class="a-btn" href="/projects" target="_blank" rel="noopener">
+          <Icon name="external" size={14} /> 查看项目页
+        </a>
+        <a class="a-btn a-btn--primary" href="/admin/projects/new">
+          <Icon name="plus" size={14} /> 新建项目
+        </a>
+      </div>
+    </div>
+
+    <div class="admin-toolbar">
+      <div class="filter-tabs" data-filters>
+        <button type="button" class="is-active" data-status="">全部 <small>0</small></button>
+        <button type="button" data-status="published">已发布 <small>0</small></button>
+        <button type="button" data-status="draft">草稿 <small>0</small></button>
+        <button type="button" data-status="scheduled">定时 <small>0</small></button>
+      </div>
+      <div class="toolbar-group">
+        <label class="admin-search">
+          <Icon name="search" size={14} />
+          <input type="search" placeholder="搜索项目…" data-search aria-label="搜索项目" />
+        </label>
+      </div>
+    </div>
+
+    <div class="admin-card">
+      <div class="table-wrap" data-table>
+        <div class="admin-loading">
+          <div class="skeleton" style="width: 40%; height: 18px"></div>
+          <div class="skeleton" style="height: 44px"></div>
+          <div class="skeleton" style="height: 44px"></div>
+        </div>
+      </div>
+      <div class="table-footer" data-pagination></div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../../scripts/admin-post-list';
+</script>

@@ -15,6 +15,11 @@ if (root) {
     .then((stats) => {
       setStat('photos', number(stats.photos), `${stats.galleries} 本相册 · ${stats.media} 个文件`);
       setStat('posts', number(stats.posts.all), `${stats.posts.published} 篇已发布 · ${stats.posts.draft} 篇草稿`);
+      setStat(
+        'projects',
+        number(stats.projects?.all || 0),
+        `${stats.projects?.published || 0} 个已发布 · ${stats.projects?.draft || 0} 个草稿`,
+      );
       setStat('comments', number(stats.comments.pending), `${stats.comments.all} 条留言总数`);
       renderRecent(stats);
       renderGalleries(stats);

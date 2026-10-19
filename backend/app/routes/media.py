@@ -7,6 +7,8 @@ owner enables 设置 → 协作与权限 → 编辑可管理他人内容.
 
 from __future__ import annotations
 
+import mimetypes
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -17,8 +19,13 @@ from typing import Any
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from PIL import Image, UnidentifiedImageError
 
-from ..config import MAX_UPLOAD_BYTES, UPLOAD_DIR
-from ..db import db, now_iso
+from ..config import ADMIN_MAX_UPLOAD_BYTES, UPLOAD_DIR
+from ..db import db, load_settings, now_iso
+from ..defaults import (
+    UPLOAD_AUDIO_FORMATS,
+    UPLOAD_FILE_FORMATS,
+    UPLOAD_IMAGE_FORMATS,
+)
 from ..deps import require_permission, require_staff
 from ..exif import dump_exif, parse_stored, read_exif_bytes, read_exif_file, summary
 from ..permissions import can, owns
@@ -27,11 +34,17 @@ from ..schemas import MediaAltIn, MediaExifIn
 
 router = APIRouter(prefix="/admin", tags=["media"], dependencies=[Depends(require_staff)])
 
-FORMAT_EXTENSIONS = {
+# PIL format name -> (extension, MIME type). The admin can enable a subset of
+# these through the upload settings; both lists are the validated allow-list.
+IMAGE_FORMATS = {
     "JPEG": ("jpg", "image/jpeg"),
     "PNG": ("png", "image/png"),
     "WEBP": ("webp", "image/webp"),
     "GIF": ("gif", "image/gif"),
+}
+IMAGE_BY_EXTENSION = {
+    extension: (pil_format, mime)
+    for pil_format, (extension, mime) in IMAGE_FORMATS.items()
 }
 AUDIO_EXTENSIONS = {
     "mp3": "audio/mpeg",
@@ -41,13 +54,112 @@ AUDIO_EXTENSIONS = {
     "wav": "audio/wav",
     "flac": "audio/flac",
 }
+# Extra files. Everything here is a download / document format; nothing that a
+# browser could execute (no html, svg, js …) is part of the catalog.
+FILE_FORMATS = {
+    "pdf": "application/pdf",
+    "zip": "application/zip",
+    "txt": "text/plain",
+    "md": "text/markdown",
+    "csv": "text/csv",
+    "json": "application/json",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
 MAX_PIXELS = 48_000_000
+MAX_UPLOAD_MB = 200
 
 
-def _audio_format(data: bytes, filename: str) -> tuple[str, str] | None:
+def _parse_formats(raw: Any, allowed: tuple[str, ...]) -> list[str]:
+    tokens = {
+        token.strip().lower().lstrip(".")
+        for token in str(raw or "").replace(";", ",").split(",")
+    }
+    selected = [format_ for format_ in allowed if format_ in tokens]
+    # Never lock the admin out of uploading: an empty selection falls back to
+    # the full allow-list.
+    return selected or list(allowed)
+
+
+def _upload_policy() -> tuple[
+    int,
+    dict[str, tuple[str, str]],
+    dict[str, str],
+    dict[str, str],
+]:
+    """Read the size / format limits from settings for the current upload."""
+    settings = load_settings()
+    try:
+        max_mb = max(1, min(MAX_UPLOAD_MB, int(settings.get("upload_max_mb", 12))))
+    except (TypeError, ValueError):
+        max_mb = 12
+    image_formats = _parse_formats(settings.get("upload_image_formats"), UPLOAD_IMAGE_FORMATS)
+    audio_formats = _parse_formats(settings.get("upload_audio_formats"), UPLOAD_AUDIO_FORMATS)
+    raw_files = settings.get("upload_file_formats")
+    # An explicit empty value means "no extra files"; missing/unknown tokens
+    # fall back to the default catalog so a typo cannot silently lock uploads.
+    file_formats = (
+        _parse_formats(raw_files, UPLOAD_FILE_FORMATS)
+        if str(raw_files or "").strip()
+        else []
+    )
+    images = {
+        format_: IMAGE_BY_EXTENSION[format_]
+        for format_ in image_formats
+        if format_ in IMAGE_BY_EXTENSION
+    }
+    audio = {ext: mime for ext, mime in AUDIO_EXTENSIONS.items() if ext in audio_formats}
+    files = {ext: mime for ext, mime in FILE_FORMATS.items() if ext in file_formats}
+    return max_mb * 1024 * 1024, images, audio, files
+
+
+def _format_error(
+    images: dict[str, tuple[str, str]],
+    audio: dict[str, str],
+    files: dict[str, str] | None = None,
+) -> str:
+    parts: list[str] = []
+    if images:
+        parts.append(" / ".join(format_.upper() for format_ in images) + " 图片")
+    if audio:
+        parts.append(" / ".join(ext.upper() for ext in audio) + " 音频")
+    if files:
+        parts.append(" / ".join(ext.upper() for ext in files) + " 文件")
+    return "只支持 " + "，或 ".join(parts)
+
+
+def _file_format(data: bytes, filename: str, allowed: dict[str, str]) -> tuple[str, str] | None:
+    """Validate extra files by extension plus a light magic-byte check."""
+    extension = Path(filename).suffix.lower().lstrip(".")
+    mime = allowed.get(extension)
+    if not mime:
+        return None
+    if extension == "pdf" and not data.startswith(b"%PDF"):
+        return None
+    if extension in {"zip", "docx", "xlsx", "pptx"} and not data.startswith(b"PK"):
+        return None
+    return extension, mime
+
+
+def _any_file_format(filename: str) -> tuple[str, str]:
+    """Administrator uploads may use any extension; keep it filesystem-safe."""
+    name = Path(filename).name
+    extension = re.sub(r"[^a-z0-9]+", "", Path(name).suffix.lower().lstrip("."))[:12]
+    if not extension:
+        extension = "bin"
+    mime = (
+        FILE_FORMATS.get(extension)
+        or mimetypes.guess_type(name)[0]
+        or "application/octet-stream"
+    )
+    return extension, mime
+
+
+def _audio_format(data: bytes, filename: str, allowed: dict[str, str]) -> tuple[str, str] | None:
     """Validate the common audio containers by extension + magic bytes."""
     extension = Path(filename).suffix.lower().lstrip(".")
-    mime = AUDIO_EXTENSIONS.get(extension)
+    mime = allowed.get(extension)
     if not mime:
         return None
     signatures = {
@@ -59,7 +171,8 @@ def _audio_format(data: bytes, filename: str) -> tuple[str, str] | None:
         "wav": lambda b: b.startswith(b"RIFF") and b[8:12] == b"WAVE",
         "flac": lambda b: b.startswith(b"fLaC"),
     }
-    return (extension, mime) if signatures[extension](data) else None
+    signature = signatures.get(extension)
+    return (extension, mime) if signature and signature(data) else None
 
 _MEDIA_SELECT = """
     SELECT m.*, COALESCE(m.owner_id, m.uploaded_by) AS effective_owner_id,
@@ -83,7 +196,12 @@ def _serialize(row: sqlite3.Row) -> dict[str, Any]:
         "username": item.get("owner_username") or "",
     }
     item["url"] = _media_url(item["filename"])
-    item["kind"] = "audio" if str(item.get("mime", "")).startswith("audio/") else "image"
+    if str(item.get("mime", "")).startswith("audio/"):
+        item["kind"] = "audio"
+    elif str(item.get("mime", "")).startswith("image/"):
+        item["kind"] = "image"
+    else:
+        item["kind"] = "file"
     item["exif"] = parse_stored(item.get("exif"))
     item.pop("effective_owner_id", None)
     item.pop("owner_name", None)
@@ -117,7 +235,7 @@ def list_media(
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
     q: str | None = Query(None, max_length=100),
-    kind: str | None = Query(None, pattern="^(image|audio)$"),
+    kind: str | None = Query(None, pattern="^(image|audio|file)$"),
     user: dict = Depends(require_staff),
 ) -> dict[str, Any]:
     where: list[str] = []
@@ -154,13 +272,20 @@ async def upload_media(
     alt: str = Form(default=""),
     user: dict = Depends(require_permission("media.manage")),
 ) -> dict[str, Any]:
-    data = await file.read(MAX_UPLOAD_BYTES + 1)
+    is_admin = str(user.get("role") or "") == "admin"
+    max_bytes, image_formats, audio_formats, file_formats = _upload_policy()
+    if is_admin:
+        # Administrators bypass the configured size / format policy; only the
+        # technical ceiling and image sanity checks remain.
+        max_bytes = ADMIN_MAX_UPLOAD_BYTES
+    data = await file.read(max_bytes + 1)
     if not data:
         raise HTTPException(status_code=400, detail="文件为空")
-    if len(data) > MAX_UPLOAD_BYTES:
+    if len(data) > max_bytes:
+        limit_mb = max_bytes // (1024 * 1024)
         raise HTTPException(
             status_code=413,
-            detail=f"文件不能超过 {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+            detail=f"文件不能超过 {limit_mb}MB",
         )
 
     fmt: str | None = None
@@ -168,7 +293,13 @@ async def upload_media(
     try:
         with Image.open(BytesIO(data)) as probe:
             candidate = (probe.format or "").upper()
-            if candidate in FORMAT_EXTENSIONS:
+            if candidate in IMAGE_FORMATS:
+                ext = IMAGE_FORMATS[candidate][0]
+                if not is_admin and ext not in image_formats:
+                    raise HTTPException(
+                        status_code=415,
+                        detail=f"图片格式 {ext.upper()} 未启用：{_format_error(image_formats, audio_formats, file_formats)}",
+                    )
                 probe.verify()
                 with Image.open(BytesIO(data)) as image:
                     width, height = image.size
@@ -181,16 +312,28 @@ async def upload_media(
         fmt = None
 
     if fmt:
-        ext, mime = FORMAT_EXTENSIONS[fmt]
+        ext, mime = IMAGE_FORMATS[fmt]
     else:
-        audio = _audio_format(data, file.filename or "")
-        if not audio:
-            raise HTTPException(
-                status_code=415,
-                detail="只支持 JPG / PNG / WebP / GIF 图片，或 MP3 / M4A / OGG / WAV / FLAC 音频",
-            )
-        ext, mime = audio
-        width = height = 0
+        audio = _audio_format(
+            data,
+            file.filename or "",
+            AUDIO_EXTENSIONS if is_admin else audio_formats,
+        )
+        if audio:
+            ext, mime = audio
+            width = height = 0
+        elif is_admin:
+            ext, mime = _any_file_format(file.filename or "")
+            width = height = 0
+        else:
+            extra = _file_format(data, file.filename or "", file_formats)
+            if not extra:
+                raise HTTPException(
+                    status_code=415,
+                    detail=_format_error(image_formats, audio_formats, file_formats),
+                )
+            ext, mime = extra
+            width = height = 0
 
     now = datetime.now(timezone.utc)
     relative_dir = Path(f"{now.year:04d}") / f"{now.month:02d}"

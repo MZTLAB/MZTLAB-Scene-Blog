@@ -18,12 +18,17 @@ export const GET: APIRoute = async ({ url }) => {
   const entries: Array<{ loc: string; lastmod?: string }> = [
     { loc: '/' },
     { loc: '/photos' },
+    { loc: '/projects' },
     { loc: '/archive' },
   ];
   try {
     const archive = await apiServer<{ items: PostSummary[] }>('/api/archive');
     archive.items.forEach((post) => {
       entries.push({ loc: post.url, lastmod: post.updated_at });
+    });
+    const projects = await apiServer<Paginated<PostSummary>>('/api/projects?per_page=60');
+    projects.items.forEach((project) => {
+      entries.push({ loc: project.url, lastmod: project.updated_at });
     });
     const galleries = await apiServer<Paginated<Gallery>>('/api/galleries?per_page=60');
     galleries.items.forEach((gallery) => {

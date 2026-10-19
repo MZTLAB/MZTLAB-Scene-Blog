@@ -51,13 +51,97 @@ MD_CONFIG = {
     "codehilite": {"guess_lang": False, "css_class": "highlight", "linenums": False},
 }
 
+# ```audio blocks are the human-friendly way to embed a player: the editor
+# inserts a small fenced block (no HTML), and the renderer turns it into the
+# same figure markup that bleach already allows.
+_AUDIO_FENCE_RE = re.compile(
+    r"(?ms)^[ \t]*(?:```|~~~)audio[ \t]*\r?\n(.*?)\r?\n[ \t]*(?:```|~~~)[ \t]*$"
+)
+_AUDIO_MIME = {
+    "mp3": "audio/mpeg",
+    "m4a": "audio/mp4",
+    "mp4": "audio/mp4",
+    "ogg": "audio/ogg",
+    "oga": "audio/ogg",
+    "wav": "audio/wav",
+    "flac": "audio/flac",
+    "webm": "audio/webm",
+}
+_AUDIO_KEY_RE = re.compile(r"^[ \t]*(src|url|title|artist)[ \t]*:[ \t]*(.*)$", re.I)
+
+
+def _audio_src(value: str) -> str:
+    value = value.strip().strip("\"'")
+    if not value:
+        return ""
+    if re.match(r"^/(?!/)", value):
+        return value
+    if re.match(r"^https?://", value, re.I):
+        return value
+    return ""
+
+
+def _audio_fence_html(body: str) -> str:
+    url = ""
+    title = ""
+    artist = ""
+    for line in body.splitlines():
+        match = _AUDIO_KEY_RE.match(line)
+        if match:
+            key = match.group(1).lower()
+            value = match.group(2).strip()
+            if key in {"src", "url"}:
+                url = value
+            elif key == "title":
+                title = value
+            elif key == "artist":
+                artist = value
+            continue
+        if not url and line.strip():
+            url = line.strip()
+    src = _audio_src(url)
+    if not src:
+        return ""
+    title = title.strip()[:120] or "音乐播放器"
+    artist = artist.strip()[:120]
+    extension = src.split("?", 1)[0].split("#", 1)[0].rsplit(".", 1)[-1].lower()
+    mime = _AUDIO_MIME.get(extension, "")
+    safe_src = html.escape(src, quote=True)
+    safe_title = html.escape(title)
+    safe_artist = html.escape(artist)
+    caption = html.escape(" · ".join(part for part in (title, artist) if part), quote=True)
+    source = f'<source src="{safe_src}"' + (f' type="{mime}"' if mime else "") + ">"
+    artist_html = f'<span class="audio-embed__artist">{safe_artist}</span>' if artist else ""
+    return (
+        '\n\n<figure class="audio-embed">\n'
+        "<figcaption>"
+        '<span class="audio-embed__label">AUDIO</span>'
+        f'<span class="audio-embed__title">{safe_title}</span>'
+        f"{artist_html}"
+        "</figcaption>\n"
+        f'<audio controls preload="metadata" title="{caption}">{source}</audio>\n'
+        "</figure>\n\n"
+    )
+
+
+def expand_audio_blocks(text: str) -> str:
+    """Turn ```audio fences into player markup before Markdown conversion."""
+
+    def replace(match: re.Match[str]) -> str:
+        rendered = _audio_fence_html(match.group(1))
+        # An invalid block stays untouched and renders as a normal code fence,
+        # so nothing is silently lost.
+        return rendered or match.group(0)
+
+    return _AUDIO_FENCE_RE.sub(replace, text)
+
 
 def render_markdown(text: str) -> str:
     """Render Markdown and strip anything that could execute in a browser."""
     if not text:
         return ""
     md = markdown.Markdown(extensions=MD_EXTENSIONS, extension_configs=MD_CONFIG)
-    raw = md.convert(text)
+    raw = md.convert(expand_audio_blocks(text))
     cleaned = bleach.clean(
         raw,
         tags=ALLOWED_TAGS,
@@ -76,6 +160,7 @@ def render_markdown(text: str) -> str:
 
 
 def strip_markdown(text: str) -> str:
+    text = _AUDIO_FENCE_RE.sub(" ", text)
     text = re.sub(r"```.*?```", " ", text, flags=re.S)
     text = re.sub(r"`([^`]*)`", r"\1", text)
     text = re.sub(r"!\[[^\]]*]\([^)]*\)", " ", text)

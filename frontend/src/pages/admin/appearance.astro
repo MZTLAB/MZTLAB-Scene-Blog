@@ -55,7 +55,7 @@ const themes = [
         <div>
           <h2>Scene</h2>
           <p>
-            等宽字体，简约影像。右侧即时预览。
+            场景式作品集：照片、项目与文字三列等宽。右侧即时预览。
           </p>
         </div>
       </div>
@@ -142,7 +142,7 @@ const themes = [
           <div class="setting-row">
             <div class="setting-row__label">
               <strong>相册列数</strong>
-              <span>影像索引的列数。</span>
+              <span>影像列表的列数。</span>
             </div>
             <div class="segmented">
               <button type="button" data-choice-group="gallery_columns" data-choice="2">2 列</button>
@@ -181,7 +181,7 @@ const themes = [
             <input type="checkbox" data-setting="hero_show" checked />
             <div>
               <strong>显示首页主视觉</strong>
-              <span>关闭后直接进入相册索引。</span>
+              <span>关闭后直接进入影像列表。</span>
             </div>
           </label>
           <div class="a-field" style="margin-top:14px">
@@ -200,26 +200,143 @@ const themes = [
             <label>主视觉图片 <small>留空则使用精选相册封面</small></label>
             <input type="text" maxlength="500" data-setting="hero_image" placeholder="/media/... 或 https://" />
           </div>
+        </div>
+      </div>
 
-          <div class="a-field--row" style="margin-top:18px">
+      <div class="admin-card">
+        <div class="admin-card__head"><h3>场景文案</h3><span>SCENE COPY</span></div>
+        <div class="admin-card__body">
+          <div class="a-field--row">
             <div class="a-field">
-              <label>影像区标题</label>
-              <input type="text" maxlength="60" data-setting="home_gallery_title" />
+              <label>场景导语 <small>三列上方的说明</small></label>
+              <input type="text" maxlength="200" data-setting="copy_index_lead" />
             </div>
             <div class="a-field">
-              <label>影像区副标题</label>
-              <input type="text" maxlength="160" data-setting="home_gallery_subtitle" />
+              <label>场景标题</label>
+              <input type="text" maxlength="60" data-setting="copy_index_title" />
             </div>
           </div>
-          <div class="a-field--row" style="margin-top:12px">
-            <div class="a-field">
-              <label>文章区标题</label>
-              <input type="text" maxlength="60" data-setting="home_section_title" />
-            </div>
-            <div class="a-field">
-              <label>文章区副标题</label>
-              <input type="text" maxlength="160" data-setting="home_section_subtitle" />
-            </div>
+
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+            <strong style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">影像列</strong>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>标题</label><input type="text" maxlength="60" data-setting="copy_photos_title" /></div>
+            <div class="a-field"><label>列尾链接</label><input type="text" maxlength="60" data-setting="copy_photos_link" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>说明</label><input type="text" maxlength="160" data-setting="copy_photos_lead" /></div>
+            <div class="a-field"><label>统计标签</label><input type="text" maxlength="40" data-setting="copy_stat_photos" /></div>
+          </div>
+
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+            <strong style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">项目列</strong>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>标题</label><input type="text" maxlength="60" data-setting="copy_projects_title" /></div>
+            <div class="a-field"><label>列尾链接</label><input type="text" maxlength="60" data-setting="copy_projects_link" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>说明</label><input type="text" maxlength="160" data-setting="copy_projects_lead" /></div>
+            <div class="a-field"><label>统计标签</label><input type="text" maxlength="40" data-setting="copy_stat_projects" /></div>
+          </div>
+
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+            <strong style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">文字列</strong>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>标题</label><input type="text" maxlength="60" data-setting="copy_texts_title" /></div>
+            <div class="a-field"><label>列尾链接</label><input type="text" maxlength="60" data-setting="copy_texts_link" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>说明</label><input type="text" maxlength="160" data-setting="copy_texts_lead" /></div>
+            <div class="a-field"><label>统计标签</label><input type="text" maxlength="40" data-setting="copy_stat_texts" /></div>
+          </div>
+
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--line)">
+            <strong style="font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)">主视觉按钮</strong>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>主按钮文字</label><input type="text" maxlength="60" data-setting="copy_hero_primary_label" /></div>
+            <div class="a-field"><label>主按钮链接</label><input type="text" maxlength="200" data-setting="copy_hero_primary_url" placeholder="/photos" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>次按钮文字</label><input type="text" maxlength="60" data-setting="copy_hero_secondary_label" /></div>
+            <div class="a-field"><label>次按钮链接</label><input type="text" maxlength="200" data-setting="copy_hero_secondary_url" placeholder="/projects" /></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <div class="admin-card__head"><h3>页面文案</h3><span>PAGE COPY</span></div>
+        <div class="admin-card__body">
+          <div class="a-field--row">
+            <div class="a-field"><label>影像页导语</label><input type="text" maxlength="160" data-setting="copy_photos_eyebrow" /></div>
+            <div class="a-field"><label>项目页导语</label><input type="text" maxlength="160" data-setting="copy_projects_eyebrow" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>文字页导语</label><input type="text" maxlength="160" data-setting="copy_texts_eyebrow" /></div>
+            <div class="a-field"><label>搜索页导语</label><input type="text" maxlength="160" data-setting="copy_search_eyebrow" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>影像空状态</label><input type="text" maxlength="100" data-setting="copy_photos_empty_text" /></div>
+            <div class="a-field"><label>项目空状态</label><input type="text" maxlength="100" data-setting="copy_projects_empty_text" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>文字空状态</label><input type="text" maxlength="100" data-setting="copy_texts_empty_text" /></div>
+            <div class="a-field"><label>场景空状态</label><input type="text" maxlength="100" data-setting="copy_home_empty_text" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>订阅区标题</label><input type="text" maxlength="100" data-setting="copy_cta_title" /></div>
+            <div class="a-field"><label>订阅区说明</label><input type="text" maxlength="160" data-setting="copy_cta_text" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>搜索提示词</label><input type="text" maxlength="60" data-setting="copy_search_placeholder" /></div>
+            <div class="a-field"><label>搜索空结果</label><input type="text" maxlength="120" data-setting="copy_search_empty" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>搜索建议</label><input type="text" maxlength="160" data-setting="copy_search_suggestions" /></div>
+            <div class="a-field"><label>照片结果分组</label><input type="text" maxlength="40" data-setting="copy_search_photo_items" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>项目类型字段名</label><input type="text" maxlength="40" data-setting="copy_project_kind" /></div>
+            <div class="a-field"><label>搜索页导语</label><input type="text" maxlength="160" data-setting="copy_search_lead" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>404 标题</label><input type="text" maxlength="100" data-setting="copy_notfound_title" /></div>
+            <div class="a-field"><label>404 说明</label><input type="text" maxlength="160" data-setting="copy_notfound_text" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>服务离线标题</label><input type="text" maxlength="100" data-setting="copy_load_error_title" /></div>
+            <div class="a-field"><label>服务离线说明</label><input type="text" maxlength="160" data-setting="copy_load_error_text" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>项目年份标签</label><input type="text" maxlength="40" data-setting="copy_project_year" /></div>
+            <div class="a-field"><label>项目角色标签</label><input type="text" maxlength="40" data-setting="copy_project_role" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>项目上下文标签</label><input type="text" maxlength="40" data-setting="copy_project_client" /></div>
+            <div class="a-field"><label>项目链接文字</label><input type="text" maxlength="40" data-setting="copy_project_link" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>返回项目页</label><input type="text" maxlength="60" data-setting="copy_project_back" /></div>
+            <div class="a-field"><label>其他项目标题</label><input type="text" maxlength="60" data-setting="copy_project_related" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>回到顶部</label><input type="text" maxlength="40" data-setting="copy_back_to_top" /></div>
+            <div class="a-field"><label>跳到正文</label><input type="text" maxlength="40" data-setting="copy_skip_link" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>留言区标题</label><input type="text" maxlength="40" data-setting="copy_comments_title" /></div>
+            <div class="a-field"><label>留言关闭提示</label><input type="text" maxlength="100" data-setting="copy_comments_closed" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>文章相关阅读</label><input type="text" maxlength="40" data-setting="copy_article_related" /></div>
+            <div class="a-field"><label>全部文章</label><input type="text" maxlength="40" data-setting="copy_article_all" /></div>
+          </div>
+          <div class="a-field--row" style="margin-top:10px">
+            <div class="a-field"><label>分享标签</label><input type="text" maxlength="40" data-setting="copy_article_share" /></div>
+            <div class="a-field"><label>归档标签</label><input type="text" maxlength="40" data-setting="copy_article_filed" /></div>
           </div>
         </div>
       </div>
@@ -249,7 +366,7 @@ const themes = [
       <div class="preview-surface">
         <div class="preview-surface__nav">
           <strong data-preview-site>MZTLAB</strong>
-          <span>影像 / 文章</span>
+          <span>影像 / 项目 / 文字</span>
         </div>
         <div class="preview-surface__hero" data-preview-hero>
           <small>MZTLAB // VISUAL_ARCHIVE</small>

@@ -1,5 +1,5 @@
 import { api } from '../lib/api';
-import { buildAudioEmbed, normalizeAudioUrl } from '../lib/audio-embed';
+import { buildAudioBlock, normalizeAudioUrl } from '../lib/audio-embed';
 import type { MediaItem, Paginated } from '../types';
 
 /**
@@ -101,13 +101,13 @@ export function initAudioEmbedDialog(): void {
       return;
     }
     try {
-      const html = buildAudioEmbed({
+      const markdown = buildAudioBlock({
         url,
         title: titleInput?.value || '',
         artist: artistInput?.value || '',
       });
       document.dispatchEvent(
-        new CustomEvent('audio-embed:insert', { detail: { html } }),
+        new CustomEvent('audio-embed:insert', { detail: { markdown } }),
       );
       close();
     } catch (error) {

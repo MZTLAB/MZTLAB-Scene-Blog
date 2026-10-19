@@ -2,6 +2,7 @@
 import Icon from '../components/Icon.astro';
 import '../styles/global.css';
 import '../styles/admin.css';
+import '../styles/audio-player.css';
 import { getSite } from '../lib/api';
 import { fallbackSite } from '../config';
 import { initial } from '../lib/format';
@@ -51,6 +52,7 @@ const canCompose = can('content.write');
 const nav = [
   { key: 'dashboard', label: '概览', href: '/admin', icon: 'dashboard', show: true },
   { key: 'photography', label: '影像', href: '/admin/galleries', icon: 'camera', show: can('gallery.manage') },
+  { key: 'projects', label: '项目', href: '/admin/projects', icon: 'code', show: true },
   { key: 'posts', label: '文章', href: '/admin/posts', icon: 'file', show: true },
   { key: 'pages', label: '页面', href: '/admin/pages', icon: 'book', show: can('content.others') },
   { key: 'media', label: '媒体库', href: '/admin/media', icon: 'image', show: can('media.manage') },
@@ -180,6 +182,9 @@ const composeHref = '/admin/posts/new';
     <script>
       import { initAdminShell } from '../lib/admin-client';
       initAdminShell();
+    </script>
+    <script>
+      import '../scripts/audio-player';
     </script>
   </body>
 </html>

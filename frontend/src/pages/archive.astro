@@ -16,13 +16,17 @@ const groups = data.years.map((year) => ({
   posts: data.items.filter((post) => (post.published_at || '').startsWith(year.year)),
 }));
 const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
 const layout = settings.post_layout === 'list' ? 'list' : 'grid';
 ---
 <BaseLayout site={site} title="文章归档" description={`${settings.site_title} 的全部文章归档。`}>
   <section class="container page-hero">
-    <span class="eyebrow">// TEXT_ARCHIVE</span>
-    <h1>文字</h1>
-    <p>按时间排列。</p>
+    <span class="eyebrow">{copy('copy_texts_eyebrow', '// TEXT_ARCHIVE')}</span>
+    <h1>{copy('copy_texts_title', '文字')}</h1>
+    <p>{copy('copy_texts_lead', '笔墨之痕，以篇章留存。')}</p>
     <div class="page-hero__meta">
       <span>{String(data.total).padStart(2, '0')} TEXTS</span>
       <span>/</span>
@@ -30,8 +34,8 @@ const layout = settings.post_layout === 'list' ? 'list' : 'grid';
     </div>
     <form class="search-form" action="/search" method="get">
       <Icon name="search" size={15} />
-      <input name="q" type="search" placeholder="搜索…" aria-label="搜索文章" />
-      <button class="btn btn--small" type="submit">搜索</button>
+      <input name="q" type="search" placeholder={copy('copy_search_placeholder', '输入关键词')} aria-label="搜索文章" />
+      <button class="btn btn--small" type="submit">{copy('copy_cta_search', '搜索')}</button>
     </form>
   </section>
 
@@ -77,25 +81,14 @@ const layout = settings.post_layout === 'list' ? 'list' : 'grid';
       ) : (
         <div class="empty-state">
           <span class="empty-mark">[ ]</span>
-          <h2>空档案</h2>
-          <p>第一篇文章会出现在这里。</p>
+          <h2>{copy('copy_texts_empty_title', '还没有文章')}</h2>
+          <p>{copy('copy_texts_empty_text', '写下一篇文章，让时间有迹可循。')}</p>
           <a class="btn" href="/admin/posts/new" style="margin-top: 18px">
-            写一篇 <Icon name="arrowRight" size={14} />
+            {copy('copy_texts_empty_cta', '写文章')} <Icon name="arrowRight" size={14} />
           </a>
         </div>
       )
     }
-
-    <div class="cta-band" style="margin-top:clamp(36px,5vw,64px)">
-      <div>
-        <span class="section-code">// ELSEWHERE</span>
-        <h3>影像按相册归档。</h3>
-      </div>
-      <div class="cta-actions">
-        <a class="btn btn--ghost" href="/photos">影像索引 <Icon name="arrowRight" size={14} /></a>
-        <a class="btn btn--ghost" href="/search">搜索</a>
-      </div>
-    </div>
   </div>
 
   <script>

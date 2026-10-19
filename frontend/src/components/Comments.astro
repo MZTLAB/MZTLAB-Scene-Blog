@@ -12,16 +12,20 @@ interface Props {
 const { post, site, comments } = Astro.props;
 const settings = site.settings;
 const enabled = settings.comments_enabled && post.allow_comments;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
 ---
 <section class="comments" id="comments" data-comments data-post-id={post.id} data-enabled={enabled ? 'true' : 'false'}>
   <div class="comments-head">
-    <h2>留言</h2>
+    <h2>{copy('copy_comments_title', '留言')}</h2>
     <span>{String(comments.length).padStart(2, '0')} RESPONSES</span>
   </div>
 
   {
     !enabled ? (
-      <p class="form-hint" style="padding-top:18px">这篇文章的留言已关闭。</p>
+      <p class="form-hint" style="padding-top:18px">{copy('copy_comments_closed', '这篇文章的留言已关闭。')}</p>
     ) : (
       <>
         {comments.length ? (
@@ -48,7 +52,7 @@ const enabled = settings.comments_enabled && post.allow_comments;
             ))}
           </div>
         ) : (
-          <p class="form-hint" style="padding-top:18px">还没有留言。你可以留下第一句话。</p>
+          <p class="form-hint" style="padding-top:18px">{copy('copy_comments_empty', '还没有留言。')} 你可以留下第一句话。</p>
         )}
 
         <form class="comment-form" data-comment-form novalidate>

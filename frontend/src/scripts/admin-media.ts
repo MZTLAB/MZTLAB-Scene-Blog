@@ -4,6 +4,47 @@ import type { MediaItem, Paginated } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-media-page]');
 if (root) {
+  // The upload policy is rendered by the server from 设置 → 上传与媒体, so the
+  // client checks mirror the current configuration instead of a hard-coded
+  // 12MB / format list.
+  const maxMb = Math.max(1, Math.min(200, Number(root.dataset.uploadMaxMb) || 12));
+  const maxBytes = maxMb * 1024 * 1024;
+  const parseFormats = (value: string | undefined) =>
+    new Set(
+      String(value || '')
+        .replace(/;/g, ',')
+        .split(',')
+        .map((token) => token.trim().toLowerCase().replace(/^\./, ''))
+        .filter(Boolean),
+    );
+  const imageFormats = parseFormats(root.dataset.uploadImageFormats);
+  const audioFormats = parseFormats(root.dataset.uploadAudioFormats);
+  const fileFormats = parseFormats(root.dataset.uploadFileFormats);
+  const unrestricted = root.dataset.uploadUnrestricted === '1';
+  const formatLabels = [
+    ...Array.from(imageFormats, (format) => format.toUpperCase()),
+    ...Array.from(audioFormats, (format) => format.toUpperCase()),
+    ...Array.from(fileFormats, (format) => format.toUpperCase()),
+  ].join(' / ');
+  const extensionOf = (name: string): string => {
+    const match = /\.([a-z0-9]+)$/i.exec(name);
+    return match ? match[1].toLowerCase() : '';
+  };
+  const formatAllowed = (file: File): boolean => {
+    const extension = extensionOf(file.name);
+    const normalized = extension === 'jpeg' ? 'jpg' : extension;
+    if (
+      imageFormats.has(normalized) ||
+      audioFormats.has(normalized) ||
+      fileFormats.has(normalized)
+    ) {
+      return true;
+    }
+    // Files without a usable extension but with an image/audio MIME are left
+    // to the server's content validation (Pillow / magic bytes).
+    return !extension && (file.type.startsWith('image/') || file.type.startsWith('audio/'));
+  };
+
   const grid = root.querySelector<HTMLElement>('[data-media-grid]');
   const pagination = root.querySelector<HTMLElement>('[data-media-pagination]');
   const input = root.querySelector<HTMLInputElement>('[data-upload-input]');
@@ -101,37 +142,49 @@ if (root) {
       const data = await api<Paginated<MediaItem>>(`/api/admin/media${qs({ page: state.page, q: state.q, kind: state.kind, per_page: 30 })}`);
       mediaItems = data.items;
       if (!data.items.length) {
-        grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${state.q ? '没有匹配的媒体。' : '媒体库还是空的，上传图片或音频吧。'}</p></div>`;
+        grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${state.q ? '没有匹配的媒体。' : '媒体库还是空的，上传图片、音频或其他文件吧。'}</p></div>`;
       } else {
         grid.innerHTML = data.items
           .map((item) => {
             const audio = item.kind === 'audio';
+            const file = item.kind === 'file';
+            const extension = (item.original_name.split('.').pop() || 'FILE').toUpperCase().slice(0, 6);
             const actions = `<div class="media-card__actions">
               ${
-                audio
-                  ? ''
-                  : `<button type="button" data-exif-edit="${item.id}" title="编辑 EXIF" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">EXIF</button>`
+                !audio && !file
+                  ? `<button type="button" data-exif-edit="${item.id}" title="编辑 EXIF" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">EXIF</button>`
+                  : ''
               }
               <button type="button" data-copy="${escapeHtml(item.url)}" title="复制链接"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
               <button type="button" data-delete="${item.id}" data-name="${escapeHtml(item.original_name)}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></svg></button>
             </div>`;
             const preview = audio
               ? `<div class="media-card__image media-card__audio"><audio controls preload="metadata" src="${escapeHtml(item.url)}"></audio>${actions}</div>`
-              : `<div class="media-card__image"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" loading="lazy" /></a>${actions}</div>`;
+              : file
+                ? `<div class="media-card__image media-card__file">
+                    <a class="media-card__file-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener" download>
+                      <span class="media-card__file-ext">${escapeHtml(extension)}</span>
+                      <span class="media-card__file-name">${escapeHtml(item.original_name)}</span>
+                      <span class="media-card__file-hint">下载文件</span>
+                    </a>${actions}
+                  </div>`
+                : `<div class="media-card__image"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" loading="lazy" /></a>${actions}</div>`;
+            const sizeLabel = audio ? 'AUDIO' : file ? 'FILE' : `${item.width}×${item.height}`;
+            const altPlaceholder = audio ? '音频标题 / 描述' : file ? '文件描述' : '图片替代文字（alt）';
             return `<article class="media-card" id="media-${item.id}">
               ${preview}
               <div class="media-card__body">
                 <strong title="${escapeHtml(item.original_name)}">${escapeHtml(item.original_name)}</strong>
-                <span>${audio ? 'AUDIO' : `${item.width}×${item.height}`} · ${formatBytes(item.size)}</span>
+                <span>${sizeLabel} · ${formatBytes(item.size)}</span>
                 <span class="media-card__owner">上传者 · ${escapeHtml(item.owner?.name || '未知')}</span>
                 ${
-                  !audio && (item.exif?.camera || item.exif?.taken_at)
+                  !audio && !file && (item.exif?.camera || item.exif?.taken_at)
                     ? `<span class="media-card__exif">${escapeHtml(
                         [item.exif?.camera, item.exif?.taken_at].filter(Boolean).join(' · '),
                       )}</span>`
                     : ''
                 }
-                <input class="media-card__alt" type="text" value="${escapeHtml(item.alt)}" placeholder="${audio ? '音频标题 / 描述' : '图片替代文字（alt）'}" data-alt="${item.id}" />
+                <input class="media-card__alt" type="text" value="${escapeHtml(item.alt)}" placeholder="${altPlaceholder}" data-alt="${item.id}" />
               </div>
             </article>`;
           })
@@ -214,19 +267,20 @@ if (root) {
   };
 
   const uploadFiles = async (files: FileList | File[]) => {
-    const list = Array.from(files).filter(
-      (file) =>
-        file.type.startsWith('image/') ||
-        file.type.startsWith('audio/') ||
-        /\.(?:mp3|m4a|ogg|oga|wav|flac|jpe?g|png|webp|gif)$/i.test(file.name),
-    );
+    const candidates = Array.from(files);
+    // Administrators bypass the configured policy; the server keeps its own
+    // technical ceiling.
+    const list = unrestricted ? candidates : candidates.filter(formatAllowed);
     if (!list.length) {
-      toast('请选择图片或音频文件', 'error');
+      toast(`请选择允许的格式：${formatLabels}`, 'error');
       return;
     }
+    if (!unrestricted && list.length < candidates.length) {
+      toast(`${candidates.length - list.length} 个文件格式未启用，已跳过`, 'error');
+    }
     for (const file of list) {
-      if (file.size > 12 * 1024 * 1024) {
-        toast(`${file.name} 超过 12MB，已跳过`, 'error');
+      if (!unrestricted && file.size > maxBytes) {
+        toast(`${file.name} 超过 ${maxMb}MB，已跳过`, 'error');
         continue;
       }
       if (status) status.textContent = `正在上传 ${file.name}…`;

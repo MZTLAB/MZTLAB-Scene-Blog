@@ -2,8 +2,9 @@
 
 > 面向后续开发者 / 维护者的工程手册：项目框架、模块职责、数据流、扩展与修改代码的具体路径。
 >
-> 目标版本：`2.1.0`（`backend/app/config.py` → `VERSION`，`frontend/package.json` → `version`）
-> 数据库结构版本：`5`（`backend/app/db.py` → `SCHEMA_VERSION`）
+> 目标版本：`2.2.0`（`backend/app/config.py` → `VERSION`，`frontend/package.json` → `version`）
+> 数据库结构版本：`7`（`backend/app/db.py` → `SCHEMA_VERSION`）
+> 主题：**Scene**（2.2 重建：三列内容区 + 可配置文案 + 项目内容类型）
 >
 > 相关文档：[`README.md`](../README.md) 偏使用说明与功能概览；本文偏实现与二次开发。
 
@@ -32,11 +33,14 @@
 
 | 需求 | 主要改动位置 |
 | --- | --- |
-| 改首页文案 / 站点名 / 导航 | 后台 → 设置（运行时生效，无需改代码）；默认值在 `backend/app/defaults.py` |
-| 改配色、字体、宽度、圆角 | `frontend/src/styles/global.css` 设计令牌；后台 → 外观 可覆盖强调色/宽度/圆角 |
-| 改首页结构 | `frontend/src/pages/index.astro` + `frontend/src/components/HomeHero.astro` |
+| 改首页文案 / 站点名 / 导航 | 后台 → 外观（首页文案 / 场景文案 / 页面文案）与设置；默认值在 `backend/app/defaults.py`（`copy_*` 键） |
+| 改配色、字体、宽度、圆角 | `frontend/src/styles/global.css` 设计令牌 + `styles/index.css` 主题层；后台 → 外观 可覆盖强调色/宽度/圆角 |
+| 改首页结构 | `frontend/src/pages/index.astro`（三列内容区）+ `frontend/src/components/HomeHero.astro` |
+| 改项目索引 / 详情 | `frontend/src/pages/projects/index.astro`、`pages/projects/[slug].astro`、`components/ProjectCard.astro` + `lib/project.ts` |
+| 改项目类型 / 字段名 | 类型是自由文本（`schemas.PostIn.project_kind`，≤40 字），后台项目编辑器直接输入；详情页字段名是 `copy_project_kind` |
 | 改相册页 / 大图浏览 | `frontend/src/pages/galleries/[slug].astro`、`components/GalleryViewer.astro`、`scripts/gallery-viewer.ts` |
 | 改文章详情页 | `frontend/src/pages/posts/[slug].astro` |
+| 改搜索（内容 + 元数据） | `backend/app/routes/public.py` 的 `search()` + `posts.fetch_posts(q)` + `galleries.fetch_galleries(q)/fetch_photos(q)`；前端 `pages/search.astro` |
 | 改后台某个页面 | `frontend/src/pages/admin/*.astro` + `frontend/src/scripts/admin-*.ts` |
 | 新增/修改 API 接口 | `backend/app/routes/*.py`，挂载点 `backend/app/main.py:73` |
 | 新增数据表 / 字段 | `backend/app/db.py`（`SCHEMA`、`_ADDED_COLUMNS`、迁移函数） |
@@ -249,7 +253,8 @@ cd frontend && npm run dev
 | `BLOG_ADMIN_USER` / `BLOG_ADMIN_PASSWORD` | 空 | 首启动自动建管理员（二者都填且无用户时） |
 | `BLOG_ADMIN_NAME` | `MZTLAB` | 自动创建管理员的显示名 |
 | `BLOG_SEED_DEMO` | `true` | 是否播种演示内容 |
-| `BLOG_MAX_UPLOAD_MB` | `12` | 上传大小上限 |
+| `BLOG_MAX_UPLOAD_MB` | `12` | **首次建站**默认的上传大小上限（之后在 设置 → 上传与媒体 修改） |
+| `BLOG_ADMIN_MAX_UPLOAD_MB` | `200` | 管理员上传的硬上限；管理员不受设置里的格式/大小限制，这是唯一约束 |
 | `BLOG_CORS_ORIGINS` | 空 | 仅跨源直连 API 时需要 |
 | `BLOG_API_INTERNAL_URL` | `http://127.0.0.1:8000` | **前端**访问后端的地址（`frontend/src/lib/api.ts:15`、`proxy.ts:3`） |
 | `HOST` / `PORT` | `127.0.0.1` / `4321` | Astro 监听地址 |
@@ -332,7 +337,7 @@ PRAGMA journal_mode = WAL
 | --- | --- | --- |
 | `users` | 成员 | `username`(unique)、`password_hash`、`role`、`is_active` |
 | `sessions` | 会话 | `token_hash`(unique，只存 SHA-256)、`expires_at` |
-| `posts` | 文章 + 页面 | `type`('post'/'page')、`slug`(unique)、`content_md`、`content_html`、`status`、`published_at`、`author_id` |
+| `posts` | 文章 + 项目 + 页面 | `type`('post'/'project'/'page')、`slug`(unique)、`content_md`、`content_html`、`status`、`published_at`、`author_id`；项目另有 `project_kind`（自由文本，最长 40 字）、`project_year`、`project_role`、`project_client`、`project_url` |
 | `categories` / `tags` | 分类 / 标签 | `slug`(unique) |
 | `post_categories` / `post_tags` | 多对多 | 复合主键 |
 | `comments` | 评论 | `status`('pending'/'approved'/'spam')、`post_id` |
@@ -344,7 +349,7 @@ PRAGMA journal_mode = WAL
 
 **迁移机制**（无 Alembic，靠 `PRAGMA user_version`）：
 
-1. `SCHEMA_VERSION = 5`（`db.py:20`）。
+1. `SCHEMA_VERSION = 7`（`db.py:20`）。
 2. `init_db()`：读旧版本 → `executescript(SCHEMA)`（`CREATE TABLE IF NOT EXISTS` 不改已有表）→ `_ensure_columns` → 条件回填 → 默认设置 → 场景迁移 → 写回版本号 → 播种。
 3. 加列走 `_ADDED_COLUMNS`（`db.py:253`）：
 
@@ -356,7 +361,7 @@ _ADDED_COLUMNS = {
 
 `_ensure_columns` 会 `PRAGMA table_info` 检查后 `ALTER TABLE ... ADD COLUMN`，因此**幂等**，每次启动都安全。
 
-4. 数据迁移函数（`_backfill_owners`、`_backfill_media_exif`、`_migrate_scene`、`_migrate_mono`）只做一次性修补，通过 `user_version` 或值比较决定是否执行；风格是"只在值仍等于旧默认值时才覆盖"，避免抹掉用户手写内容。
+4. 数据迁移函数（`_backfill_owners`、`_backfill_media_exif`、`_migrate_scene`、`_migrate_mono`、`_migrate_scene_v22`）只做一次性修补，通过 `user_version` 或值比较决定是否执行；风格是"只在值仍等于旧默认值时才覆盖"，避免抹掉用户手写内容。`_migrate_scene_v22`（v6）负责把旧 Scene 文案换成 2.2 版 Scene 文案、在导航未被修改时补上「项目」、并删除已废弃的 `home_projects_*` / `home_*_title` 键。
 
 **settings 读写**：
 
@@ -382,7 +387,7 @@ _ADDED_COLUMNS = {
 | `require_permission("x.y")` | staff + 指定权限键，返回 user dict |
 | `require_any_permission("a","b")` | 任一满足即可 |
 
-- **限流**：登录同时按 IP（30 次 / 5 分钟）、`IP+账号`（6 次 / 5 分钟）、账号（60 次 / 15 分钟）三层计数，只统计失败并在成功后清零；重复失败带指数退避延迟并写警告日志。`comment_limiter` 为 5 次 / 10 分钟 / IP，内存实现。来源 IP 仅在代理密钥匹配时取自 `x-blog-real-ip`，否则用 TCP 对端地址。
+- **限流**：登录同时按 IP（30 次 / 5 分钟）、`IP+账号`（6 次 / 5 分钟）、账号（60 次 / 15 分钟）三层计数，只统计失败并在成功后清零；重复失败带指数退避延迟并写警告日志。`comment_limiter` 为 5 次 / 10 分钟 / IP；`preview_limiter` 为 60 次 / 分钟 / 用户（编辑器预览接口，超限返回 429 + `Retry-After`），均为内存实现。来源 IP 仅在代理密钥匹配时取自 `x-blog-real-ip`，否则用 TCP 对端地址。
 
 ### 4.5 权限模型（`permissions.py`）
 
@@ -429,7 +434,7 @@ Markdown 文本
 ```
 
 - 新增可用的 HTML 标签/属性 → 只改 `ALLOWED_TAGS` / `ALLOWED_ATTRIBUTES` / `ALLOWED_PROTOCOLS`（`content.py:17`）。
-- 新增 Markdown 扩展 → 改 `MD_EXTENSIONS`（`content.py:41`）+ `MD_CONFIG`，并检查产出标签是否在白名单内。
+- 新增 Markdown 扩展 → 改 `MD_EXTENSIONS`（`content.py:41`）+ `MD_CONFIG`，并检查产出标签是否在白名单内。音频使用自定义 ```` ```audio ```` 块：`expand_audio_blocks()` 在 Markdown 转换前把它展开成 `<figure class="audio-embed">`，因此编辑器里不需要写 HTML，且仍然经过 bleach 清洗。
 - 其他工具：`slugify`（支持中文，URL 用 `quote_slug` 编码）、`make_excerpt`、`reading_time`（CJK 400 字/分 + 英文 220 词/分）、`extract_toc`（解析 h2/h3）、`normalize_iso_datetime`（浏览器 `datetime-local` / ISO8601 → UTC `...Z`）。
 
 > **重要**：`content_html` 是"写入时物化"的。若修改管线（白名单、扩展），历史文章不会自动重渲染。需要一次性重算时，写一个临时脚本遍历 `posts` 调 `render_markdown(content_md)` 更新 `content_html`。
@@ -515,7 +520,9 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 | GET | `/api/galleries` | 已发布相册列表 |
 | GET | `/api/galleries/{slug}` | 相册详情 + 照片 + 相关相册 |
 | POST | `/api/galleries/{id}/view` | 相册浏览量 +1 |
-| GET | `/api/search?q=` | 文章 + 相册 |
+| GET | `/api/search?q=` | 内容 + 元数据：项目 / 照片 / 相册 / 文章 |
+| GET | `/api/projects` | 已发布项目列表（`page/per_page/featured`） |
+| GET | `/api/projects/{slug}` | 项目详情（含 toc/related/canonical） |
 | GET | `/api/taxonomy` | 分类与标签 |
 | GET | `/api/comments?post_id=` | 已通过评论 |
 | POST | `/api/posts/{id}/comments` | 提交评论（限流 + 蜜罐 + 审核开关） |
@@ -528,12 +535,12 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 | GET | `/api/admin/stats` | staff | 214 |
 | GET | `/api/admin/posts` | staff（作者仅自己） | 301 |
 | GET | `/api/admin/posts/{id}` | staff + 所有权 | 329 |
-| POST | `/api/admin/posts?type=post\|page` | `content.write`（非草稿还需 `content.publish`） | 347 |
+| POST | `/api/admin/posts?type=post\|page\|project` | `content.write`（非草稿还需 `content.publish`） | 347 |
 | PUT | `/api/admin/posts/{id}` | `content.write` + 所有权 | 381 |
 | DELETE | `/api/admin/posts/{id}` | `content.delete` + 所有权 | 423 |
 | GET | `/api/admin/posts/{id}/revisions` | staff + 所有权 | 438 |
 | POST | `/api/admin/posts/{id}/revisions/{rid}/restore` | `content.write` | 463 |
-| POST | `/api/admin/preview` | `content.write` | 498 |
+| POST | `/api/admin/preview` | `content.write`，限流 60 次/分钟/用户 | 530 |
 | GET | `/api/admin/comments` | `comment.moderate` | 510 |
 | PUT | `/api/admin/comments/{id}` | `comment.moderate` | 555 |
 | DELETE | `/api/admin/comments/{id}` | `comment.moderate` | 571 |
@@ -585,18 +592,34 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 
 ### 4.11 上传与媒体（`routes/media.py`）
 
-允许的类型（`FORMAT_EXTENSIONS` / `AUDIO_EXTENSIONS`）：
+允许的类型（`IMAGE_FORMATS` / `AUDIO_EXTENSIONS`，可被后台设置收窄）：
 
 | 类型 | 扩展名 | MIME | 校验方式 |
 | --- | --- | --- | --- |
 | 图片 | jpg/png/webp/gif | image/* | Pillow `verify()` + 尺寸 ≤ 4800 万像素 |
 | 音频 | mp3/m4a/ogg/oga/wav/flac | audio/* | 扩展名 + 魔数（`_audio_format`） |
+| 其他文件 | pdf/zip/txt/md/csv/json/docx/xlsx/pptx | 对应 MIME | 扩展名 + 轻量魔数（`_file_format`，pdf/PK 容器） |
 
-流程（`upload_media`，`media.py:151`）：
+**可配置上传策略**：`_upload_policy()` 每次上传读取 `settings`：
+
+| 设置键 | 说明 |
+| --- | --- |
+| `upload_max_mb` | 单文件大小上限（1–200MB） |
+| `upload_image_formats` | 允许的图片扩展名，逗号分隔 |
+| `upload_audio_formats` | 允许的音频扩展名，逗号分隔 |
+| `upload_file_formats` | 允许的其他文件扩展名（pdf/zip/txt/md/csv/json/docx/xlsx/pptx 的子集；空值表示不接受其他文件） |
+
+后台 **设置 → 上传与媒体** 编辑这三项（`admin.py` 的 `_sanitize_upload_formats` 只保留已知格式；空/无效输入回退为全部受支持格式）。`.env` 的 `BLOG_MAX_UPLOAD_MB` 只决定首次建站的默认值（`defaults.DEFAULT_UPLOAD_MAX_MB`）。
+
+媒体库页面（`pages/admin/media.astro` + `scripts/admin-media.ts`）在服务端读取同一份设置，把上限/格式写进 `data-upload-*`，用于 `accept`、文案与客户端预检查；它只是 UX 提示，真正的边界始终是 `media.py`。
+
+**管理员例外**：`upload_media` 检测 `user["role"] == "admin"` 时跳过设置的格式白名单与大小限制（`media.py` 里的 `is_admin` 分支），未识别类型走 `_any_file_format()`（任意扩展名 + `mimetypes` 推断 MIME），大小改用 `ADMIN_MAX_UPLOAD_BYTES`（`BLOG_ADMIN_MAX_UPLOAD_MB`，默认 200MB）。可执行扩展名不会内联渲染：`main.py` 的 `MediaStaticFiles` 对 html/svg/js 等返回 `Content-Disposition: attachment` 与 sandbox CSP。媒体库页面通过 `data-upload-unrestricted="1"` 让管理员客户端跳过预检查并放开 `accept`。
+
+流程（`upload_media`）：
 
 ```text
-读取 ≤ MAX_UPLOAD_BYTES+1 → 判图片（Pillow）→ 否则判音频 → 落盘 uploads/YYYY/MM/{uuid}.{ext}
-→ 读 EXIF（仅图片）→ INSERT media（含 owner_id、exif JSON）→ 返回 _serialize(row)
+读取 ≤ 上限+1 → 判图片（Pillow，且格式已启用）→ 否则判音频（扩展名+魔数，且已启用）
+→ 落盘 uploads/YYYY/MM/{uuid}.{ext} → 读 EXIF（仅图片）→ INSERT media → 返回 _serialize(row)
 ```
 
 安全细节：
@@ -607,10 +630,12 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 
 ### 4.12 默认值与种子（`defaults.py` / `seed.py`）
 
-- `DEFAULT_SETTINGS`（`defaults.py:14`）是设置项的**唯一真相**：`update_settings` 只接受这里存在的键（`admin.py:740`），`public_settings()` 也只返回这里的键。
+- `DEFAULT_SETTINGS`（`defaults.py:14`）是设置项的**唯一真相**：`update_settings` 只接受这里存在的键（`admin.py`），`public_settings()` 也只返回这里的键。
+- **主题文案**：`copy_*` 开头的键是 Scene 主题的可见文字（主视觉按钮、三列标题/说明、空状态、404、页脚等）。后台 → 外观 → 首页文案 / 场景文案 / 页面文案直接编辑；前端用 `copy(key, fallback)` 读取，空值回退内置默认。默认值取自当前线上外观配置（2.2 版）。
+- **上传设置**：`upload_max_mb`、`upload_image_formats`、`upload_audio_formats` 在 设置 → 上传与媒体 编辑，`media.py` 逐次校验，详见 4.11。
 - `PRIVATE_SETTING_KEYS = {"editor_manage_others"}`：存库但不通过 `/api/site` 与导出泄露。
-- `seed_demo_content()`（`seed.py:438`）：用 `settings.demo_seed_version` 标记幂等；首次插入分类/标签/3 篇文章/关于页/3 个相册（Pillow 程序生成色块图，写入 `uploads/seed/`）与示例评论。
-- `ensure_bootstrap_admin()`（`seed.py:527`）：`BLOG_ADMIN_USER` + `BLOG_ADMIN_PASSWORD` 且无用户时创建管理员。
+- `seed_demo_content()`（`seed.py`）：用 `settings.demo_seed_version` 标记幂等；首次插入分类/标签/3 篇文章/关于页/3 个相册（Pillow 程序生成色块图，写入 `uploads/seed/`）、4 个项目（3 代码 + 1 视频介绍）与示例评论。`DEMO_SEED_VERSION = 5` 会在已有项目的旧库上只补视频项目、不重复。
+- `ensure_bootstrap_admin()`（`seed.py`）：`BLOG_ADMIN_USER` + `BLOG_ADMIN_PASSWORD` 且无用户时创建管理员。
 - 演示内容只写一次；`BLOG_SEED_DEMO=false` 可空站启动。
 
 ---
@@ -658,7 +683,7 @@ vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 | `lib/permissions.ts` | `ROLE_PERMISSIONS`、`hasPermission()`、`canAny()` | **后端 `permissions.py` 的镜像**，只用于 UI 显隐。改角色矩阵必须两边同步 |
 | `lib/format.ts` | `formatDate/formatMonth/timeAgo/number/initial/absoluteUrl/safeJson/coverVariant/stripStyleClose` | 日期均为 `zh-CN` 本地化；`safeJson` 防 `</script>` 注入；`stripStyleClose` 防自定义 CSS 提前闭合 `<style>` |
 | `lib/photo.ts` | `PHOTO_EXIF_FIELDS`、`PHOTO_EXIF_LABELS`、`exifFieldVisible()`、`photoSpecs()`、`photoMetaLine()`、`specsJson()` | 照片 EXIF 展示的唯一入口，网格/大图/Lightbox 共用；必须尊重 `exif_fields` 白名单 |
-| `lib/audio-embed.ts` | `normalizeAudioUrl()`、`buildAudioEmbed()`、`audioMimeFor()` | 生成 `<figure class="audio-embed"><audio>…`，后端 bleach 白名单已允许 `audio/source` |
+| `lib/audio-embed.ts` | `normalizeAudioUrl()`、`buildAudioBlock()`、`buildAudioEmbed()`、`audioMimeFor()` | 编辑器插入 ```` ```audio ```` 代码块（`src/title/artist`）；`buildAudioEmbed()` 保留给旧的 HTML 流程 |
 | `lib/admin-client.ts` | `toast/escapeHtml/errorMessage/formatBytes/statusBadge/debounce/logout/initAdminShell` | 后台通用交互；`initAdminShell()` 在 AdminLayout 里调用一次 |
 | `lib/exif-dialog.ts` | EXIF 弹窗控制 | 媒体库/相册编辑共用 |
 | `lib/proxy.ts` | `forwardToApi()` | 见 5.2 |
@@ -692,19 +717,21 @@ vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 
 | 路由 | 文件 | 取数 |
 | --- | --- | --- |
-| `/` | `pages/index.astro` | `/api/galleries?per_page=6` + `/api/posts?per_page=4` |
+| `/` | `pages/index.astro` | `/api/galleries?per_page=6` + `/api/projects?per_page=6` + `/api/posts?per_page=4` |
 | `/photos` | `pages/photos.astro` | `/api/galleries?per_page=60` |
 | `/galleries/{slug}` | `pages/galleries/[slug].astro` | `/api/galleries/{slug}` |
 | `/galleries` | `pages/galleries/index.astro` | 301 → `/photos` |
+| `/projects` | `pages/projects/index.astro` | `/api/projects?per_page=60` |
+| `/projects/{slug}` | `pages/projects/[slug].astro` | `/api/projects/{slug}` |
 | `/archive` | `pages/archive.astro` | `/api/archive` |
 | `/posts/{slug}` | `pages/posts/[slug].astro` | `/api/posts/{slug}` + `/api/comments` |
 | `/{slug}` | `pages/[slug].astro` | `/api/pages/{slug}`（**注意与静态路由的优先级**） |
 | `/tags/{tag}` | `pages/tags/[tag].astro` | `/api/taxonomy` + `/api/posts?tag=` |
 | `/categories/{cat}` | `pages/categories/[category].astro` | 同上（category） |
-| `/search` | `pages/search.astro` | `/api/search?q=` |
+| `/search` | `pages/search.astro` | `/api/search?q=`（项目 / 照片 / 相册 / 文章） |
 | `/404` | `pages/404.astro` | — |
 | `/rss.xml` | `pages/rss.xml.ts` | `/api/posts?per_page=40` |
-| `/sitemap.xml` | `pages/sitemap.xml.ts` | `/api/archive` + galleries + pages + taxonomy |
+| `/sitemap.xml` | `pages/sitemap.xml.ts` | `/api/archive` + projects + galleries + pages + taxonomy |
 | `/robots.txt` | `pages/robots.txt.ts` | Disallow `/admin`、`/api` |
 
 **后台页面**（每个都是 `guardAdmin(...)` + `AdminLayout` + 一个 `scripts/admin-*.ts`）
@@ -715,6 +742,7 @@ vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 | `/admin/posts` | `admin/posts/index.astro` | `admin-post-list.ts` | `content.read` |
 | `/admin/posts/new`、`/admin/posts/{id}` | 同上目录 | `components/admin/PostEditor.astro` | `content.write` |
 | `/admin/pages`… | `admin/pages/*` | `admin-post-list.ts` | `content.others` |
+| `/admin/projects`、`/admin/projects/new`、`/admin/projects/{id}` | `admin/projects/*` | `admin-post-list.ts` + `PostEditor.astro` | `content.read` / `content.write` |
 | `/admin/galleries` | `admin/galleries/index.astro` | `admin-galleries.ts` | `gallery.manage` |
 | `/admin/galleries/{id}` | `admin/galleries/[id].astro` | `admin-gallery-detail.ts` | `gallery.manage` |
 | `/admin/media` | `admin/media.astro` | `admin-media.ts` | `media.manage` |
@@ -729,7 +757,8 @@ vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 
 | 组件 | 用途 |
 | --- | --- |
-| `HomeHero.astro` | 首页主视觉（split/minimal/image） |
+| `HomeHero.astro` | 首页主视觉（Scene masthead；split/minimal/image） |
+| `ProjectCard.astro` | 项目卡片（类型 CODE/VIDEO、年份、角色、外链） |
 | `GalleryCard.astro` | 相册卡片（编号、封面、照片数） |
 | `GalleryViewer.astro` | 相册大图浏览（← →、按钮、缩略图、滑动） |
 | `PhotoGrid.astro` | 照片网格 / 瀑布流 |
@@ -740,8 +769,9 @@ vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 | `Pagination.astro` | 分页 |
 | `SiteHeader.astro` / `SiteFooter.astro` | 站点页头/页脚 |
 | `Icon.astro` | 内联 SVG 图标集合（`name` 选择） |
-| `admin/PostEditor.astro` | 文章编辑器（Markdown 工具栏、预览、版本、定时、SEO、音频插入） |
-| `admin/AudioEmbedDialog.astro` + `scripts/audio-embed-dialog.ts` | 音频插入对话框（媒体库选择或填 URL） |
+| `admin/PostEditor.astro` | 文章编辑器（Markdown 工具栏、预览、版本、定时、SEO、音频插入）；预览仅在预览/分栏下发请求、内容未变不重复请求、带 AbortController 与 429 冷却 |
+| `admin/AudioEmbedDialog.astro` + `scripts/audio-embed-dialog.ts` | 音频插入对话框（媒体库选择或填 URL），插入 ```` ```audio ```` 代码块而非 HTML |
+| `scripts/audio-player.ts` | 把 `figure.audio-embed` 里的原生 `<audio>` 渐进增强为 Scene 播放器（`BaseLayout` 与 `AdminLayout` 都加载；MutationObserver 覆盖编辑器预览） |
 
 ### 5.6 后台 CRUD 页面的固定写法
 
@@ -799,7 +829,11 @@ if (root) {
 
 ### 5.7 样式系统
 
-**加载顺序**：`BaseLayout` → `global.css` + `mono.css`；`AdminLayout` → `global.css` + `admin.css`（`admin.css` 末尾有 Scene 扁平化覆盖层）。
+**加载顺序**：`BaseLayout` → `global.css` + `mono.css` + `index.css` + `audio-player.css`；`AdminLayout` → `global.css` + `admin.css` + `audio-player.css`（`admin.css` 末尾有扁平化覆盖层）。
+
+`index.css` 是 **Scene 主题层**：在 global 之后加载，用同等优先级覆盖公共页外壳，负责 masthead 主视觉、三列内容区（`.pillars` / `.pillar`）、项目卡片、搜索照片结果、页脚与响应式。改主题结构优先改这里，而不是继续往 `global.css` 追加。
+
+`audio-player.css` 只负责 `.audio-player`（编辑器插入的音频播放器），公共页与后台共用；原生 `<audio>` 的隐藏规则已用更高优先级覆盖 `global.css` 的 `.prose .audio-embed audio`。
 
 **`global.css` 结构**（按文件内注释分段）：
 
@@ -845,9 +879,13 @@ if (root) {
 3. 改整体密度/留白 → 改 `--band/--gutter/--grid-gap`；
 4. **不要在组件里写死颜色**，一律用变量；后台 `custom_css` 是用户级覆盖，不要写进仓库。
 
+**主题文案**：`copy_*` 设置由 `BaseLayout` / 页面用 `copy('copy_key', fallback)` 读取，默认值同时存在于 `defaults.py` 与前端 `config.ts` 的 `fallbackSite`（后端不可达时仍能渲染）。新增一条可见文字时，三处一起改：`defaults.py` → `types.ts` → `config.ts`，再在 `admin/appearance.astro` 加一个 `data-setting` 输入框。
+
 ### 5.8 类型（`types.ts`）
 
-与后端 JSON 对齐的接口：`SiteSettings`、`SiteInfo`、`Author`、`PostSummary`、`PostDetail`、`AdminPost`、`Gallery`、`Photo`、`Term`、`Comment`、`AdminUser`、`Paginated<T>`、`SearchResults`、`SiteStatus`、`PhotoExifField` 等。
+与后端 JSON 对齐的接口：`SiteSettings`（含 `copy_*` 文案键）、`SiteInfo`（含 `project_count`）、`Author`、`PostSummary`（含项目字段）、`Project` / `ProjectDetail`、`PostDetail`、`AdminPost`、`Gallery`、`Photo`、`Term`、`Comment`、`AdminUser`、`Paginated<T>`、`SearchResults`（含 `projects` / `photos`）、`SiteStatus`、`PhotoExifField` 等。
+
+**新增/修改后端字段时，必须同步更新 `SiteSettings` 或对应接口**，否则 `astro check` 会报错或运行期取到 `undefined`。
 
 **新增/修改后端字段时，必须同步更新 `SiteSettings` 或对应接口**，否则 `astro check` 会报错或运行期取到 `undefined`。
 
@@ -906,10 +944,11 @@ PHOTO_PUBLIC_CONDITION = (
 
 ### 6.4 与旧版本的兼容
 
-- `posts` 仍保留 `project_*` 列（历史项目数据），但公开/后台入口已移除；
+- `posts.type` 现有 `post` / `project` / `page` 三种；项目字段 `project_year/role/client/kind/url` 与历史列共用，`project_kind` 为 v6 新增；v2.2 之后它是纯文本（无预设、无枚举），v7 迁移会把旧的 `code` / `video` 改写为「代码」/「影像」。
 - `media.uploaded_by` 是旧列，`owner_id` 是现值；所有查询用 `COALESCE(owner_id, uploaded_by)`；
-- `_migrate_scene` / `_migrate_mono` 会把旧的 "Ink Isle" 默认值/色板映射到 Scene，但只在值仍等于旧默认值时覆盖；
-- `/galleries`（索引）保留 301 到 `/photos`，旧的 `/projects` 系列已无入口。
+- `_migrate_scene` / `_migrate_mono` / `_migrate_scene_v22` 会把旧默认值与色板映射到 2.2 版 Scene，但只在值仍等于旧默认值时覆盖；`_migrate_scene_v22` 在导航仍等于 Scene v2 默认值时补上「项目」，并删除已废弃的 `home_projects_*` / `home_*_title` 键。
+- `/galleries`（索引）保留 301 到 `/photos`；`/projects` 与 `/api/projects` 在 2.2 版 Scene 中恢复。
+- 搜索接口的响应新增 `projects` 与 `photos` 两个数组；旧客户端忽略即可。
 
 ## 7. API 参考
 
@@ -939,11 +978,26 @@ Pydantic 校验失败时 `detail` 是数组，前端 `detailToMessage()` 会转�
   "categories": [{ "id": 1, "name": "技术", "slug": "tech", "description": "", "count": 3 }],
   "tags": [{ "id": 1, "name": "随笔", "slug": "essay", "count": 2 }],
   "post_count": 3,
+  "project_count": 4,
   "photo_count": 12,
   "gallery_count": 3,
-  "version": "2.1.0"
+  "version": "2.2.0"
 }
 ```
+
+**`GET /api/search?q=`**
+
+```json
+{
+  "query": "35mm",
+  "projects": [ { "type": "project", "title": "…", "project_year": "2026", "project_kind": "代码", "url": "/projects/…" } ],
+  "photos": [ { "id": 6, "title": "夜色 01", "url": "/media/…", "camera": "Sony A7C", "lens": "35mm", "taken_at": "…", "gallery": { "url": "/galleries/nocturne" } } ],
+  "galleries": [ { "id": 2, "title": "NOCTURNE / 夜色", "url": "/galleries/nocturne" } ],
+  "articles": [ { "type": "post", "title": "…", "url": "/posts/…" } ]
+}
+```
+
+匹配范围：项目标题/正文/摘要/年份/角色/类型/上下文/作者/标签/分类；照片标题/说明/地点/相机/镜头/拍摄时间；相册标题/描述及相册内已发布照片元数据；文章标题/正文/摘要/SEO/作者/标签/分类。
 
 **`GET /api/posts/{slug}`（PostDetail）**
 
@@ -1241,7 +1295,9 @@ editor: ['…', 'analytics.read'],
 | 改排序（手动/taken/recent） | `galleries.py:308` 的 `ordering` 分支 + 后台拖拽逻辑（`gallery_admin.reorder_photos`） |
 | 改封面回退逻辑 | `gallery_dict()`（`galleries.py:148`） |
 | 新增照片字段 | `db.py` 的 `SCHEMA` + `_ADDED_COLUMNS["photos"]` → `schemas.PhotoIn/PhotoUpdateIn` → `gallery_admin.create_photo/update_photo` → `galleries.photo_dict` → `frontend/src/types.ts` 的 `Photo` → 后台 `admin-gallery-detail.ts` + 公共组件 |
-| 媒体库支持新图片格式 | `routes/media.py` 的 `FORMAT_EXTENSIONS`；注意 `<input accept>`（`admin/media.astro`）与 `README` 文案 |
+| 媒体库支持新图片格式 | `routes/media.py` 的 `IMAGE_FORMATS` + `defaults.py` 的 `UPLOAD_IMAGE_FORMATS`；后台 设置 → 上传与媒体 可开关 |
+| 改上传大小 / 格式限制 | 后台 设置 → 上传与媒体（`upload_max_mb` / `upload_image_formats` / `upload_audio_formats`）；服务端校验在 `routes/media.py: _upload_policy()` |
+| 改音频播放器 | `frontend/src/scripts/audio-player.ts`（行为）+ `styles/audio-player.css`（外观）+ `lib/audio-embed.ts`（插入的 HTML） |
 | 支持视频 | 仿照音频：`media.py` 增加 `VIDEO_EXTENSIONS` + 魔数校验 + `kind='video'` + `_serialize` 分支；`content.py` 的 `ALLOWED_TAGS` 加 `video`/`source` 属性；前端媒体库与播放器组件 |
 
 **注意**：照片的 `filename` 是 `media.filename` 的**快照**，删除媒体后照片仍可读旧路径（文件已删则 404）。如果要做"媒体引用完整性"检查，需要在 `delete_media` 前查询 `photos.media_id`。
@@ -1312,7 +1368,7 @@ _ADDED_COLUMNS = {
 
 **改结构 / 数据回填 / 删列** —— 走版本化迁移：
 
-1. `SCHEMA_VERSION` +1（例如 5 → 6）；
+1. `SCHEMA_VERSION` +1（例如 6 → 7）；
 2. 在 `db.py` 里写幂等函数：
 
 ```python
@@ -1389,8 +1445,8 @@ cd backend
 | 后台改了设置，前台要等一会儿才变 | `getSite()` 有 1 秒内存缓存 | `frontend/src/lib/api.ts:73` |
 | 新加的设置项保存后丢失 | 没在 `update_settings` 的 `text_limits`/分支中声明 | `backend/app/routes/admin.py:733` |
 | 新加的文章字段接口里没有 | 序列化层没加 | `backend/app/posts.py` `serialize_post` |
-| 上传返回 413 | 超过 `BLOG_MAX_UPLOAD_MB` 或像素 > 4800 万 | `config.py`、`media.py:44` |
-| 上传返回 415 | 类型不在白名单 / 魔数不匹配 | `media.py` `FORMAT_EXTENSIONS` / `_audio_format` |
+| 上传返回 413 | 超过 设置 → 上传与媒体 的大小上限，或像素 > 4800 万 | `defaults.py` `upload_max_mb`、`media.py: _upload_policy()` |
+| 上传返回 415 | 类型不在启用列表 / 魔数不匹配 | `media.py` `IMAGE_FORMATS` / `_audio_format` / `_file_format`，后台上传设置 |
 | 图片没有 EXIF | 原图确实没有 / 旧数据未缓存 | `GET /api/admin/media/{id}/exif` 看 `source` 字段 |
 | EXIF 编辑返回 409 | 已有字段不允许改写（设计如此） | `media.py:277` |
 | 相册/照片前台不显示 | 状态或相册未发布 | `galleries.py` 的公开条件 |
@@ -1563,7 +1619,7 @@ docker compose logs -f backend
 | `src/lib/proxy.ts` | `/api`、`/media` 代理 |
 | `src/lib/format.ts` | 格式化工具 |
 | `src/lib/photo.ts` | 照片 EXIF 展示 |
-| `src/lib/audio-embed.ts` | 音频嵌入 HTML |
+| `src/lib/audio-embed.ts` | 音频嵌入 HTML（由 `audio-player.ts` 渐进增强） |
 | `src/lib/admin-client.ts` | 后台通用交互 |
 | `src/layouts/BaseLayout.astro` | 公共页骨架、SEO、主题注入 |
 | `src/layouts/AdminLayout.astro` | 后台骨架、权限导航 |
@@ -1572,9 +1628,11 @@ docker compose logs -f backend
 | `src/components/admin/*` | 编辑器、音频对话框 |
 | `src/pages/**` | 路由（公共 + admin + 代理 + RSS/sitemap） |
 | `src/scripts/*.ts` | 后台与交互脚本（按页面一个文件） |
-| `src/styles/global.css` | Scene 设计系统（令牌 + 全部公共样式） |
+| `src/styles/global.css` | 基础设计系统（令牌 + 全部公共样式） |
+| `src/styles/index.css` | Scene 主题层（masthead、三列内容区、项目卡片、搜索照片、页脚） |
+| `src/styles/audio-player.css` | Scene 音频播放器 |
 | `src/styles/mono.css` | Mono 排版层 |
-| `src/styles/admin.css` | 后台样式 + Scene 覆盖层 |
+| `src/styles/admin.css` | 后台样式 + 覆盖层 |
 
 ---
 
@@ -1582,11 +1640,13 @@ docker compose logs -f backend
 
 | 术语 | 含义 |
 | --- | --- |
-| Scene | 当前主题名，也是全站视觉系统的代号 |
-| Mono | Scene 的等宽字体层（`mono.css`），后台 `font_pair` 默认值 |
+| Scene | 当前主题名（2.2 重建），首页为影像 / 项目 / 文字三列内容区 |
+| Mono | 等宽字体层（`mono.css`），后台 `font_pair` 默认值 |
+| 文案键 / `copy_*` | 主题可见文字的可配置设置项，后台 → 外观 → 文案卡片编辑 |
 | 相册 / Gallery | 一组策展照片，详见 `galleries` 表；公开路由 `/galleries/{slug}` |
 | 照片 / Photo | 相册内条目，引用 `media`，带自己的文案与 EXIF 白名单 |
 | 媒体 / Media | 媒体库中的文件记录（图片或音频），`media` 表 |
+| 项目 / Project | `posts.type='project'`，类型 `code` / `video`；视频项目只做文字介绍 |
 | 独立页面 / Page | `posts.type='page'`，URL 在根路径 |
 | 版本 / Revision | 文章更新前保存的快照（`revisions` 表），可恢复 |
 | 有效状态 | `scheduled` 到时间后对外显示为 `published`（查询时计算） |
@@ -1597,5 +1657,5 @@ docker compose logs -f backend
 
 ---
 
-*本文档基于仓库当前代码整理（`2.1.0` / schema `5`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
+*本文档基于仓库当前代码整理（`2.2.0` / schema `7`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
 

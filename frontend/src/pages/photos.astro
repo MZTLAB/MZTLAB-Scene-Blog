@@ -6,17 +6,22 @@ import { apiServer, getSite } from '../lib/api';
 import type { Gallery, Paginated, SiteInfo } from '../types';
 
 const site: SiteInfo = await getSite();
+const settings = site.settings;
+const copy = (key: keyof typeof settings, fallback: string) => {
+  const value = settings[key];
+  return typeof value === 'string' && value.trim() ? value : fallback;
+};
 const data = await apiServer<Paginated<Gallery>>('/api/galleries?per_page=60').catch(
   () => ({ items: [] as Gallery[], total: 0, page: 1, per_page: 60, pages: 1, has_prev: false, has_next: false }),
 );
 const galleries = data.items;
-const columns = Math.min(4, Math.max(2, Number(site.settings.gallery_columns) || 3));
+const columns = Math.min(4, Math.max(2, Number(settings.gallery_columns) || 3));
 ---
-<BaseLayout site={site} title="影像" description={`${site.settings.site_title} 的影像相册。`}>
+<BaseLayout site={site} title={copy('copy_photos_title', '影像')} description={`${settings.site_title} 的影像相册。`}>
   <section class="container page-hero page-hero--code">
-    <span class="eyebrow">// IMAGE_INDEX</span>
-    <h1>影像</h1>
-    <p>光影之迹，以相册展出。</p>
+    <span class="eyebrow">{copy('copy_photos_eyebrow', '// PHOTOS')}</span>
+    <h1>{copy('copy_photos_title', '影像')}</h1>
+    <p>{copy('copy_photos_lead', '以相册整理光线、空间与痕迹。')}</p>
     <div class="page-hero__meta">
       <span>{String(galleries.length).padStart(2, '0')} ALBUMS</span>
       <span>/</span>
@@ -31,16 +36,16 @@ const columns = Math.min(4, Math.max(2, Number(site.settings.gallery_columns) ||
       galleries.length > 0 ? (
         <div class="gallery-grid" style={`--gallery-columns:${columns}`}>
           {galleries.map((gallery, index) => (
-            <GalleryCard gallery={gallery} label={site.settings.site_title} index={index + 1} />
+            <GalleryCard gallery={gallery} label={settings.site_title} index={index + 1} />
           ))}
         </div>
       ) : (
         <div class="empty-state">
           <span class="empty-mark">[ ]</span>
-          <h2>还没有相册</h2>
-          <p>新建相册，再从媒体库选照片。</p>
+          <h2>{copy('copy_photos_empty_title', '还没有相册')}</h2>
+          <p>{copy('copy_photos_empty_text', '新建相册，再从媒体库选照片。')}</p>
           <a class="btn" href="/admin/galleries" style="margin-top: 18px">
-            管理相册 <Icon name="arrowRight" size={14} />
+            {copy('copy_photos_empty_cta', '管理相册')} <Icon name="arrowRight" size={14} />
           </a>
         </div>
       )
