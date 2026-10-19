@@ -1456,6 +1456,7 @@ cd backend
 | `npm run dev` 报 `require is not defined` | 开发期 CJS 桥接被删/被改 | `astro.config.mjs` 的 `cjsBridges` 三个 `.mjs` |
 | `database is locked` | 并发写 / 未用 WAL / 外部工具占用 | `db.connect()`（已设 WAL + busy_timeout）；避免长事务 |
 | Windows 下 `python scripts/run.py` 起不来 | venv 路径 / npm 引号问题 | `run.py` 的 `npm_command()`；先跑 `setup.py` |
+| Linux 上 `setup.py` 报 `.venv/bin/python: No module named pip` | 已有 venv 创建时缺少 pip，或系统缺 `ensurepip`（Debian/Ubuntu 常把 venv 拆包） | 新版 `setup.py` 会自动用 `ensurepip` / `get-pip.py` 修复；也可 `sudo apt install python3-venv python3-pip`，必要时删除 `backend/.venv` 后重跑 |
 
 ### 9.2 调试手段
 

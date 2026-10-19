@@ -8,6 +8,8 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.request
 import venv
 from pathlib import Path
 
@@ -39,13 +41,78 @@ def check_node() -> None:
     print(f"Node.js {version} ✓")
 
 
+def pip_available(python: Path) -> bool:
+    try:
+        subprocess.check_output(
+            [str(python), "-m", "pip", "--version"],
+            cwd=BACKEND,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return True
+
+
+def ensure_pip(python: Path) -> None:
+    """Make sure the venv has pip.
+
+    Debian/Ubuntu split ``ensurepip`` into a separate package and some servers
+    end up with a venv created without pip. Repair it instead of failing.
+    """
+    if pip_available(python):
+        return
+    print("\n虚拟环境里没有 pip，正在修复 …")
+    result = subprocess.run(
+        [str(python), "-m", "ensurepip", "--upgrade"],
+        cwd=BACKEND,
+        check=False,
+    )
+    if result.returncode == 0 and pip_available(python):
+        print("pip 修复完成 ✓")
+        return
+
+    url = "https://bootstrap.pypa.io/get-pip.py"
+    print(f"ensurepip 不可用，改为从 {url} 安装 pip …")
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            bootstrap = Path(tmp) / "get-pip.py"
+            urllib.request.urlretrieve(url, bootstrap)
+            run([str(python), str(bootstrap), "--disable-pip-version-check"], BACKEND)
+    except (OSError, subprocess.CalledProcessError) as error:
+        raise SystemExit(
+            "无法为虚拟环境安装 pip。\n"
+            "Debian/Ubuntu 请先安装：sudo apt install python3-venv python3-pip\n"
+            f"详细错误：{error}"
+        ) from error
+    if not pip_available(python):
+        raise SystemExit(
+            "pip 仍未安装成功。请安装 python3-venv 后删除 backend/.venv 再重试，"
+            "或检查服务器是否能访问 bootstrap.pypa.io。"
+        )
+    print("pip 修复完成 ✓")
+
+
+def create_venv() -> None:
+    print("创建 Python 虚拟环境 …")
+    try:
+        venv.EnvBuilder(with_pip=True).create(VENV)
+    except Exception as error:  # ensurepip missing on slim Debian images
+        print(f"创建带 pip 的虚拟环境失败（{error}），改为稍后单独安装 pip …")
+        shutil.rmtree(VENV, ignore_errors=True)
+        venv.EnvBuilder(with_pip=False).create(VENV)
+
+
 def install_backend() -> None:
     if not VENV.exists():
-        print("创建 Python 虚拟环境 …")
-        venv.EnvBuilder(with_pip=True).create(VENV)
+        create_venv()
     python = venv_python()
     if not python.exists():
-        raise SystemExit("虚拟环境创建失败，请检查 Python 的 venv 支持。")
+        raise SystemExit(
+            "虚拟环境不可用（找不到 Python 可执行文件）。\n"
+            "请删除 backend/.venv 后重新运行 python scripts/setup.py。"
+        )
+    ensure_pip(python)
     run([str(python), "-m", "pip", "install", "-r", "requirements.txt"], BACKEND)
     print("Python 依赖安装完成 ✓")
 
