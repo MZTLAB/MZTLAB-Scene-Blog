@@ -2,13 +2,43 @@ from __future__ import annotations
 
 import unittest
 
+from app.defaults import default_settings
 from app.routes.media import (
     AUDIO_EXTENSIONS,
     FILE_FORMATS,
     _any_file_format,
     _audio_format,
     _file_format,
+    _serialize,
 )
+
+
+class MediaSerializeTests(unittest.TestCase):
+    """SQLite stores 0/1; the API must expose a real JSON boolean."""
+
+    def _row(self, auto: int) -> dict:
+        return {
+            "id": 7,
+            "filename": "2026/05/a.jpg",
+            "mime": "image/jpeg",
+            "size": 1234,
+            "width": 800,
+            "height": 600,
+            "alt": "",
+            "exif": "",
+            "avif_quality": 33,
+            "avif_quality_auto": auto,
+            "ready_hash": "",
+            "uploaded_by": 1,
+            "owner_id": 1,
+        }
+
+    def test_auto_flag_is_a_boolean(self) -> None:
+        auto = _serialize(self._row(1), default_settings())
+        self.assertIs(auto["avif_quality_auto"], True)
+        manual = _serialize(self._row(0), default_settings())
+        self.assertIs(manual["avif_quality_auto"], False)
+        self.assertEqual(manual["avif_quality"], 33)
 
 
 class UploadFormatTests(unittest.TestCase):

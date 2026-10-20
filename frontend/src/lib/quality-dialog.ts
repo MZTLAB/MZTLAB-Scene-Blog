@@ -55,13 +55,13 @@ export function initQualityDialog(
         ? '按各场景设置分别编码：缩略 / 网格 / 卡片 / 首屏 / 大图 / 正文 / 全屏。'
         : '仅这张图使用下面的手动数值，不影响其他图片。';
     }
-    const quality = Number(number?.value) || 62;
+    const quality = Number(number?.value) || 70;
     if (output) output.textContent = autoMode ? 'AUTO' : String(quality);
     if (hint) hint.textContent = autoMode ? '自动模式：全屏等大尺寸也使用场景质量。' : qualityHint(quality);
   };
 
   const setValue = (value: number) => {
-    const quality = Math.max(1, Math.min(100, Math.round(Number.isFinite(value) ? value : 62)));
+    const quality = Math.max(1, Math.min(100, Math.round(Number.isFinite(value) ? value : 70)));
     if (range) range.value = String(quality);
     if (number) number.value = String(quality);
     if (output) output.textContent = autoMode ? 'AUTO' : String(quality);
@@ -80,8 +80,9 @@ export function initQualityDialog(
       const item = await api<MediaItem>(`/api/admin/media/${mediaId}`);
       current = item;
       if (title) title.textContent = `图片画质 · ${item.original_name || item.filename}`;
-      autoMode = item.avif_quality_auto !== false;
-      setValue(Number(item.avif_quality) || 62);
+      // Tolerate 0/1 from older API responses as well as real booleans.
+      autoMode = item.avif_quality_auto == null ? true : Boolean(item.avif_quality_auto);
+      setValue(Number(item.avif_quality) || 70);
       setMode(autoMode);
       root.classList.add('is-open');
       document.body.style.overflow = 'hidden';
@@ -94,7 +95,7 @@ export function initQualityDialog(
   range?.addEventListener('input', () => setValue(Number(range.value)));
   number?.addEventListener('input', () => setValue(Number(number.value)));
   auto?.addEventListener('change', () => {
-    setValue(Number(number?.value) || 62);
+    setValue(Number(number?.value) || 70);
     setMode(Boolean(auto.checked));
   });
 
@@ -113,7 +114,7 @@ export function initQualityDialog(
     if (!current || saving) return;
     saving = true;
     const mediaId = current.id;
-    const quality = Math.max(1, Math.min(100, Math.round(Number(number?.value) || 62)));
+    const quality = Math.max(1, Math.min(100, Math.round(Number(number?.value) || 70)));
     try {
       // `alt` is required by the endpoint; send the current value so a quality
       // edit never clears the alternative text.

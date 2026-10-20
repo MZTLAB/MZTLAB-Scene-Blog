@@ -233,6 +233,10 @@ def _serialize(row: sqlite3.Row, settings: dict[str, Any] | None = None) -> dict
     else:
         item["kind"] = "file"
     item["exif"] = parse_stored(item.get("exif"))
+    # SQLite has no boolean type; the API contract is a real JSON boolean so the
+    # admin UI can tell auto from manual without caring about 0/1.
+    item["avif_quality_auto"] = bool(item.get("avif_quality_auto", 1))
+    item["avif_quality"] = int(item.get("avif_quality") or 70)
     active_settings = settings or load_settings_cached()
     item["image"] = image_payload(item, active_settings)
     item.pop("ready_hash", None)

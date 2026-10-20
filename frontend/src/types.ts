@@ -486,7 +486,7 @@ export interface MediaItem {
   exif: ExifInfo | null;
   exif_summary?: string;
   image?: ImageInfo | null;
-  /** Per-image AVIF quality override; 0 inherits the scene setting. */
+  /** Manual AVIF quality (1-100) used when avif_quality_auto is false. */
   avif_quality?: number;
   /** True (default) = follow per-scene quality; false = use avif_quality. */
   avif_quality_auto?: boolean;

@@ -174,9 +174,11 @@ if (root) {
                 : `<div class="media-card__image"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(thumbUrl(item.image, item.url))}" alt="${escapeHtml(item.alt)}" loading="lazy" decoding="async" /></a>${actions}</div>`;
             const sizeLabel = audio ? 'AUDIO' : file ? 'FILE' : `${item.width}×${item.height}`;
             const altPlaceholder = audio ? '音频标题 / 描述' : file ? '文件描述' : '图片替代文字（alt）';
+            const isAutoQuality =
+              item.avif_quality_auto == null ? true : Boolean(item.avif_quality_auto);
             const qualityLabel =
               !audio && !file
-                ? `<span class="media-card__quality">AVIF ${item.avif_quality_auto === false ? Number(item.avif_quality) || 62 : 'AUTO'}</span>`
+                ? `<span class="media-card__quality">AVIF ${isAutoQuality ? 'AUTO' : Number(item.avif_quality) || 70}</span>`
                 : '';
             return `<article class="media-card" id="media-${item.id}">
               ${preview}
