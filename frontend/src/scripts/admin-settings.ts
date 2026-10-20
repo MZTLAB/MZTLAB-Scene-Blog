@@ -127,6 +127,10 @@ if (root) {
           <input type="text" value="${escapeHtml(link.label)}" placeholder="名称" data-link-label="${kind}" data-index="${index}" />
           <input type="text" value="${escapeHtml(link.url)}" placeholder="/path 或 https://" data-link-url="${kind}" data-index="${index}" />
           <button type="button" data-remove-link="${kind}" data-index="${index}" title="移除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+          <span class="nav-editor__move">
+            <button type="button" data-link-move="${kind}" data-index="${index}" data-delta="-1" title="上移" aria-label="上移" ${index === 0 ? 'disabled' : ''}>↑</button>
+            <button type="button" data-link-move="${kind}" data-index="${index}" data-delta="1" title="下移" aria-label="下移" ${index === links[kind].length - 1 ? 'disabled' : ''}>↓</button>
+          </span>
         </div>`,
       )
       .join('');
@@ -144,6 +148,14 @@ if (root) {
       button.addEventListener('click', () => {
         links[button.dataset.removeLink as 'nav' | 'social' | 'footer'].splice(Number(button.dataset.index), 1);
         renderLinks(kind);
+      });
+    });
+    // Clickable ↑/↓ buttons: needed on touch screens where HTML5 drag is not
+    // available. Also handy with keyboard/mouse.
+    host.querySelectorAll<HTMLButtonElement>('[data-link-move]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const from = Number(button.dataset.index);
+        moveLink(kind, from, from + Number(button.dataset.delta));
       });
     });
 
