@@ -71,6 +71,20 @@ class LocalStorageTests(unittest.TestCase):
         self.assertFalse(self.storage.exists("_derived/9/t/tile/720.avif"))
         self.assertTrue(self.storage.exists("_derived/10/t/tile/720.avif"))
 
+    def test_iter_keys_scopes_and_filters_temp_files(self):
+        self.storage.save("2026/05/a.jpg", b"a", "image/jpeg")
+        self.storage.save("_derived/1/token/tile/720.avif", b"b", "image/avif")
+        self.storage.save("2026/05/.hidden", b"x", "text/plain")
+        self.storage.save("2026/05/b.jpg.tmp", b"x", "text/plain")
+        originals = list(self.storage.iter_keys("originals"))
+        derivatives = list(self.storage.iter_keys("derivatives"))
+        self.assertEqual(originals, ["2026/05/a.jpg"])
+        self.assertEqual(derivatives, ["_derived/1/token/tile/720.avif"])
+        self.assertEqual(
+            set(self.storage.iter_keys("all")),
+            {"2026/05/a.jpg", "_derived/1/token/tile/720.avif"},
+        )
+
     def test_local_backend_never_exposes_direct_urls(self):
         self.assertIsNone(self.storage.public_url("_derived/1/x/tile/720.avif"))
         self.assertIsNone(self.storage.derived_base(1, "token"))

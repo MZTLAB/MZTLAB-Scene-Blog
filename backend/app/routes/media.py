@@ -7,6 +7,7 @@ owner enables 设置 → 协作与权限 → 编辑可管理他人内容.
 
 from __future__ import annotations
 
+import logging
 import mimetypes
 import re
 import sqlite3
@@ -50,14 +51,18 @@ from ..images import (
 )
 from ..permissions import can, owns
 from ..posts import pagination
-from ..schemas import MediaAltIn, MediaExifIn
+from ..schemas import MediaAltIn, MediaExifIn, StorageSyncIn
 from ..storage import (
+    LocalStorage,
     StorageError,
+    get_remote_storage,
     get_storage,
     storage_config,
 )
+from ..storage_sync import sync_local_to_remote
 
 router = APIRouter(prefix="/admin", tags=["media"], dependencies=[Depends(require_staff)])
+logger = logging.getLogger("mztlab.media")
 
 # PIL format name -> (extension, MIME type). The admin can enable a subset of
 # these through the upload settings; both lists are the validated allow-list.
@@ -667,6 +672,119 @@ def storage_test(
         "ok": matched,
         "backend": storage_config().backend,
         "message": "存储连接正常" if matched else "读写结果不一致",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Force-sync local files to object storage
+# ---------------------------------------------------------------------------
+
+_SYNC_STATE: dict[str, Any] = {
+    "running": False,
+    "total": 0,
+    "uploaded": 0,
+    "skipped": 0,
+    "failed": 0,
+    "bytes": 0,
+    "current": "",
+    "force": False,
+    "scope": "all",
+    "started_at": "",
+    "finished_at": "",
+    "error": "",
+    "errors": [],
+}
+_SYNC_LOCK = threading.Lock()
+
+
+def _sync_progress(result) -> None:
+    with _SYNC_LOCK:
+        _SYNC_STATE.update(
+            total=result.total,
+            uploaded=result.uploaded,
+            skipped=result.skipped,
+            failed=result.failed,
+            bytes=result.bytes_uploaded,
+            current=result.current,
+            errors=result.errors[-5:],
+        )
+
+
+def _run_storage_sync(force: bool, scope: str) -> None:
+    with _SYNC_LOCK:
+        _SYNC_STATE.update(
+            running=True, total=0, uploaded=0, skipped=0, failed=0, bytes=0,
+            current="", force=force, scope=scope, error="", errors=[],
+            started_at=now_iso(), finished_at="",
+        )
+    try:
+        remote = get_remote_storage()
+        if remote is None:
+            raise StorageError("对象存储未配置（请填写 bucket 与 endpoint）")
+        result = sync_local_to_remote(
+            LocalStorage(),
+            remote,
+            force=force,
+            scope=scope,
+            progress=_sync_progress,
+        )
+        with _SYNC_LOCK:
+            _SYNC_STATE.update(
+                total=result.total,
+                uploaded=result.uploaded,
+                skipped=result.skipped,
+                failed=result.failed,
+                bytes=result.bytes_uploaded,
+                errors=result.errors[-5:],
+            )
+    except Exception as error:  # pragma: no cover - defensive
+        logger.exception("storage sync failed")
+        with _SYNC_LOCK:
+            _SYNC_STATE["error"] = str(error)
+    finally:
+        with _SYNC_LOCK:
+            _SYNC_STATE["running"] = False
+            _SYNC_STATE["current"] = ""
+            _SYNC_STATE["finished_at"] = now_iso()
+
+
+@router.get("/storage/sync-status")
+def storage_sync_status(
+    user: dict = Depends(require_permission("settings.manage")),
+) -> dict[str, Any]:
+    with _SYNC_LOCK:
+        return dict(_SYNC_STATE)
+
+
+@router.post("/storage/sync")
+def storage_sync(
+    payload: StorageSyncIn,
+    background: BackgroundTasks,
+    user: dict = Depends(require_permission("settings.manage")),
+) -> dict[str, Any]:
+    """Force-upload local originals and/or cached derivatives to the bucket.
+
+    Runs in the background; poll `/api/admin/storage/sync-status` for progress.
+    """
+    remote = get_remote_storage()
+    if remote is None:
+        raise HTTPException(
+            status_code=400,
+            detail="请先在「图片与存储」填写对象存储的 bucket 与 endpoint（无需先切换存储后端）",
+        )
+    with _SYNC_LOCK:
+        if _SYNC_STATE["running"]:
+            return {
+                "ok": True,
+                "started": False,
+                "message": "已有同步任务在进行",
+            }
+    background.add_task(_run_storage_sync, payload.force, payload.scope)
+    return {
+        "ok": True,
+        "started": True,
+        "force": payload.force,
+        "scope": payload.scope,
     }
 
 

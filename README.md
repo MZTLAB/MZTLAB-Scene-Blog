@@ -198,7 +198,10 @@ cd frontend && npm ci
 python scripts/optimize_media.py          # 生成全部派生图并标记可直连
 python scripts/prune_derivatives.py --vacuum   # 清理旧质量留下的文件
 python scripts/migrate_storage.py --to s3      # 本地原图迁移到对象存储
+python scripts/sync_storage.py --force         # 强制把本地原图+派生图同步到对象存储
 ```
+
+后台 **设置 → 图片与存储 → 同步本地到远程** 提供同样的按钮操作：默认增量补传缺失/大小不一致的文件，勾选「强制覆盖」后重传全部本地文件，并显示进度。
 
 更细的实现说明见 [docs/DEVELOPMENT.md 附录 C](docs/DEVELOPMENT.md) 与 [docs/IMAGE-PIPELINE-PLAN.md](docs/IMAGE-PIPELINE-PLAN.md)。
 

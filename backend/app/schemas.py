@@ -174,6 +174,13 @@ class MediaAltIn(StrippedModel):
     avif_quality: int | None = Field(default=None, ge=0, le=100)
 
 
+class StorageSyncIn(StrippedModel):
+    """Upload local originals / generated derivatives to the configured bucket."""
+
+    force: bool = False
+    scope: Literal["all", "originals", "derivatives"] = "all"
+
+
 class MediaExifIn(StrippedModel):
     camera: str = Field(default="", max_length=120)
     lens: str = Field(default="", max_length=120)

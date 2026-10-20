@@ -252,6 +252,68 @@ if (root) {
     }
   });
 
+  interface StorageSyncState {
+    running: boolean;
+    total: number;
+    uploaded: number;
+    skipped: number;
+    failed: number;
+    bytes: number;
+    current: string;
+    error: string;
+  }
+
+  const renderSync = (data: StorageSyncState) => {
+    const node = root.querySelector<HTMLElement>('[data-sync-status]');
+    if (!node) return;
+    const done = data.uploaded + data.skipped + data.failed;
+    if (data.running) {
+      node.textContent = `同步中 ${done}/${data.total} · 上传 ${data.uploaded} · 跳过 ${data.skipped}${
+        data.failed ? ` · 失败 ${data.failed}` : ''
+      }`;
+    } else if (data.error) {
+      node.textContent = `同步失败：${data.error}`;
+    } else if (data.total) {
+      node.textContent = `上次同步：上传 ${data.uploaded} · 跳过 ${data.skipped}${
+        data.failed ? ` · 失败 ${data.failed}` : ''
+      }`;
+    }
+  };
+
+  const pollSync = async () => {
+    try {
+      const data = await api<StorageSyncState>('/api/admin/storage/sync-status');
+      renderSync(data);
+      if (data.running) {
+        window.setTimeout(pollSync, 1500);
+      } else {
+        refreshStorage();
+      }
+    } catch {
+      // status polling is best-effort
+    }
+  };
+
+  root.querySelector('[data-storage-sync]')?.addEventListener('click', async () => {
+    const force =
+      root.querySelector<HTMLInputElement>('[data-sync-force]')?.checked ?? false;
+    if (force && !window.confirm('强制覆盖对象存储中已有的同名文件？')) return;
+    try {
+      const data = await api<{ started: boolean; message?: string }>(
+        '/api/admin/storage/sync',
+        { method: 'POST', body: { force, scope: 'all' } },
+      );
+      toast(
+        data.message || (force ? '已开始强制同步' : '已开始增量同步'),
+        'success',
+      );
+      pollSync();
+    } catch (error) {
+      toast(errorMessage(error), 'error');
+    }
+  });
+  pollSync();
+
   load();
   refreshStorage();
 }

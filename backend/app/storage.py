@@ -127,6 +127,7 @@ class Storage(Protocol):
     def local_path(self, key: str) -> Path | None: ...
     def stream(self, key: str) -> Iterator[bytes]: ...
     def health(self) -> dict[str, Any]: ...
+    def size(self, key: str) -> int: ...
 
 
 class LocalStorage:
@@ -137,7 +138,11 @@ class LocalStorage:
         self.cache_dir = IMAGE_CACHE_DIR
 
     def _root(self, key: str) -> Path:
-        return self.cache_dir if key.startswith(DERIVED_PREFIX) else self.upload_dir
+        # `_derived` (prefix cleanup) and `_derived/...` (an object) both live in
+        # the derivative cache; everything else is an original upload.
+        derived_root = DERIVED_PREFIX.rstrip("/")
+        is_derived = key == derived_root or key.startswith(DERIVED_PREFIX)
+        return self.cache_dir if is_derived else self.upload_dir
 
     def local_path(self, key: str) -> Path:
         root = self._root(key).resolve()
@@ -210,6 +215,41 @@ class LocalStorage:
         if not self.upload_dir.exists() or not self.cache_dir.exists():
             raise StorageError("本地数据目录不存在")
         return {"ok": True, "backend": "local"}
+
+    def size(self, key: str) -> int:
+        path = self.local_path(key)
+        try:
+            return path.stat().st_size
+        except FileNotFoundError as error:
+            raise StorageMissing(key) from error
+
+    def iter_keys(self, scope: str = "all") -> Iterator[str]:
+        """Walk originals and/or generated derivatives currently on disk.
+
+        Used by the "force sync local cache to remote" maintenance action.
+        Temporary files and hidden files are ignored.
+        """
+        roots: list[tuple[Path, str]] = []
+        if scope in {"all", "originals"}:
+            roots.append((self.upload_dir, "originals"))
+        if scope in {"all", "derivatives"}:
+            roots.append((self.cache_dir, "derivatives"))
+        for root, kind in roots:
+            if not root.exists():
+                continue
+            for path in sorted(root.rglob("*")):
+                if not path.is_file():
+                    continue
+                name = path.name
+                if name.startswith(".") or name.endswith(".tmp"):
+                    continue
+                relative = path.relative_to(root).as_posix()
+                if not relative or ".." in relative:
+                    continue
+                if kind == "originals" and relative.startswith(DERIVED_PREFIX):
+                    # Derivatives live in their own root; never double-count.
+                    continue
+                yield relative
 
 
 class S3Storage:
@@ -358,6 +398,17 @@ class S3Storage:
             raise StorageError(f"无法连接对象存储：{error}") from error
         return {"ok": True, "backend": "s3", "bucket": self.config.bucket}
 
+    def size(self, key: str) -> int:
+        try:
+            response = self.client.head_object(
+                Bucket=self.config.bucket, Key=self._key(key)
+            )
+            return int(response.get("ContentLength", -1))
+        except Exception as error:
+            if _is_missing(error):
+                raise StorageMissing(key) from error
+            raise StorageError(f"对象存储查询失败：{error}") from error
+
 
 def _is_missing(error: Exception) -> bool:
     code = getattr(error, "response", {}).get("Error", {}).get("Code", "")
@@ -407,6 +458,9 @@ class MirrorStorage:
         else:
             result["backup_ok"] = True
         return result
+
+    def size(self, key: str) -> int:
+        return self.primary.size(key)
 
     def save(self, key: str, data: bytes, content_type: str) -> None:
         self.primary.save(key, data, content_type)
@@ -544,3 +598,18 @@ def reset_storage() -> None:
     global _STORAGE_CACHE
     with _STORAGE_LOCK:
         _STORAGE_CACHE = None
+
+
+def get_remote_storage() -> "S3Storage | None":
+    """Build a direct S3 client for sync/migration tasks.
+
+    Does not require `storage_backend=s3`: as long as a bucket (and an
+    endpoint/region) is configured, the admin can push local files to the
+    bucket while the site is still served from disk.
+    """
+    config = storage_config()
+    if not config.bucket:
+        return None
+    if not config.endpoint and not config.region:
+        return None
+    return S3Storage(config)

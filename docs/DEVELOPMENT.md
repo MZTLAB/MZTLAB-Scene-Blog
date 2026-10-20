@@ -1728,6 +1728,11 @@ docker compose logs -f backend
 - 老图预热：`python scripts/optimize_media.py`（可 `--dry-run` / `--media-id` / `--force`）。
 - 修改质量后：新 URL 自动生效；旧派生文件用 `python scripts/prune_derivatives.py --vacuum` 清理。
 - 本地 → R2：先在后台保存 S3 配置，再 `python scripts/migrate_storage.py --to s3 --dry-run`，确认后去掉 `--dry-run`。
+- **本地 → 远程强制同步**：后台「设置 → 图片与存储 → 同步本地到远程」，或
+  `python scripts/sync_storage.py [--force] [--scope all|originals|derivatives]`。
+  默认只补传缺失或大小不一致的对象；`--force`/勾选「强制覆盖」会重传全部本地原图与派生图。
+  接口为 `POST /api/admin/storage/sync` + `GET /api/admin/storage/sync-status`（避免长时间请求阻塞），
+  实现见 `backend/app/storage_sync.py`，只依赖 Storage 接口，因此也适用于 MirrorStorage 之外的场景。
 - R2 要点：endpoint 为 `https://<账户ID>.r2.cloudflarestorage.com`，region 填 `auto`；公开访问需在 R2 开启 r2.dev 或绑定自定义域名，并把地址填入「公开访问地址」。
 - 无 AVIF 的 Pillow 环境会自动降级为 WebP/JPEG（启动日志与后台面板会提示）。
 

@@ -304,6 +304,26 @@ const user = guard;
               <button class="a-btn" type="button" data-storage-refresh><Icon name="refresh" size={14} /> 存储状态</button>
               <span class="hint" data-storage-result style="align-self:center"></span>
             </div>
+            <div class="storage-sync">
+              <div class="storage-sync__text">
+                <strong>同步本地到远程</strong>
+                <span>
+                  把服务器本地已存在的原图（含旧数据）与已生成的派生图强制上传到对象存储。
+                  默认只补传缺失或大小不一致的文件；勾选「强制覆盖」会重传全部本地文件。
+                  后台任务进行中可继续操作，状态会显示进度。
+                </span>
+              </div>
+              <div class="storage-sync__actions">
+                <label class="check-row">
+                  <input type="checkbox" data-sync-force />
+                  <span>强制覆盖远程已有文件</span>
+                </label>
+                <button class="a-btn" type="button" data-storage-sync>
+                  <Icon name="upload" size={14} /> 开始同步
+                </button>
+                <span class="hint" data-sync-status></span>
+              </div>
+            </div>
             <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">
               保存后立即生效（无需重启）。图片直连时，浏览器从对象存储/CDN 拉取派生图；
               原图与未生成完的图片仍走 <code>/media</code> 代理。密钥不会出现在

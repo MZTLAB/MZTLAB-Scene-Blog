@@ -4161,4 +4161,37 @@ html[data-theme="scene"] input[type="range"]::-moz-range-thumb {
   }
 }
 
+/* Local → remote forced sync (image & storage settings) */
+.storage-sync {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line-soft);
+}
+
+.storage-sync__text {
+  display: grid;
+  gap: 4px;
+}
+
+.storage-sync__text strong {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.storage-sync__text span {
+  color: var(--ink-faint);
+  font-size: 9.5px;
+  line-height: 1.7;
+}
+
+.storage-sync__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+
 
