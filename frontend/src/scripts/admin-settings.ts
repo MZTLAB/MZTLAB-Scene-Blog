@@ -101,12 +101,29 @@ if (root) {
     }
   };
 
+  let dragLink: { kind: 'nav' | 'social' | 'footer'; index: number } | null = null;
+
+  const moveLink = (
+    kind: 'nav' | 'social' | 'footer',
+    from: number,
+    to: number,
+  ) => {
+    const list = links[kind];
+    if (from < 0 || from >= list.length || to < 0 || to >= list.length || from === to) {
+      return;
+    }
+    const [item] = list.splice(from, 1);
+    list.splice(to, 0, item);
+    renderLinks(kind);
+  };
+
   const renderLinks = (kind: 'nav' | 'social' | 'footer') => {
     const host = root.querySelector<HTMLElement>(`[data-links="${kind}"]`);
     if (!host) return;
     host.innerHTML = links[kind]
       .map(
-        (link, index) => `<div class="nav-editor__row">
+        (link, index) => `<div class="nav-editor__row" data-link-row data-index="${index}">
+          <span class="nav-editor__handle" draggable="true" tabindex="0" role="button" data-link-drag title="拖动排序（聚焦后可用 ↑ ↓ 键）" aria-label="拖动排序">⋮⋮</span>
           <input type="text" value="${escapeHtml(link.label)}" placeholder="名称" data-link-label="${kind}" data-index="${index}" />
           <input type="text" value="${escapeHtml(link.url)}" placeholder="/path 或 https://" data-link-url="${kind}" data-index="${index}" />
           <button type="button" data-remove-link="${kind}" data-index="${index}" title="移除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
@@ -127,6 +144,52 @@ if (root) {
       button.addEventListener('click', () => {
         links[button.dataset.removeLink as 'nav' | 'social' | 'footer'].splice(Number(button.dataset.index), 1);
         renderLinks(kind);
+      });
+    });
+
+    // Native HTML5 drag & drop on the handle; no extra library needed.
+    host.querySelectorAll<HTMLElement>('[data-link-row]').forEach((row) => {
+      const index = Number(row.dataset.index);
+      const handle = row.querySelector<HTMLElement>('[data-link-drag]');
+      handle?.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          moveLink(kind, index, index - 1);
+        } else if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          moveLink(kind, index, index + 1);
+        }
+      });
+      row.addEventListener('dragstart', (event) => {
+        dragLink = { kind, index };
+        row.classList.add('is-dragging');
+        event.dataTransfer?.setData('text/plain', String(index));
+        if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+      });
+      row.addEventListener('dragend', () => {
+        dragLink = null;
+        row.classList.remove('is-dragging');
+        host
+          .querySelectorAll('.is-drop-target')
+          .forEach((element) => element.classList.remove('is-drop-target'));
+      });
+      row.addEventListener('dragover', (event) => {
+        if (!dragLink || dragLink.kind !== kind) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        row.classList.add('is-drop-target');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
+      row.addEventListener('drop', (event) => {
+        event.preventDefault();
+        row.classList.remove('is-drop-target');
+        if (!dragLink || dragLink.kind !== kind) {
+          dragLink = null;
+          return;
+        }
+        const from = dragLink.index;
+        dragLink = null;
+        moveLink(kind, from, index);
       });
     });
   };

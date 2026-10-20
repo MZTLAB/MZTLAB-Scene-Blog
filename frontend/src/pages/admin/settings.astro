@@ -363,13 +363,13 @@ const user = guard;
 
       <section class="settings-panel" data-settings-panel="navigation">
         <div class="admin-page-intro">
-          <div><h2>导航链接</h2><p>页头、移动端菜单与页脚都会读取这里。外部链接请写完整 https:// 地址。</p></div>
+          <div><h2>导航链接</h2><p>页头与移动端菜单会读取这里；页脚导航与社交链接在「页脚与社交」中单独配置。外部链接请写完整 https:// 地址。</p></div>
         </div>
         <div class="admin-card">
           <div class="admin-card__head"><h3>主导航</h3><button class="a-btn a-btn--sm" type="button" data-add-link="nav"><Icon name="plus" size={13} /> 添加</button></div>
           <div class="admin-card__body">
             <div class="nav-editor" data-links="nav"></div>
-            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">建议保留「首页 / 影像 / 项目 / 文章 / 关于」。拖拽排序暂未支持。</p>
+            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">建议保留「首页 / 影像 / 项目 / 文章 / 关于」。拖动每行左侧的 ⋮⋮ 手柄调整顺序（聚焦手柄后也可用 ↑ ↓ 键）。</p>
           </div>
         </div>
       </section>
@@ -404,6 +404,7 @@ const user = guard;
             <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">
               这些是页脚里的普通导航链接（影像 / 项目 / 文字 / 搜索 / 后台），显示在社交媒体图标之后。
               留空时使用默认的五个入口；社交媒体请用下面的「社交链接」单独配置。
+              拖动每行左侧的 ⋮⋮ 手柄可调整顺序（聚焦后也可用 ↑ ↓ 键）。
             </p>
           </div>
         </div>
@@ -411,6 +412,7 @@ const user = guard;
           <div class="admin-card__head"><h3>社交链接</h3><button class="a-btn a-btn--sm" type="button" data-add-link="social"><Icon name="plus" size={13} /> 添加</button></div>
           <div class="admin-card__body">
             <div class="nav-editor" data-links="social"></div>
+            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">社交媒体显示为带图标的链接，与页脚导航分开。同样可拖动 ⋮⋮ 手柄排序。</p>
           </div>
         </div>
       </section>
