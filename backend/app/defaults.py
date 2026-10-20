@@ -38,9 +38,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "site_url": "http://127.0.0.1:4321",
     "logo": "",
     "favicon": "",
-    "author_name": "MightZero",
-    "author_bio": "以影像记录光，以项目验证想法，以文字整理观察。",
-    "author_avatar": "",
 
     # Appearance -------------------------------------------------------------
     "theme": "scene",              # scene | stone | sand | night
@@ -119,6 +116,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "copy_project_role": "角色",
     "copy_project_client": "上下文",
     "copy_project_kind": "类型",
+    "copy_author": "作者",
     "copy_project_link": "访问项目",
     "copy_project_back": "返回项目",
     "copy_project_related": "其他项目",
@@ -212,7 +210,6 @@ LEGACY_DEFAULTS: dict[str, Any] = {
     "hero_eyebrow": "A PERSONAL JOURNAL",
     "hero_title": "写下来，\n让时间有迹可循。",
     "hero_subtitle": "关于技术、设计与日常的缓慢记录。\n在快速的世界里，做一个耐心的观察者。",
-    "author_bio": "写代码，也写字。相信缓慢、具体和长期主义。",
     "nav": [
         {"label": "首页", "url": "/"},
         {"label": "文章", "url": "/archive"},
@@ -274,7 +271,6 @@ SCENE_V2_COPY: dict[str, Any] = {
     "site_subtitle": "SCENE",
     "tagline": "影像与文字。",
     "description": "MZTLAB。影像与文字。",
-    "author_bio": "以影像记录光，以文字整理观察。",
     "hero_eyebrow": "MZTLAB // VISUAL_ARCHIVE",
     "hero_title": "光落下。\n场景生成。",
     "hero_subtitle": "影像。文字。记录。",

@@ -848,8 +848,7 @@ def update_settings(
     clean: dict[str, Any] = {}
     text_limits = {
         "site_title": 60, "site_subtitle": 60, "tagline": 160, "description": 300,
-        "site_url": 200, "logo": 500, "favicon": 500, "author_name": 60,
-        "author_bio": 500, "author_avatar": 500, "footer_text": 200,
+        "site_url": 200, "logo": 500, "favicon": 500, "footer_text": 200,
         "footer_note": 200, "icp": 80, "seo_description": 300,
         "seo_keywords": 200, "og_image": 500, "announcement": 300,
         "hero_eyebrow": 100, "hero_title": 160, "hero_subtitle": 500,
@@ -919,7 +918,7 @@ def update_settings(
             r"^#[0-9a-fA-F]{6}$", value
         ):
             clean[key] = value.lower()
-        elif key in {"site_url", "logo", "favicon", "og_image", "author_avatar", "hero_image"}:
+        elif key in {"site_url", "logo", "favicon", "og_image", "hero_image"}:
             clean[key] = _as_text(value, 500)
         elif key.endswith("_url"):
             # Copy keys such as copy_hero_primary_url are rendered as links.

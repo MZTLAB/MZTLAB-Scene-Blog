@@ -70,6 +70,7 @@ const description = gallery.description || site.settings.description;
   description={description}
   image={gallery.cover?.url}
   type="article"
+  author={gallery.author?.name}
 >
   <section class="container gallery-header" data-gallery-id={gallery.id}>
     <div>
@@ -78,6 +79,7 @@ const description = gallery.description || site.settings.description;
       {gallery.description && <p>{gallery.description}</p>}
     </div>
     <div class="gallery-facts">
+      <div class="gallery-fact"><span>AUTHOR</span><span>{gallery.author?.name || site.settings.site_title}</span></div>
       <div class="gallery-fact"><span>PERIOD</span><span>{range || '—'}</span></div>
       <div class="gallery-fact"><span>LOCATION</span><span>{locations.join(' / ') || '—'}</span></div>
       <div class="gallery-fact"><span>CAMERA</span><span>{cameras.join(' / ') || '—'}</span></div>
@@ -126,10 +128,6 @@ const description = gallery.description || site.settings.description;
     {
       first && (
         <div class="gallery-facts" style="margin-top:32px;max-width:520px">
-          <div class="gallery-fact">
-            <span>Curated by</span>
-            <span>{gallery.author?.name || site.settings.site_title}</span>
-          </div>
           <div class="gallery-fact">
             <span>Frames</span>
             <span>{gallery.photo_count}</span>

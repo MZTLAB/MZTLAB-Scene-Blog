@@ -1,6 +1,6 @@
 import { api } from '../lib/api';
 import { errorMessage, escapeHtml, toast } from '../lib/admin-client';
-import type { AdminUser, NavLink, SiteSettings } from '../types';
+import type { NavLink, SiteSettings } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-settings-page]');
 if (root) {
@@ -127,38 +127,6 @@ if (root) {
     }
   };
   saveButton?.addEventListener('click', save);
-
-  // Profile ---------------------------------------------------------------
-  const profileForm = root.querySelector<HTMLElement>('[data-profile-form]');
-  const profileSave = root.querySelector<HTMLButtonElement>('[data-save-profile]');
-  profileSave?.addEventListener('click', async () => {
-    if (!profileForm) return;
-    const data = Object.fromEntries(
-      Array.from(profileForm.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[name]')).map((input) => [
-        input.name,
-        input.value,
-      ]),
-    ) as Record<string, string>;
-    if (data.new_password && data.new_password !== data.confirm_password) {
-      toast('两次输入的新密码不一致', 'error');
-      return;
-    }
-    delete data.confirm_password;
-    if (profileSave) profileSave.disabled = true;
-    try {
-      const result = await api<{ user: AdminUser }>('/api/admin/profile', { method: 'PUT', body: data });
-      toast('账号资料已更新', 'success');
-      profileForm.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach((input) => (input.value = ''));
-      const nameNode = document.querySelector<HTMLElement>('.admin-user__meta strong');
-      if (nameNode) nameNode.textContent = result.user.display_name;
-      const avatarNode = document.querySelector<HTMLElement>('.admin-user .avatar');
-      if (avatarNode) avatarNode.textContent = result.user.display_name.slice(0, 1);
-    } catch (error) {
-      toast(errorMessage(error), 'error');
-    } finally {
-      if (profileSave) profileSave.disabled = false;
-    }
-  });
 
   load();
 }

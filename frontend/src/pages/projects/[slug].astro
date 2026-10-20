@@ -33,10 +33,11 @@ const jsonLd = {
   description,
   dateCreated: project.project_year || project.published_at,
   url: canonical,
-  creator: { '@type': 'Person', name: project.author?.name || settings.author_name },
+  creator: { '@type': 'Person', name: project.author?.name || settings.site_title },
 };
 const kindLabel = (project.project_kind || '').trim();
 const meta = [
+  { label: copy('copy_author', '作者'), value: project.author?.name || '' },
   { label: copy('copy_project_kind', '类型'), value: kindLabel },
   { label: copy('copy_project_year', '年份'), value: project.project_year || project.published_at?.slice(0, 4) || '' },
   { label: copy('copy_project_role', '角色'), value: project.project_role || '' },
@@ -44,7 +45,7 @@ const meta = [
 ].filter((item) => item.value);
 const related = (project.related || []) as typeof project.related;
 ---
-<BaseLayout site={site} title={project.seo_title || project.title} description={description} type="article">
+<BaseLayout site={site} title={project.seo_title || project.title} description={description} type="article" author={project.author?.name}>
   <Fragment slot="head">
     <script type="application/ld+json" set:html={safeJson(jsonLd)}></script>
   </Fragment>

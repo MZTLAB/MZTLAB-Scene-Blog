@@ -1,0 +1,73 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import Icon from '../../components/Icon.astro';
+import { guardAdmin } from '../../lib/auth';
+
+const guard = await guardAdmin(Astro);
+if (guard instanceof Response) return guard;
+const user = guard;
+---
+<AdminLayout user={user} title="个人资料" subtitle="Account / Profile" active="" showCompose={false}>
+  <div class="page-head-row">
+    <div>
+      <h2>个人资料</h2>
+      <p>显示名称、头像与简介会出现在你署名的文章、项目和相册上。</p>
+    </div>
+    <div class="toolbar-group">
+      <a class="a-btn" href="/admin/media" target="_blank" rel="noopener">
+        <Icon name="image" size={14} /> 媒体库
+      </a>
+    </div>
+  </div>
+
+  <div class="admin-card">
+    <div class="admin-card__head"><h3>账号资料</h3><span>ACCOUNT</span></div>
+    <div class="admin-card__body" data-profile-form>
+      <div class="a-field--row">
+        <div class="a-field">
+          <label>显示名称 <small>文章署名</small></label>
+          <input type="text" name="display_name" value={user.display_name} maxlength="50" />
+        </div>
+        <div class="a-field">
+          <label>登录用户名</label>
+          <input type="text" value={user.username} disabled />
+        </div>
+      </div>
+      <div class="a-field" style="margin-top:12px">
+        <label>邮箱</label>
+        <input type="email" name="email" value={user.email} maxlength="120" />
+      </div>
+      <div class="a-field" style="margin-top:12px">
+        <label>个人简介 <small>显示在文章末尾的作者卡片</small></label>
+        <textarea name="bio" rows="3" maxlength="500">{user.bio}</textarea>
+      </div>
+      <div class="a-field" style="margin-top:12px">
+        <label>头像 URL <small>可粘贴媒体库里的图片地址</small></label>
+        <input type="text" name="avatar" value={user.avatar} maxlength="500" placeholder="/media/... 或 https://" />
+      </div>
+      <div class="a-field--row" style="margin-top:18px">
+        <div class="a-field">
+          <label>当前密码 <small>修改密码时填写</small></label>
+          <input type="password" name="current_password" autocomplete="current-password" />
+        </div>
+        <div class="a-field">
+          <label>新密码 <small>至少 10 位，含三类字符</small></label>
+          <input type="password" name="new_password" autocomplete="new-password" minlength="10" />
+        </div>
+      </div>
+      <div class="a-field" style="margin-top:12px;max-width:50%">
+        <label>确认新密码</label>
+        <input type="password" name="confirm_password" autocomplete="new-password" />
+      </div>
+      <div class="form-actions" style="margin-top:18px">
+        <button class="a-btn a-btn--primary" type="button" data-save-profile>
+          <Icon name="save" size={14} /> 保存资料
+        </button>
+      </div>
+    </div>
+  </div>
+</AdminLayout>
+
+<script>
+  import '../../scripts/admin-profile';
+</script>

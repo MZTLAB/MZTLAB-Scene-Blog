@@ -17,6 +17,8 @@ interface Props {
   type?: 'website' | 'article';
   noindex?: boolean;
   bodyClass?: string;
+  /** Author of the current article/project/gallery, for <meta name="author">. */
+  author?: string;
 }
 
 const {
@@ -27,6 +29,7 @@ const {
   type = 'website',
   noindex = false,
   bodyClass = '',
+  author = '',
 } = Astro.props;
 
 const settings = site.settings;
@@ -85,7 +88,7 @@ const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
     <title>{pageTitle}</title>
     <meta name="description" content={metaDescription} />
     {settings.seo_keywords && <meta name="keywords" content={settings.seo_keywords} />}
-    <meta name="author" content={settings.author_name || siteTitle} />
+    <meta name="author" content={author || siteTitle} />
     <meta name="theme-color" content={accent} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href={favicon} />

@@ -52,7 +52,7 @@ const jsonLd = {
   mainEntityOfPage: canonical,
   author: {
     '@type': 'Person',
-    name: post.author?.name || settings.author_name,
+    name: post.author?.name || settings.site_title,
   },
   publisher: { '@type': 'Organization', name: settings.site_title },
   ...(image ? { image } : {}),
@@ -64,6 +64,7 @@ const jsonLd = {
   description={description}
   image={post.cover_image}
   type="article"
+  author={post.author?.name}
 >
   <Fragment slot="head">
     <script type="application/ld+json" set:html={safeJson(jsonLd)}></script>
@@ -88,9 +89,9 @@ const jsonLd = {
               <span class="avatar">
                 {post.author?.avatar
                   ? <img src={post.author.avatar} alt="" />
-                  : initial(post.author?.name || settings.author_name)}
+                  : initial(post.author?.name || settings.site_title)}
               </span>
-              {post.author?.name || settings.author_name}
+              {post.author?.name || settings.site_title}
             </span>
           )
         }
@@ -140,11 +141,11 @@ const jsonLd = {
             <span class="avatar avatar--large">
               {post.author?.avatar
                 ? <img src={post.author.avatar} alt="" />
-                : initial(post.author?.name || settings.author_name)}
+                : initial(post.author?.name || settings.site_title)}
             </span>
             <div>
-              <h3>{post.author?.name || settings.author_name}</h3>
-              <p>{post.author?.bio || settings.author_bio || settings.description}</p>
+              <h3>{post.author?.name || settings.site_title}</h3>
+              {post.author?.bio && <p>{post.author.bio}</p>}
             </div>
           </div>
 

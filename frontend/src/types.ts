@@ -11,9 +11,6 @@ export interface SiteSettings {
   site_url: string;
   logo: string;
   favicon: string;
-  author_name: string;
-  author_bio: string;
-  author_avatar: string;
   theme: string;
   color_mode: string;
   accent: string;
@@ -68,6 +65,7 @@ export interface SiteSettings {
   copy_project_role: string;
   copy_project_client: string;
   copy_project_kind: string;
+  copy_author: string;
   copy_project_link: string;
   copy_project_back: string;
   copy_project_related: string;

@@ -601,7 +601,8 @@ def _ensure_default_settings(conn: sqlite3.Connection) -> None:
         "'home_gallery_title', 'home_gallery_subtitle', "
         "'home_section_title', 'home_section_subtitle', "
         "'home_projects_title', 'home_projects_subtitle', 'home_projects_lead', "
-        "'copy_project_kind_code', 'copy_project_kind_video'"
+        "'copy_project_kind_code', 'copy_project_kind_video', "
+        "'author_name', 'author_bio', 'author_avatar'"
         ")"
     )
     # BLOG_SITE_URL is a first-boot convenience for deployments. Once the URL

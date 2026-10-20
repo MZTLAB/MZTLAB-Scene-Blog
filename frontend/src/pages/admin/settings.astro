@@ -21,7 +21,6 @@ const user = guard;
       <button type="button" data-settings-tab="navigation">导航</button>
       <button type="button" data-settings-tab="footer">页脚与社交</button>
       <button type="button" data-settings-tab="seo">SEO 与高级</button>
-      <button type="button" data-settings-tab="account">账号</button>
     </nav>
 
     <div>
@@ -29,7 +28,7 @@ const user = guard;
         <div class="admin-page-intro">
           <div>
             <h2>站点信息</h2>
-            <p>名字、简介与作者身份。它们会出现在页面标题、RSS 和搜索结果里。</p>
+            <p>站点名称、标语与描述。它们会出现在页面标题、RSS 和搜索结果里；作者信息改为使用成员资料。</p>
           </div>
         </div>
         <div class="admin-card">
@@ -53,18 +52,6 @@ const user = guard;
             <div class="setting-row">
               <div class="setting-row__label"><strong>站点地址</strong><span>用于 canonical、RSS 与 sitemap，结尾不要加斜杠。</span></div>
               <div class="a-field"><input type="url" maxlength="200" data-setting="site_url" placeholder="https://example.com" /></div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>作者称呼</strong><span>文章署名。</span></div>
-              <div class="a-field"><input type="text" maxlength="60" data-setting="author_name" /></div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>作者简介</strong><span>出现在文章末尾与关于区域。</span></div>
-              <div class="a-field"><textarea rows="3" maxlength="500" data-setting="author_bio"></textarea></div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>头像 URL</strong><span>不填则使用称呼首字。</span></div>
-              <div class="a-field"><input type="text" maxlength="500" data-setting="author_avatar" placeholder="/media/... 或 https://" /></div>
             </div>
             <div class="setting-row">
               <div class="setting-row__label"><strong>Logo / Favicon</strong><span>可选图片地址。Logo 替代默认标记。</span></div>
@@ -266,54 +253,6 @@ const user = guard;
         </div>
       </section>
 
-      <section class="settings-panel" data-settings-panel="account">
-        <div class="admin-page-intro">
-          <div><h2>账号资料</h2><p>修改显示名称、邮箱与密码。登录用户名不可更改。</p></div>
-        </div>
-        <div class="admin-card">
-          <div class="admin-card__body" data-profile-form>
-            <div class="a-field--row">
-              <div class="a-field">
-                <label>显示名称</label>
-                <input type="text" name="display_name" value={user.display_name} maxlength="50" />
-              </div>
-              <div class="a-field">
-                <label>登录用户名</label>
-                <input type="text" value={user.username} disabled />
-              </div>
-            </div>
-            <div class="a-field" style="margin-top:12px">
-              <label>邮箱</label>
-              <input type="email" name="email" value={user.email} maxlength="120" />
-            </div>
-            <div class="a-field" style="margin-top:12px">
-              <label>个人简介</label>
-              <textarea name="bio" rows="3" maxlength="500">{user.bio}</textarea>
-            </div>
-            <div class="a-field" style="margin-top:12px">
-              <label>头像 URL</label>
-              <input type="text" name="avatar" value={user.avatar} maxlength="500" />
-            </div>
-            <div class="a-field--row" style="margin-top:18px">
-              <div class="a-field">
-                <label>当前密码 <small>修改密码时填写</small></label>
-                <input type="password" name="current_password" autocomplete="current-password" />
-              </div>
-              <div class="a-field">
-                <label>新密码 <small>至少 10 位，含三类字符</small></label>
-                <input type="password" name="new_password" autocomplete="new-password" minlength="10" />
-              </div>
-            </div>
-            <div class="a-field" style="margin-top:12px;max-width:50%">
-              <label>确认新密码</label>
-              <input type="password" name="confirm_password" autocomplete="new-password" />
-            </div>
-            <div class="form-actions" style="margin-top:18px">
-              <button class="a-btn a-btn--primary" type="button" data-save-profile><Icon name="save" size={14} /> 更新账号</button>
-            </div>
-          </div>
-        </div>
-      </section>
     </div>
   </div>
 </AdminLayout>

@@ -3,7 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import { ApiError, getPage, getSite } from '../lib/api';
 import type { PostDetail, SiteInfo } from '../types';
-import { formatDate } from '../lib/format';
+import { formatDate, initial } from '../lib/format';
 
 const { slug } = Astro.params;
 const site: SiteInfo = await getSite();
@@ -17,7 +17,7 @@ try {
 const settings = site.settings;
 const description = page.seo_description || '';
 ---
-<BaseLayout site={site} title={page.seo_title || page.title} description={description} image={page.cover_image}>
+<BaseLayout site={site} title={page.seo_title || page.title} description={description} image={page.cover_image} author={page.author?.name}>
   <article class="container">
     <header class="article-header">
       <span class="eyebrow"><span class="dot"></span> Page · {formatDate(page.updated_at, 'short')}</span>
@@ -30,13 +30,13 @@ const description = page.seo_description || '';
         <div class="article-footer">
           <div class="article-author">
             <span class="avatar avatar--large">
-              {settings.author_avatar
-                ? <img src={settings.author_avatar} alt="" />
-                : (settings.author_name || 'M').slice(0, 1)}
+              {page.author?.avatar
+                ? <img src={page.author.avatar} alt="" />
+                : initial(page.author?.name || settings.site_title)}
             </span>
             <div>
-              <h3>{settings.author_name}</h3>
-              <p>{settings.author_bio}</p>
+              <h3>{page.author?.name || settings.site_title}</h3>
+              {page.author?.bio && <p>{page.author.bio}</p>}
             </div>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">

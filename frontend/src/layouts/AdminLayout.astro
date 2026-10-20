@@ -134,6 +134,9 @@ const composeHref = '/admin/posts/new';
         </nav>
 
         <div class="admin-sidebar__foot">
+          <a href="/admin/profile">
+            <Icon name="users" size={15} /> 个人资料
+          </a>
           <a href="/" target="_blank" rel="noopener">
             <Icon name="external" size={15} /> 查看站点
           </a>
@@ -162,7 +165,9 @@ const composeHref = '/admin/posts/new';
               </a>
             )}
             <div class="admin-user" title={`${user.display_name} · ${user.role_label || user.role}`}>
-              <span class="avatar">{initial(user.display_name)}</span>
+              <span class="avatar">
+                {user.avatar ? <img src={user.avatar} alt="" /> : initial(user.display_name)}
+              </span>
               <span class="admin-user__meta">
                 <strong>{user.display_name}</strong>
                 <span>{user.role_label || user.role}</span>

@@ -634,6 +634,7 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 - `DEFAULT_SETTINGS`（`defaults.py:14`）是设置项的**唯一真相**：`update_settings` 只接受这里存在的键（`admin.py`），`public_settings()` 也只返回这里的键。
 - **主题文案**：`copy_*` 开头的键是 Scene 主题的可见文字（主视觉按钮、三列标题/说明、空状态、404、页脚等）。后台 → 外观 → 首页文案 / 场景文案 / 页面文案直接编辑；前端用 `copy(key, fallback)` 读取，空值回退内置默认。默认值取自当前线上外观配置（2.2 版）。
 - **上传设置**：`upload_max_mb`、`upload_image_formats`、`upload_audio_formats` 在 设置 → 上传与媒体 编辑，`media.py` 逐次校验，详见 4.11。
+- **作者资料不在设置里**：旧的 `author_name` / `author_bio` / `author_avatar` 已移除（启动时从 settings 删除）。文章、页面、项目、相册的署名统一读取 `users.display_name / bio / avatar`；成员在 `/admin/profile` 自助修改。
 - `PRIVATE_SETTING_KEYS = {"editor_manage_others"}`：存库但不通过 `/api/site` 与导出泄露。
 - `seed_demo_content()`（`seed.py`）：用 `settings.demo_seed_version` 标记幂等；首次插入分类/标签/3 篇文章/关于页/3 个相册（Pillow 程序生成色块图，写入 `uploads/seed/`）、4 个项目（3 代码 + 1 视频介绍）与示例评论。`DEMO_SEED_VERSION = 5` 会在已有项目的旧库上只补视频项目、不重复。
 - `ensure_bootstrap_admin()`（`seed.py`）：`BLOG_ADMIN_USER` + `BLOG_ADMIN_PASSWORD` 且无用户时创建管理员。
@@ -751,6 +752,7 @@ vite.plugins: [cjsBridgePlugin, blockSensitiveDevFiles]
 | `/admin/taxonomy` | `admin/taxonomy.astro` | `admin-taxonomy.ts` | `taxonomy.manage` |
 | `/admin/appearance` | `admin/appearance.astro` | `admin-appearance.ts` | `settings.manage` |
 | `/admin/settings` | `admin/settings.astro` | `admin-settings.ts` | `settings.manage` |
+| `/admin/profile` | `admin/profile.astro` | `admin-profile.ts` | staff（所有成员改自己的资料） |
 | `/admin/users` | `admin/users.astro` | `admin-users.ts` | `users.manage` |
 | `/admin/login`、`/admin/setup` | `admin/login.astro`、`admin/setup.astro` | 内联 | — |
 
