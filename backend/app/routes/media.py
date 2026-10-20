@@ -10,27 +10,52 @@ from __future__ import annotations
 import mimetypes
 import re
 import sqlite3
+import threading
 import uuid
 from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from PIL import Image, UnidentifiedImageError
 
-from ..config import ADMIN_MAX_UPLOAD_BYTES, UPLOAD_DIR
-from ..db import db, load_settings, now_iso
+from ..config import ADMIN_MAX_UPLOAD_BYTES
+from ..db import db, load_settings, load_settings_cached, now_iso
 from ..defaults import (
     UPLOAD_AUDIO_FORMATS,
     UPLOAD_FILE_FORMATS,
     UPLOAD_IMAGE_FORMATS,
 )
 from ..deps import require_permission, require_staff
-from ..exif import dump_exif, parse_stored, read_exif_bytes, read_exif_file, summary
+from ..exif import dump_exif, parse_stored, read_exif_bytes, summary
+from ..images import (
+    AVIF_SUPPORTED,
+    WEBP_SUPPORTED,
+    delete_derivatives,
+    derivative_stats,
+    dominant_color,
+    image_payload,
+    is_image_row,
+    prewarm_media,
+)
 from ..permissions import can, owns
 from ..posts import pagination
 from ..schemas import MediaAltIn, MediaExifIn
+from ..storage import (
+    StorageError,
+    get_storage,
+    storage_config,
+)
 
 router = APIRouter(prefix="/admin", tags=["media"], dependencies=[Depends(require_staff)])
 
@@ -186,7 +211,7 @@ def _media_url(filename: str) -> str:
     return f"/media/{filename}"
 
 
-def _serialize(row: sqlite3.Row) -> dict[str, Any]:
+def _serialize(row: sqlite3.Row, settings: dict[str, Any] | None = None) -> dict[str, Any]:
     item = dict(row)
     owner_id = item.get("owner_id") or item.get("uploaded_by")
     item["owner_id"] = owner_id
@@ -203,6 +228,9 @@ def _serialize(row: sqlite3.Row) -> dict[str, Any]:
     else:
         item["kind"] = "file"
     item["exif"] = parse_stored(item.get("exif"))
+    active_settings = settings or load_settings_cached()
+    item["image"] = image_payload(item, active_settings)
+    item.pop("ready_hash", None)
     item.pop("effective_owner_id", None)
     item.pop("owner_name", None)
     item.pop("owner_username", None)
@@ -222,12 +250,12 @@ def _ensure_owner(user: dict[str, Any], row: sqlite3.Row) -> None:
     raise HTTPException(status_code=403, detail="只能管理自己上传的媒体")
 
 
-def _file_path(filename: str) -> Path:
-    root = UPLOAD_DIR.resolve()
-    path = (UPLOAD_DIR / filename).resolve()
-    if not path.is_relative_to(root):
-        raise HTTPException(status_code=400, detail="非法路径")
-    return path
+def _read_media_bytes(filename: str) -> bytes | None:
+    """Read an original through the storage backend (local disk or bucket)."""
+    try:
+        return get_storage().read(filename)
+    except (StorageError, FileNotFoundError):
+        return None
 
 
 @router.get("/media")
@@ -268,6 +296,7 @@ def list_media(
 
 @router.post("/media", status_code=201)
 async def upload_media(
+    background: BackgroundTasks,
     file: UploadFile = File(...),
     alt: str = Form(default=""),
     user: dict = Depends(require_permission("media.manage")),
@@ -337,21 +366,23 @@ async def upload_media(
 
     now = datetime.now(timezone.utc)
     relative_dir = Path(f"{now.year:04d}") / f"{now.month:02d}"
-    target_dir = UPLOAD_DIR / relative_dir
-    target_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{uuid.uuid4().hex}.{ext}"
-    target = target_dir / filename
-    target.write_bytes(data)
+    relative = (relative_dir / filename).as_posix()
+    storage = get_storage()
+    try:
+        storage.save(relative, data, mime)
+    except StorageError as error:
+        raise HTTPException(status_code=502, detail=f"媒体存储不可用：{error}") from error
 
     # Pillow is only for images; EXIF never blocks an otherwise valid upload.
     exif = read_exif_bytes(data) if fmt else None
-    relative = (relative_dir / filename).as_posix()
     original_name = (file.filename or f"media.{ext}").replace("\\", "/").split("/")[-1][:200]
+    placeholder = dominant_color(data) if fmt else ""
     with db() as conn:
         cur = conn.execute(
             """INSERT INTO media(filename, original_name, mime, size, width, height,
-                                 alt, uploaded_by, owner_id, exif, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                 alt, uploaded_by, owner_id, exif, placeholder, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 relative,
                 original_name,
@@ -363,13 +394,28 @@ async def upload_media(
                 int(user["id"]),
                 int(user["id"]),
                 dump_exif(exif),
+                placeholder,
                 now_iso(),
             ),
         )
-        row = _get_row(conn, int(cur.lastrowid))
+        media_id = int(cur.lastrowid)
+        row = _get_row(conn, media_id)
         item = _serialize(row)
     item["exif_summary"] = summary(exif)
+    # Generate the scene variants in the background; the upload itself must not
+    # wait for AVIF encoding. Until the set is complete the API serves proxy
+    # URLs instead of direct object-storage URLs.
+    if fmt and load_settings_cached().get("image_prewarm", True):
+        background.add_task(prewarm_media, media_id)
     return item
+
+
+@router.get("/media/optimize-status")
+def optimize_status(
+    user: dict = Depends(require_permission("media.manage")),
+) -> dict[str, Any]:
+    with _OPTIMIZE_LOCK:
+        return dict(_OPTIMIZE_STATE)
 
 
 @router.get("/media/{media_id}")
@@ -393,10 +439,10 @@ def update_media_exif(
         _ensure_owner(user, row)
         if not str(row["mime"]).startswith("image/"):
             raise HTTPException(status_code=400, detail="音频文件没有 EXIF 信息")
-        path = _file_path(row["filename"])
-        if not path.exists():
+        raw = _read_media_bytes(row["filename"])
+        if raw is None:
             raise HTTPException(status_code=404, detail="原始图片文件不存在")
-        current = parse_stored(row["exif"]) or read_exif_file(path) or {}
+        current = parse_stored(row["exif"]) or read_exif_bytes(raw) or {}
         incoming = {
             "camera": payload.camera.strip(),
             "lens": payload.lens.strip(),
@@ -459,8 +505,8 @@ def media_exif(
         row = _get_row(conn, media_id)
         _ensure_owner(user, row)
         stored = parse_stored(row["exif"])
-        path = _file_path(row["filename"])
-        fresh = read_exif_file(path) if not stored and path.exists() else None
+        raw = _read_media_bytes(row["filename"]) if not stored else None
+        fresh = read_exif_bytes(raw) if raw else None
         if fresh and not stored:
             conn.execute(
                 "UPDATE media SET exif = ? WHERE id = ?", (dump_exif(fresh), media_id)
@@ -479,6 +525,7 @@ def media_exif(
 def update_media(
     media_id: int,
     payload: MediaAltIn,
+    background: BackgroundTasks,
     user: dict = Depends(require_permission("media.manage")),
 ) -> dict[str, Any]:
     with db() as conn:
@@ -487,8 +534,137 @@ def update_media(
         conn.execute(
             "UPDATE media SET alt = ? WHERE id = ?", (payload.alt, media_id)
         )
+        if payload.avif_quality is not None and is_image_row(row):
+            # A changed quality produces a new URL token; drop the "ready" mark
+            # so the API falls back to proxy URLs until the new set is built.
+            conn.execute(
+                "UPDATE media SET avif_quality = ?, ready_hash = '' WHERE id = ?",
+                (payload.avif_quality, media_id),
+            )
+            if load_settings_cached().get("image_prewarm", True):
+                background.add_task(prewarm_media, media_id)
         updated = _get_row(conn, media_id)
     return _serialize(updated)
+
+
+# ---------------------------------------------------------------------------
+# Derivative / storage maintenance
+# ---------------------------------------------------------------------------
+
+_OPTIMIZE_STATE: dict[str, Any] = {
+    "running": False,
+    "total": 0,
+    "done": 0,
+    "failed": 0,
+    "started_at": "",
+    "finished_at": "",
+    "error": "",
+}
+_OPTIMIZE_LOCK = threading.Lock()
+
+
+def _run_optimize_all() -> None:
+    with _OPTIMIZE_LOCK:
+        _OPTIMIZE_STATE.update(
+            running=True, total=0, done=0, failed=0, error="",
+            started_at=now_iso(), finished_at="",
+        )
+    try:
+        with db() as conn:
+            ids = [
+                int(row["id"])
+                for row in conn.execute(
+                    "SELECT id FROM media WHERE mime LIKE 'image/%' ORDER BY id"
+                )
+            ]
+        with _OPTIMIZE_LOCK:
+            _OPTIMIZE_STATE["total"] = len(ids)
+        for media_id in ids:
+            try:
+                prewarm_media(media_id)
+            except Exception:
+                with _OPTIMIZE_LOCK:
+                    _OPTIMIZE_STATE["failed"] += 1
+                continue
+            with _OPTIMIZE_LOCK:
+                _OPTIMIZE_STATE["done"] += 1
+    except Exception as error:  # pragma: no cover - defensive
+        with _OPTIMIZE_LOCK:
+            _OPTIMIZE_STATE["error"] = str(error)
+    finally:
+        with _OPTIMIZE_LOCK:
+            _OPTIMIZE_STATE["running"] = False
+            _OPTIMIZE_STATE["finished_at"] = now_iso()
+
+
+@router.post("/media/optimize-all")
+def optimize_all(
+    background: BackgroundTasks,
+    user: dict = Depends(require_permission("media.manage")),
+) -> dict[str, Any]:
+    with _OPTIMIZE_LOCK:
+        if _OPTIMIZE_STATE["running"]:
+            return {"ok": True, "started": False, "message": "已有优化任务在进行"}
+    background.add_task(_run_optimize_all)
+    return {"ok": True, "started": True}
+
+
+@router.post("/media/{media_id}/optimize")
+def optimize_media(
+    media_id: int,
+    background: BackgroundTasks,
+    user: dict = Depends(require_permission("media.manage")),
+) -> dict[str, Any]:
+    with db() as conn:
+        row = _get_row(conn, media_id)
+        _ensure_owner(user, row)
+        if not is_image_row(row):
+            raise HTTPException(status_code=400, detail="只有图片可以优化")
+    background.add_task(prewarm_media, media_id, True)
+    return {"ok": True, "queued": True, "media_id": media_id}
+
+
+@router.get("/storage/status")
+def storage_status(
+    user: dict = Depends(require_permission("settings.manage")),
+) -> dict[str, Any]:
+    config = storage_config()
+    reachable: bool | None = None
+    error = ""
+    if config.is_s3 and config.bucket:
+        try:
+            get_storage().client.head_bucket(Bucket=config.bucket)
+            reachable = True
+        except Exception as exception:
+            reachable = False
+            error = str(exception)
+    return {
+        "config": config.describe(),
+        "avif": AVIF_SUPPORTED,
+        "webp": WEBP_SUPPORTED,
+        "reachable": reachable,
+        "error": error,
+        "derivatives": derivative_stats(),
+    }
+
+
+@router.post("/storage/test")
+def storage_test(
+    user: dict = Depends(require_permission("settings.manage")),
+) -> dict[str, Any]:
+    storage = get_storage()
+    key = f"_probe/{uuid.uuid4().hex}.txt"
+    try:
+        storage.save(key, b"mztlab-storage-probe", "text/plain")
+        matched = storage.read(key) == b"mztlab-storage-probe"
+        storage.delete(key)
+    except Exception as error:
+        return {"ok": False, "message": f"连接失败：{error}"}
+    return {
+        "ok": matched,
+        "backend": storage_config().backend,
+        "message": "存储连接正常" if matched else "读写结果不一致",
+    }
 
 
 @router.delete("/media/{media_id}")
@@ -498,8 +674,13 @@ def delete_media(
     with db() as conn:
         row = _get_row(conn, media_id)
         _ensure_owner(user, row)
-        path = _file_path(row["filename"])
-        if path.exists():
-            path.unlink()
+        filename = row["filename"]
+    delete_derivatives(media_id)
+    try:
+        get_storage().delete(filename)
+    except StorageError:
+        # A missing object must not stop the database row from being removed.
+        pass
+    with db() as conn:
         conn.execute("DELETE FROM media WHERE id = ?", (media_id,))
     return {"ok": True, "deleted": media_id}

@@ -7,13 +7,25 @@ if (root) {
   const saveButton = document.querySelector<HTMLButtonElement>('[data-save-settings]');
   let settings: SiteSettings | null = null;
   const links: Record<'nav' | 'social', NavLink[]> = { nav: [], social: [] };
-  const numericKeys = new Set(['posts_per_page', 'upload_max_mb']);
+  const numericKeys = new Set([
+    'posts_per_page', 'upload_max_mb', 'image_avif_speed', 'image_webp_quality',
+    'image_jpeg_quality', 'image_quality_thumb', 'image_quality_tile',
+    'image_quality_card', 'image_quality_hero', 'image_quality_viewer',
+    'image_quality_prose', 'image_quality_full', 'image_max_width',
+    'image_cache_days',
+  ]);
   const booleanKeys = new Set([
     'show_reading_time',
     'show_author',
     'show_views',
     'comments_enabled',
     'comment_moderation',
+    'image_avif_enabled',
+    'image_webp_enabled',
+    'image_prewarm',
+    'image_lazy_enabled',
+    'storage_s3_path_style',
+    'storage_backup_local',
   ]);
 
   const tabs = root.querySelectorAll<HTMLButtonElement>('[data-settings-tab]');
@@ -35,9 +47,21 @@ if (root) {
     sync();
   });
 
+  interface SettingsMeta {
+    image?: { avif?: boolean; webp?: boolean; scenes?: string[] };
+    storage?: { backends?: string[]; serve_modes?: string[] };
+  }
+
+  const setHint = (selector: string, text: string) => {
+    const node = root.querySelector<HTMLElement>(selector);
+    if (node) node.textContent = text;
+  };
+
   const load = async () => {
     try {
-      const result = await api<{ settings: SiteSettings }>('/api/admin/settings');
+      const result = await api<{ settings: SiteSettings; meta?: SettingsMeta }>(
+        '/api/admin/settings',
+      );
       settings = result.settings;
       root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
         const key = input.dataset.setting as keyof SiteSettings;
@@ -45,6 +69,19 @@ if (root) {
         if (input.type === 'checkbox') (input as HTMLInputElement).checked = Boolean(value);
         else input.value = String(value ?? '');
       });
+      const image = result.meta?.image;
+      if (image) {
+        setHint(
+          '[data-codec-status]',
+          `服务端能力：AVIF ${image.avif ? '可用' : '不可用'} · WebP ${image.webp ? '可用' : '不可用'}`,
+        );
+      }
+      const secretField = root.querySelector<HTMLInputElement>('[data-secret]');
+      if (secretField) {
+        const configured = Boolean(settings?.storage_s3_secret_key_configured);
+        secretField.placeholder = configured ? '已保存，留空则不修改' : '尚未设置';
+        setHint('[data-secret-hint]', configured ? '已保存密钥；填写新值可替换。' : '还没有保存密钥。');
+      }
       links.nav = [...(settings.nav || [])];
       links.social = [...(settings.social || [])];
       renderLinks('nav');
@@ -99,11 +136,13 @@ if (root) {
 
   const collect = () => {
     const payload: Record<string, unknown> = {};
-    root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[data-setting]').forEach((input) => {
+    root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
       const key = input.dataset.setting!;
       if (input.type === 'checkbox') payload[key] = (input as HTMLInputElement).checked;
-      else if (numericKeys.has(key)) payload[key] = Number(input.value) || 1;
-      else if (booleanKeys.has(key)) payload[key] = input.value === 'true';
+      else if (numericKeys.has(key)) {
+        const value = Number(input.value);
+        payload[key] = Number.isFinite(value) ? value : 0;
+      } else if (booleanKeys.has(key)) payload[key] = input.value === 'true';
       else payload[key] = input.value;
     });
     payload.nav = links.nav.filter((link) => link.label.trim() && link.url.trim());
@@ -128,5 +167,89 @@ if (root) {
   };
   saveButton?.addEventListener('click', save);
 
+  const refreshStorage = async (notify = false) => {
+    const node = root.querySelector<HTMLElement>('[data-storage-status]');
+    const result = root.querySelector<HTMLElement>('[data-storage-result]');
+    try {
+      const data = await api<{
+        config: { backend: string; bucket: string; endpoint: string; direct_enabled: boolean; public_base_url: string; backup_local?: boolean };
+        avif: boolean;
+        webp: boolean;
+        reachable: boolean | null;
+        error: string;
+        derivatives: { files: number; bytes: number };
+      }>('/api/admin/storage/status');
+      const config = data.config;
+      const size = data.derivatives.files
+        ? ` · 派生图 ${data.derivatives.files} 个 / ${(data.derivatives.bytes / 1024 / 1024).toFixed(1)}MB`
+        : '';
+      if (node) {
+        node.textContent = config.backend === 's3'
+          ? `${config.bucket || '未设置 bucket'}${config.direct_enabled ? ' · 直连' : ' · 代理'}${config.backup_local ? ' · 本地备份' : ''}${size}`
+          : `本地磁盘${size}`;
+      }
+      if (result && (notify || config.backend === 's3')) {
+        const reach = data.reachable === null ? '' : data.reachable ? ' · 连接正常' : ` · 连接失败：${data.error}`;
+        result.textContent = `${config.backend === 's3' ? '对象存储' : '本地存储'}${reach}`;
+      }
+    } catch (error) {
+      if (result && notify) result.textContent = errorMessage(error);
+    }
+  };
+
+  root.querySelector('[data-storage-refresh]')?.addEventListener('click', () => refreshStorage(true));
+  root.querySelector('[data-storage-test]')?.addEventListener('click', async () => {
+    const result = root.querySelector<HTMLElement>('[data-storage-result]');
+    if (result) result.textContent = '正在测试…';
+    try {
+      const data = await api<{ ok: boolean; message: string }>('/api/admin/storage/test', {
+        method: 'POST',
+      });
+      if (result) result.textContent = data.message;
+      toast(data.message, data.ok ? 'success' : 'error');
+      refreshStorage();
+    } catch (error) {
+      if (result) result.textContent = errorMessage(error);
+      toast(errorMessage(error), 'error');
+    }
+  });
+
+  const pollOptimize = async () => {
+    const node = root.querySelector<HTMLElement>('[data-optimize-status]');
+    try {
+      const data = await api<{
+        running: boolean;
+        total: number;
+        done: number;
+        failed: number;
+        error: string;
+      }>('/api/admin/media/optimize-status');
+      if (node) {
+        node.textContent = data.running
+          ? `生成中 ${data.done}/${data.total}${data.failed ? ` · 失败 ${data.failed}` : ''}`
+          : data.total
+            ? `上次完成 ${data.done}/${data.total}${data.failed ? ` · 失败 ${data.failed}` : ''}`
+            : '';
+      }
+      if (data.running) window.setTimeout(pollOptimize, 2000);
+    } catch {
+      // the status endpoint is best-effort; the button still works
+    }
+  };
+
+  root.querySelector('[data-optimize-all]')?.addEventListener('click', async () => {
+    try {
+      const data = await api<{ started: boolean; message?: string }>(
+        '/api/admin/media/optimize-all',
+        { method: 'POST' },
+      );
+      toast(data.message || '已开始生成派生图', 'success');
+      pollOptimize();
+    } catch (error) {
+      toast(errorMessage(error), 'error');
+    }
+  });
+
   load();
+  refreshStorage();
 }

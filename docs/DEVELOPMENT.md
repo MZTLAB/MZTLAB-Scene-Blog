@@ -1661,5 +1661,78 @@ docker compose logs -f backend
 
 ---
 
-*本文档基于仓库当前代码整理（`2.2.0` / schema `8`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
+## 附录 C：图片派生管线与对象存储（2.3.0 新增）
+
+### C.1 数据流
+
+```text
+上传 → storage.save(原图) → media 行（width/height/placeholder）
+     → BackgroundTasks: prewarm_media()  生成全部场景变体 → media.ready_hash
+
+读取 → GET /media/_v/{media_id}/{hash}/{scene}/{width}.{fmt}
+     → 命中 media_derivatives + 存储对象 → 直接返回
+     → 未命中 → 单飞锁 → 编码 → 落存储/落库 → 返回
+     → Cache-Control: public, max-age=31536000, immutable
+```
+
+- 原图永不覆盖，旧 `/media/{path}` 继续可用（改为显式路由，兼容 local / s3）。
+- 派生图键：`_derived/{media_id}/{hash}/{scene}/{width}.{ext}`；`hash` 含质量、阶梯、格式、管线版本，改设置即换 URL。
+- 场景 → 宽度：`thumb/tile/card` 使用阶梯第一档，`hero/viewer` 使用最后一档，`prose` 两档，`full` 使用原图（`image_max_width` 可限制）。
+- 动图（GIF）不做派生，保留原文件。
+
+### C.2 关键文件
+
+| 文件 | 职责 |
+| --- | --- |
+| `backend/app/images.py` | 质量/阶梯解析、哈希、AVIF/WebP/JPEG 编码、`image_payload`、Markdown 图片 `<picture>` 重写、预热与清理 |
+| `backend/app/storage.py` | `LocalStorage` / `S3Storage`（R2 兼容）、`get_storage()` 按设置缓存、密钥不回传 |
+| `backend/app/routes/media_serve.py` | `/media/_v/...` 派生图路由、`/media/{path}` 原图路由（local / s3 redirect / stream） |
+| `backend/app/routes/media.py` | 上传预热、单图/全量优化接口、`/api/admin/storage/{status,test}` |
+| `backend/app/routes/admin.py` | `update_settings` 新增 image_* / storage_* 校验；`_admin_settings()` 掩码 secret |
+| `backend/app/posts.py` | 封面 `cover` 图元数据、正文 Markdown 图片升级 |
+| `backend/app/galleries.py` | `photo_dict` 输出 `image`；`gallery_dict` 传递设置 |
+| `frontend/src/lib/images.ts` | 场景 → 宽度/尺寸、`srcset`、直连 URL、`thumbUrl()` |
+| `frontend/src/components/SmartImage.astro` | `<picture>`：AVIF → WebP → JPEG |
+| `frontend/src/components/Lightbox.astro` + `scripts/lightbox.ts` | 灯箱使用 `full` 场景 AVIF/WebP |
+| `frontend/src/pages/admin/settings.astro` + `scripts/admin-settings.ts` | 「图片与存储」面板：按场景质量、阶梯、R2 配置、测试连接、重新生成 |
+| `scripts/optimize_media.py` / `prune_derivatives.py` / `migrate_storage.py` | 预热 / 清理旧 token / local ⇄ s3 原图迁移 |
+
+### C.3 设置项（全部私有，不进 `/api/site`）
+
+| 键 | 默认 | 说明 |
+| --- | --- | --- |
+| `image_avif_enabled` / `image_webp_enabled` | true | 格式开关；JPEG 始终作为兜底生成 |
+| `image_avif_speed` | 6 | 0 最慢 / 10 最快 |
+| `image_widths` | `720,2560` | 小图 / 大图阶梯；原图始终是 `full` 档 |
+| `image_max_width` | 0 | 0 = full 使用原图尺寸 |
+| `image_quality_{thumb,tile,card,hero,viewer,prose,full}` | 45/50/55/62/58/58/62 | 按场景 AVIF 质量 |
+| `image_webp_quality` / `image_jpeg_quality` | 80 / 82 | 兜底格式质量 |
+| `image_prewarm` / `image_lazy_enabled` | true | 上传后预热 / 懒加载 |
+| `storage_backend` | `local` | `local` / `s3` |
+| `storage_serve_mode` | `auto` | `auto`（有公开地址即直连）/ `proxy` / `direct` |
+| `storage_public_base_url` | 空 | R2 公开域名或 CDN；配置后派生图从对象存储直连 |
+| `storage_s3_*` | — | endpoint / bucket / region / access key / secret / prefix / path style |
+| `storage_backup_local` | false | 对象存储写入时同时在本地数据目录留一份副本（`MirrorStorage`） |
+
+**本地备份语义**（`backend/app/storage.py:MirrorStorage`）：
+
+- 写入：先写主后端（S3），再尽力写本地；本地失败只记 warning，不影响请求成功。
+- 读取：以主后端为准；主后端对象缺失（或不可用）时回退到本地副本。
+- 删除：两侧都删除，避免下次切回 `local` 时旧文件“复活”。
+- 只镜像启用后新写入的对象；历史对象用 `scripts/migrate_storage.py --to local` 回填。
+- 派生图同样镜像，因此切换 `storage_backend` 回 `local` 后无需重新生成。
+
+### C.4 迁移与运维
+
+- 老库升级：`init_db()` 自动建 `media_derivatives` 表并补 `media` 列（`_ADDED_COLUMNS`），`SCHEMA_VERSION` 8 → 9。
+- 老图预热：`python scripts/optimize_media.py`（可 `--dry-run` / `--media-id` / `--force`）。
+- 修改质量后：新 URL 自动生效；旧派生文件用 `python scripts/prune_derivatives.py --vacuum` 清理。
+- 本地 → R2：先在后台保存 S3 配置，再 `python scripts/migrate_storage.py --to s3 --dry-run`，确认后去掉 `--dry-run`。
+- R2 要点：endpoint 为 `https://<账户ID>.r2.cloudflarestorage.com`，region 填 `auto`；公开访问需在 R2 开启 r2.dev 或绑定自定义域名，并把地址填入「公开访问地址」。
+- 无 AVIF 的 Pillow 环境会自动降级为 WebP/JPEG（启动日志与后台面板会提示）。
+
+---
+
+*本文档基于仓库当前代码整理（`2.3.0` / schema `9`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
+
 

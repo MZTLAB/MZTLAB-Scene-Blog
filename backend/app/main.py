@@ -15,32 +15,12 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 
-from .config import APP_NAME, CORS_ORIGINS, ENABLE_API_DOCS, UPLOAD_DIR
+from .config import APP_NAME, CORS_ORIGINS, ENABLE_API_DOCS
 from .db import clear_expired_sessions, init_db
-from .routes import admin, auth, gallery_admin, media, public, users
+from .routes import admin, auth, gallery_admin, media, media_serve, public, users
 
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
-
-# Administrators may upload any file type. Anything a browser could execute on
-# the site's origin is served as a download with a locked-down CSP instead of
-# being rendered inline.
-ACTIVE_MEDIA_EXTENSIONS = {
-    "html", "htm", "xhtml", "shtml", "svg", "xml", "xsl", "js", "mjs",
-    "cjs", "css", "php", "phtml", "asp", "aspx", "jsp", "exe", "dll",
-    "com", "bat", "cmd", "ps1", "sh", "wasm", "swf",
-}
-
-
-class MediaStaticFiles(StaticFiles):
-    async def get_response(self, path: str, scope):  # type: ignore[override]
-        response = await super().get_response(path, scope)
-        extension = Path(path).suffix.lower().lstrip(".")
-        if extension in ACTIVE_MEDIA_EXTENSIONS:
-            response.headers["Content-Disposition"] = "attachment"
-            response.headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
-        return response
 
 logger = logging.getLogger("mztlab.api")
 
@@ -49,6 +29,13 @@ logger = logging.getLogger("mztlab.api")
 async def lifespan(app: FastAPI):
     init_db()
     clear_expired_sessions()
+    from .images import AVIF_SUPPORTED, WEBP_SUPPORTED
+
+    logger.info(
+        "image pipeline: avif=%s webp=%s", AVIF_SUPPORTED, WEBP_SUPPORTED
+    )
+    if not AVIF_SUPPORTED:
+        logger.warning("AVIF encoder unavailable; serving WebP/JPEG derivatives only")
     yield
 
 
@@ -141,10 +128,9 @@ app.include_router(admin.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(gallery_admin.router, prefix="/api")
 app.include_router(media.router, prefix="/api")
-
-# Public media files. Filenames are random and formats are validated, so this
-# is safe to serve directly; in production the Astro server proxies it.
-app.mount("/media", MediaStaticFiles(directory=UPLOAD_DIR, check_dir=False), name="media")
+# Public media files: originals and generated AVIF/WebP/JPEG derivatives. The
+# Astro server proxies this path, and direct object-storage URLs bypass it.
+app.include_router(media_serve.router)
 
 
 @app.get("/")

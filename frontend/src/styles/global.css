@@ -176,6 +176,15 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/**
+ * `<picture>` is only a format switch (AVIF → WebP → JPEG). `display: contents`
+ * keeps its `<img>` a layout child of the surrounding component, so existing
+ * selectors such as `.photo-tile__media img` keep working unchanged.
+ */
+picture {
+  display: contents;
+}
+
 img,
 svg,
 video {

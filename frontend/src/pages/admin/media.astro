@@ -1,6 +1,7 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import Icon from '../../components/Icon.astro';
+import ImageQualityDialog from '../../components/admin/ImageQualityDialog.astro';
 import { guardAdmin } from '../../lib/auth';
 import { getSite } from '../../lib/api';
 import { fallbackSite } from '../../config';
@@ -177,6 +178,7 @@ const descriptionPrefix = adminUnrestricted
         </form>
       </div>
     </div>
+    <ImageQualityDialog />
   </div>
 </AdminLayout>
 

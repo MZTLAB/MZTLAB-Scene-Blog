@@ -4071,3 +4071,94 @@ html[data-theme="scene"] input[type="range"]::-moz-range-thumb {
   color: var(--ink-faint);
 }
 
+/* ---------------------------------------------------------------------------
+   Image quality dialog（与 EXIF 弹窗同一交互，避免把质量输入平铺在卡片上）
+--------------------------------------------------------------------------- */
+.media-card__quality {
+  display: inline-flex;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.quality-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+.quality-dialog__value {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.quality-dialog__value output {
+  min-width: 74px;
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+}
+
+.quality-dialog__value span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.quality-dialog__range {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: ew-resize;
+}
+
+.quality-dialog__scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -8px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+.quality-dialog__row {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 16px;
+  align-items: start;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.quality-dialog__row .a-field {
+  display: grid;
+  gap: 6px;
+}
+
+.quality-dialog__hint {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 640px) {
+  .quality-dialog__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+

@@ -1,6 +1,7 @@
 ---
 import type { Photo } from '../types';
 import { exifFieldVisible, photoMetaLine, specsJson } from '../lib/photo';
+import SmartImage from './SmartImage.astro';
 
 interface Props {
   photos: Photo[];
@@ -52,6 +53,7 @@ function techLine(photo: Photo): string {
             type="button"
             data-photo
             data-src={photo.url}
+            data-image={photo.image ? JSON.stringify(photo.image) : undefined}
             data-title={photo.title}
             data-caption={photo.caption}
             data-meta={photoMetaLine(photo)}
@@ -59,13 +61,14 @@ function techLine(photo: Photo): string {
             aria-label={`查看照片：${photo.title || photo.alt}`}
           >
             <span class="photo-tile__media">
-              <img
+              <SmartImage
+                image={photo.image}
                 src={photo.url}
                 alt={photo.alt}
+                scene="tile"
+                eager={index < 3}
                 width={photo.width || undefined}
                 height={photo.height || undefined}
-                loading={index < 3 ? 'eager' : 'lazy'}
-                fetchpriority={index < 3 ? 'high' : 'auto'}
               />
             </span>
             {showMeta && (

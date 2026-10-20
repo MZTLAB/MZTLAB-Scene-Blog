@@ -1,6 +1,8 @@
 import { api } from '../lib/api';
 import { debounce, errorMessage, escapeHtml, toast } from '../lib/admin-client';
 import { PHOTO_EXIF_FIELDS, PHOTO_EXIF_LABELS } from '../lib/photo';
+import { thumbUrl } from '../lib/images';
+import { initQualityDialog } from '../lib/quality-dialog';
 import type { Gallery, MediaItem, Paginated, Photo } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-gallery-detail]');
@@ -78,7 +80,7 @@ if (root) {
       .map(
         (photo, index) => `<div class="photo-row" data-photo-row="${photo.id}">
           <button class="photo-row__thumb" type="button" data-preview="${escapeHtml(photo.url)}" title="查看大图">
-            <img src="${escapeHtml(photo.url)}" alt="${escapeHtml(photo.alt)}" loading="lazy" />
+            <img src="${escapeHtml(thumbUrl(photo.image, photo.url))}" alt="${escapeHtml(photo.alt)}" loading="lazy" />
           </button>
           <div class="photo-row__fields">
             <input data-photo-field="title" type="text" maxlength="140" value="${escapeHtml(photo.title)}" placeholder="标题" />
@@ -104,7 +106,8 @@ if (root) {
           <div class="photo-row__actions">
             ${
               photo.media_id
-                ? `<a class="icon-action icon-action--text" href="/admin/media?edit=${photo.media_id}" target="_blank" rel="noopener" title="在媒体库编辑 EXIF" aria-label="在媒体库编辑 EXIF">EXIF</a>`
+                ? `<a class="icon-action icon-action--text" href="/admin/media?edit=${photo.media_id}" target="_blank" rel="noopener" title="在媒体库编辑 EXIF" aria-label="在媒体库编辑 EXIF">EXIF</a>
+                   <button class="icon-action icon-action--text" type="button" data-quality-edit="${photo.media_id}" title="设置这张图的 AVIF 画质" aria-label="设置这张图的 AVIF 画质">画质</button>`
                 : ''
             }
             <button class="icon-action" type="button" data-move="-1" ${index === 0 ? 'disabled' : ''} title="上移" aria-label="上移">↑</button>
@@ -302,7 +305,7 @@ if (root) {
     pickerGrid.innerHTML = mediaItems
       .map(
         (item) => `<button class="picker-tile ${selected.has(item.id) ? 'is-selected' : ''}" type="button" data-pick="${item.id}" title="${escapeHtml(item.original_name)}">
-          <img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" loading="lazy" />
+          <img src="${escapeHtml(thumbUrl(item.image, item.url))}" alt="${escapeHtml(item.alt)}" loading="lazy" />
           <span>${escapeHtml(item.original_name)}</span>
         </button>`,
       )
@@ -380,6 +383,8 @@ if (root) {
       toast(errorMessage(error), 'error');
     }
   });
+
+  initQualityDialog({ onSaved: () => reload() });
 
   reload().catch((error) => toast(errorMessage(error), 'error'));
 }

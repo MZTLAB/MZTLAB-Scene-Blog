@@ -18,6 +18,7 @@ from ..galleries import (
     photo_dict,
     public_counts,
 )
+from ..images import image_payload_for_url
 from ..posts import (
     adjacent_posts,
     fetch_posts,
@@ -83,6 +84,12 @@ def site_info() -> dict:
             (now_iso(),),
         ).fetchone()["n"]
         counts = public_counts(conn)
+        hero_image_info = image_payload_for_url(
+            conn, str(settings.get("hero_image") or "")
+        )
+        og_image_info = image_payload_for_url(
+            conn, str(settings.get("og_image") or "")
+        )
     return {
         "settings": settings,
         "categories": categories,
@@ -90,6 +97,8 @@ def site_info() -> dict:
         "post_count": post_count,
         "project_count": project_count,
         **counts,
+        "hero_image_info": hero_image_info,
+        "og_image_info": og_image_info,
     }
 
 

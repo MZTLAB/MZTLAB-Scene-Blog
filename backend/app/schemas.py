@@ -169,6 +169,9 @@ class TaxonomyIn(StrippedModel):
 
 class MediaAltIn(StrippedModel):
     alt: str = Field(default="", max_length=200)
+    # 0 = inherit the scene quality; 1-100 overrides AVIF quality for one image.
+    # None (omitted) leaves the current override untouched.
+    avif_quality: int | None = Field(default=None, ge=0, le=100)
 
 
 class MediaExifIn(StrippedModel):

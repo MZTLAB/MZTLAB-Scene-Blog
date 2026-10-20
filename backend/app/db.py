@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator
@@ -17,7 +18,7 @@ from typing import Any, Iterator
 from .config import DB_PATH
 from .defaults import default_settings
 
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -129,8 +130,33 @@ CREATE TABLE IF NOT EXISTS media (
     uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
     owner_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
     exif          TEXT NOT NULL DEFAULT '',
+    -- Image pipeline: per-image AVIF quality override (0 = inherit the scene
+    -- setting), a dominant-colour placeholder and the hash of the derivative
+    -- set that is already generated (enables direct object-storage URLs).
+    avif_quality  INTEGER NOT NULL DEFAULT 0,
+    placeholder   TEXT NOT NULL DEFAULT '',
+    ready_hash    TEXT NOT NULL DEFAULT '',
     created_at    TEXT NOT NULL
 );
+
+-- One row per generated derivative. The file itself lives in the storage
+-- backend (local cache directory or the S3-compatible bucket).
+CREATE TABLE IF NOT EXISTS media_derivatives (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    media_id   INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
+    scene      TEXT NOT NULL,
+    width      INTEGER NOT NULL,
+    format     TEXT NOT NULL,
+    quality    INTEGER NOT NULL,
+    height     INTEGER NOT NULL DEFAULT 0,
+    size       INTEGER NOT NULL DEFAULT 0,
+    key        TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(media_id, scene, width, format)
+);
+
+CREATE INDEX IF NOT EXISTS idx_derivatives_media
+    ON media_derivatives(media_id, format, width);
 
 CREATE TABLE IF NOT EXISTS settings (
     key        TEXT PRIMARY KEY,
@@ -248,6 +274,7 @@ def init_db() -> None:
         _migrate_scene_wording(conn)
         _migrate_scene_demo_project(conn)
         conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+    invalidate_settings_cache()
     from .seed import ensure_bootstrap_admin, seed_demo_content  # avoid circular import
 
     seed_demo_content()
@@ -277,6 +304,9 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "media": {
         "owner_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
         "exif": "TEXT NOT NULL DEFAULT ''",
+        "avif_quality": "INTEGER NOT NULL DEFAULT 0",
+        "placeholder": "TEXT NOT NULL DEFAULT ''",
+        "ready_hash": "TEXT NOT NULL DEFAULT ''",
     },
 }
 
@@ -632,6 +662,30 @@ def load_settings() -> dict[str, Any]:
     return settings
 
 
+# Serializers ask for the settings for every image on a page; a short-lived
+# cache keeps that from becoming a query per row while still propagating admin
+# edits within the same request that saved them (save_settings invalidates).
+_SETTINGS_CACHE: dict[str, Any] | None = None
+_SETTINGS_CACHE_AT = 0.0
+_SETTINGS_CACHE_TTL = 3.0
+
+
+def invalidate_settings_cache() -> None:
+    global _SETTINGS_CACHE, _SETTINGS_CACHE_AT
+    _SETTINGS_CACHE = None
+    _SETTINGS_CACHE_AT = 0.0
+
+
+def load_settings_cached(ttl: float = _SETTINGS_CACHE_TTL) -> dict[str, Any]:
+    global _SETTINGS_CACHE, _SETTINGS_CACHE_AT
+    now = time.monotonic()
+    if _SETTINGS_CACHE is not None and now - _SETTINGS_CACHE_AT < ttl:
+        return _SETTINGS_CACHE
+    _SETTINGS_CACHE = load_settings()
+    _SETTINGS_CACHE_AT = now
+    return _SETTINGS_CACHE
+
+
 def public_settings() -> dict[str, Any]:
     """Only known public keys leave the server."""
     from .defaults import PRIVATE_SETTING_KEYS
@@ -668,6 +722,7 @@ def save_settings(patch: dict[str, Any]) -> dict[str, Any]:
                 """,
                 (key, json.dumps(value, ensure_ascii=False), now),
             )
+    invalidate_settings_cache()
     return public_settings()
 
 

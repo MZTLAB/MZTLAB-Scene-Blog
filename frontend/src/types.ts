@@ -3,6 +3,26 @@ export interface NavLink {
   url: string;
 }
 
+/**
+ * Derivative metadata returned by the API for every image. See
+ * `backend/app/images.py:image_payload`.
+ */
+export interface ImageInfo {
+  width: number;
+  height: number;
+  /** Small (grid/tile) ladder width. */
+  s: number;
+  /** Large (viewer/hero) ladder width. */
+  l: number;
+  /** Full width: the original resolution (optionally capped). */
+  f: number;
+  formats: string[];
+  /** Same-origin proxy base: `/media/_v/{id}/{token}`. */
+  base: string;
+  /** Absolute object-storage/CDN base (direct connect), or null. */
+  direct: string | null;
+}
+
 export interface SiteSettings {
   site_title: string;
   site_subtitle: string;
@@ -104,6 +124,35 @@ export interface SiteSettings {
   upload_image_formats: string;
   upload_audio_formats: string;
   upload_file_formats: string;
+  /** Image pipeline + object storage (admin-only; never in /api/site). */
+  image_avif_enabled?: boolean;
+  image_avif_speed?: number;
+  image_webp_enabled?: boolean;
+  image_webp_quality?: number;
+  image_jpeg_quality?: number;
+  image_widths?: string;
+  image_max_width?: number;
+  image_cache_days?: number;
+  image_prewarm?: boolean;
+  image_lazy_enabled?: boolean;
+  image_quality_thumb?: number;
+  image_quality_tile?: number;
+  image_quality_card?: number;
+  image_quality_hero?: number;
+  image_quality_viewer?: number;
+  image_quality_prose?: number;
+  image_quality_full?: number;
+  storage_backend?: string;
+  storage_serve_mode?: string;
+  storage_public_base_url?: string;
+  storage_s3_endpoint?: string;
+  storage_s3_bucket?: string;
+  storage_s3_region?: string;
+  storage_s3_access_key?: string;
+  storage_s3_secret_key?: string;
+  storage_s3_secret_key_configured?: boolean;
+  storage_s3_prefix?: string;
+  storage_s3_path_style?: boolean;
   announcement: string;
   comments_enabled: boolean;
   comment_moderation: boolean;
@@ -137,6 +186,8 @@ export interface SiteInfo {
   project_count: number;
   photo_count: number;
   gallery_count: number;
+  hero_image_info?: ImageInfo | null;
+  og_image_info?: ImageInfo | null;
 }
 
 export interface Author {
@@ -166,6 +217,8 @@ export interface PostSummary {
   author: Author;
   categories: Term[];
   tags: Term[];
+  /** Resolved cover derivative metadata when `cover_image` is a media file. */
+  cover?: ImageInfo | null;
   project_year?: string;
   project_role?: string;
   project_client?: string;
@@ -273,6 +326,8 @@ export interface Photo {
   focal_length_35mm: number | null;
   exif_fields: PhotoExifField[];
   exif: PhotoExif | null;
+  /** Derivative metadata for the linked media row (null when unavailable). */
+  image: ImageInfo | null;
   width: number;
   height: number;
   aspect: number;
@@ -422,6 +477,9 @@ export interface MediaItem {
   owner: { id: number | null; name: string; username?: string };
   exif: ExifInfo | null;
   exif_summary?: string;
+  image?: ImageInfo | null;
+  /** Per-image AVIF quality override; 0 inherits the scene setting. */
+  avif_quality?: number;
 }
 
 export interface Stats {

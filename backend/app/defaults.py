@@ -179,12 +179,81 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "og_image": "",
     "custom_css": "",
     "head_html": "",
+
+    # Image pipeline ---------------------------------------------------------
+    # Every upload keeps its original; these settings control the generated
+    # AVIF / WebP / JPEG derivatives. Quality is set per display scenario
+    # because a 720px grid tile and a full-screen frame need different budgets.
+    "image_avif_enabled": True,
+    "image_avif_speed": 6,               # 0 slowest/best … 10 fastest
+    "image_webp_enabled": True,
+    "image_webp_quality": 80,
+    "image_jpeg_quality": 82,            # fallback for legacy browsers
+    # Width ladder. The last entry is the large/detail tier; the original
+    # resolution is always available as the "full" tier.
+    "image_widths": "720,2560",
+    "image_max_width": 0,                # 0 = keep the original width for "full"
+    "image_cache_days": 365,
+    "image_prewarm": True,               # generate known variants after upload
+    "image_lazy_enabled": True,          # emit loading="lazy" below the fold
+    "image_quality_thumb": 45,
+    "image_quality_tile": 50,
+    "image_quality_card": 55,
+    "image_quality_hero": 62,
+    "image_quality_viewer": 58,
+    "image_quality_prose": 58,
+    "image_quality_full": 62,
+
+    # Object storage ---------------------------------------------------------
+    # R2-oriented S3-compatible object storage. Values are written from the
+    # admin panel (设置 → 图片与存储). The secret key is never public.
+    "storage_backend": "local",          # local | s3
+    "storage_serve_mode": "auto",        # auto | proxy | direct
+    "storage_public_base_url": "",       # e.g. https://pub-xxxx.r2.dev or a CDN domain
+    "storage_s3_endpoint": "",           # https://<account>.r2.cloudflarestorage.com
+    "storage_s3_bucket": "",
+    "storage_s3_region": "auto",         # R2 uses "auto"
+    "storage_s3_access_key": "",
+    "storage_s3_secret_key": "",
+    "storage_s3_prefix": "mztlab",
+    "storage_s3_path_style": False,
+    # Mirror every object written to the bucket into the local data directory
+    # (disaster recovery + painless switch back to `local`).
+    "storage_backup_local": False,
 }
 
 PUBLIC_SETTING_KEYS = set(DEFAULT_SETTINGS)
 
+# Image pipeline knobs describe server internals (quality, ladder, storage), so
+# they never leave the server through /api/site or the export. The frontend
+# receives resolved per-image metadata instead.
+IMAGE_SETTING_KEYS = {
+    "image_avif_enabled", "image_avif_speed", "image_webp_enabled",
+    "image_webp_quality", "image_jpeg_quality", "image_widths",
+    "image_max_width", "image_cache_days", "image_prewarm",
+    "image_lazy_enabled", "image_quality_thumb", "image_quality_tile",
+    "image_quality_card", "image_quality_hero", "image_quality_viewer",
+    "image_quality_prose", "image_quality_full",
+}
+STORAGE_SETTING_KEYS = {
+    "storage_backend", "storage_serve_mode", "storage_public_base_url",
+    "storage_s3_endpoint", "storage_s3_bucket", "storage_s3_region",
+    "storage_s3_access_key", "storage_s3_secret_key", "storage_s3_prefix",
+    "storage_s3_path_style", "storage_backup_local",
+}
+# Values that must be masked in the admin settings response.
+SECRET_SETTING_KEYS = {"storage_s3_secret_key"}
+
 # Stored with the other settings but never exposed by /api/site or the export.
-PRIVATE_SETTING_KEYS = {"editor_manage_others"}
+PRIVATE_SETTING_KEYS = (
+    {"editor_manage_others"} | IMAGE_SETTING_KEYS | STORAGE_SETTING_KEYS
+)
+
+STORAGE_BACKENDS = {"local", "s3"}
+STORAGE_SERVE_MODES = {"auto", "proxy", "direct"}
+IMAGE_SCENES = (
+    "thumb", "tile", "card", "hero", "viewer", "prose", "full",
+)
 
 THEMES = {"scene", "stone", "sand", "night"}
 COLOR_MODES = {"light", "dark", "system"}

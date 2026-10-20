@@ -1,6 +1,7 @@
 import { api, qs } from '../lib/api';
 import { debounce, errorMessage, escapeHtml, statusBadge, toast } from '../lib/admin-client';
 import { formatDate } from '../lib/format';
+import { thumbUrl } from '../lib/images';
 import type { Gallery, Paginated } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-galleries-page]');
@@ -51,7 +52,7 @@ if (root) {
     const cover = gallery.cover;
     return `<article class="gallery-admin-card" data-gallery="${gallery.id}">
       <a class="gallery-admin-card__media" href="/admin/galleries/${gallery.id}">
-        ${cover ? `<img src="${escapeHtml(cover.url)}" alt="${escapeHtml(cover.alt)}" loading="lazy" />` : '<div style="display:grid;place-content:center;height:100%;color:var(--ink-faint);font-family:var(--font-mono);font-size:9px;letter-spacing:.12em">NO COVER</div>'}
+        ${cover ? `<img src="${escapeHtml(thumbUrl(cover.image, cover.url))}" alt="${escapeHtml(cover.alt)}" loading="lazy" />` : '<div style="display:grid;place-content:center;height:100%;color:var(--ink-faint);font-family:var(--font-mono);font-size:9px;letter-spacing:.12em">NO COVER</div>'}
         ${statusBadge(gallery.status)}
       </a>
       <div class="gallery-admin-card__body">

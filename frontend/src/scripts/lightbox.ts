@@ -4,10 +4,23 @@
  * Any element with `data-photo` opens the viewer. The list is read from the DOM
  * on every open, so several grids (a gallery page with related albums, the
  * photos feed) keep working without shared state.
+ *
+ * Elements may also carry `data-image` (the API image metadata block); when
+ * present the lightbox loads the full-resolution AVIF/WebP variants directly
+ * and falls back to the original URL otherwise.
  */
+
+import {
+  fallbackUrl,
+  isValidImage,
+  srcset,
+  variantUrl,
+  type ImageInfo,
+} from '../lib/images';
 
 interface PhotoEntry {
   src: string;
+  image: ImageInfo | null;
   title: string;
   caption: string;
   meta: string;
@@ -22,6 +35,10 @@ const items = () =>
 
 if (box) {
   const image = box.querySelector<HTMLImageElement>('[data-lb-image]');
+  const sources = {
+    avif: box.querySelector<HTMLSourceElement>('[data-lb-source="avif"]'),
+    webp: box.querySelector<HTMLSourceElement>('[data-lb-source="webp"]'),
+  };
   const titleNode = box.querySelector<HTMLElement>('[data-lb-title]');
   const captionNode = box.querySelector<HTMLElement>('[data-lb-caption]');
   const metaNode = box.querySelector<HTMLElement>('[data-lb-meta]');
@@ -50,8 +67,16 @@ if (box) {
     } catch {
       specs = [];
     }
+    let parsedImage: ImageInfo | null = null;
+    try {
+      const candidate = JSON.parse(element.dataset.image || 'null');
+      if (isValidImage(candidate as ImageInfo | null)) parsedImage = candidate as ImageInfo;
+    } catch {
+      parsedImage = null;
+    }
     return {
       src: element.dataset.src || '',
+      image: parsedImage,
       title: element.dataset.title || '',
       caption: element.dataset.caption || '',
       meta: element.dataset.meta || '',
@@ -61,13 +86,46 @@ if (box) {
 
   const pad = (value: number) => String(value).padStart(2, '0');
 
+  /** Point `<picture>` at the full scene (AVIF/WebP) or the original URL. */
+  const setSource = (entry: PhotoEntry) => {
+    if (!image) return;
+    const info = entry.image;
+    if (info) {
+      image.src = fallbackUrl(info, 'full');
+      image.width = info.f;
+      image.height = Math.max(1, Math.round(info.f * (info.height / info.width)));
+      sources.avif?.setAttribute(
+        'srcset',
+        info.formats.includes('avif') ? srcset(info, 'full', 'avif') : '',
+      );
+      sources.webp?.setAttribute(
+        'srcset',
+        info.formats.includes('webp') ? srcset(info, 'full', 'webp') : '',
+      );
+    } else {
+      sources.avif?.removeAttribute('srcset');
+      sources.webp?.removeAttribute('srcset');
+      image.removeAttribute('width');
+      image.removeAttribute('height');
+      image.src = entry.src;
+    }
+  };
+
+  const warmEntry = (entry: PhotoEntry | undefined) => {
+    if (!entry) return;
+    const preload = new Image();
+    preload.src = entry.image
+      ? variantUrl(entry.image, 'full', entry.image.f, 'avif', true)
+      : entry.src;
+  };
+
   const render = (nextDirection = 0) => {
     const entry = entries[index];
     if (!entry || !image) return;
     image.classList.remove('is-entering');
     image.dataset.direction =
       nextDirection < 0 ? 'prev' : nextDirection > 0 ? 'next' : '';
-    image.src = entry.src;
+    setSource(entry);
     image.alt = entry.title || entry.caption || '摄影作品';
     if (nextDirection !== 0) {
       // Restart the entrance animation on every arrow press.
@@ -96,11 +154,7 @@ if (box) {
 
     // Warm the neighbours so arrow-key browsing feels instant.
     [index - 1, index + 1].forEach((next) => {
-      const neighbour = entries[(next + entries.length) % entries.length];
-      if (neighbour?.src && entries.length > 1) {
-        const preload = new Image();
-        preload.src = neighbour.src;
-      }
+      if (entries.length > 1) warmEntry(entries[(next + entries.length) % entries.length]);
     });
   };
 

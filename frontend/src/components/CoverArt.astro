@@ -1,11 +1,14 @@
 ---
 import { coverVariant, initial } from '../lib/format';
+import SmartImage from './SmartImage.astro';
+import type { ImageInfo } from '../types';
 
 interface Props {
   title: string;
   slug: string;
   category?: string;
   image?: string;
+  imageInfo?: ImageInfo | null;
   index?: number;
   eager?: boolean;
   label?: string;
@@ -17,6 +20,7 @@ const {
   slug,
   category = '',
   image = '',
+  imageInfo = null,
   index = 0,
   eager = false,
   label = 'MZTLAB',
@@ -30,13 +34,7 @@ const year = new Date().getFullYear();
 {
   image ? (
     <div class:list={['cover-art', 'cover-art--image', className]}>
-      <img
-        src={image}
-        alt=""
-        loading={eager ? 'eager' : 'lazy'}
-        decoding="async"
-        fetchpriority={eager ? 'high' : 'auto'}
-      />
+      <SmartImage image={imageInfo} src={image} alt="" scene="card" eager={eager} />
     </div>
   ) : (
     <div class:list={['cover-art', `cover-art--v${variant}`, className]} aria-hidden="true">

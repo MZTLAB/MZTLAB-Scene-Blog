@@ -1,0 +1,85 @@
+---
+/**
+ * Responsive image: AVIF → WebP → JPEG, sized for the surrounding scene.
+ * Falls back to the original `<img src>` when the API returned no metadata
+ * (external image, deleted media, animated GIF, backend offline).
+ */
+import {
+  SCENE_SIZES,
+  fallbackUrl,
+  isValidImage,
+  sceneWidths,
+  srcset,
+  type ImageInfo,
+  type Scene,
+} from '../lib/images';
+
+interface Props {
+  image?: ImageInfo | null;
+  src?: string;
+  alt?: string;
+  scene?: Scene;
+  eager?: boolean;
+  sizes?: string;
+  class?: string;
+  width?: number;
+  height?: number;
+  draggable?: boolean;
+}
+
+const {
+  image = null,
+  src = '',
+  alt = '',
+  scene = 'card',
+  eager = false,
+  sizes,
+  class: className = '',
+  width,
+  height,
+  draggable,
+} = Astro.props;
+
+const info = isValidImage(image) ? image : null;
+const activeSizes = sizes ?? SCENE_SIZES[scene];
+const formats: string[] = info?.formats ?? [];
+const displayWidth = info ? (width ?? sceneWidths(scene, info)[0]) : width;
+const displayHeight = info
+  ? (height ?? Math.max(1, Math.round(displayWidth! * (info.height / info.width))))
+  : height;
+const loading = eager ? 'eager' : 'lazy';
+const priority = eager ? 'high' : 'auto';
+---
+{info ? (
+  <picture>
+    {formats.includes('avif') && (
+      <source type="image/avif" srcset={srcset(info, scene, 'avif')} sizes={activeSizes} />
+    )}
+    {formats.includes('webp') && (
+      <source type="image/webp" srcset={srcset(info, scene, 'webp')} sizes={activeSizes} />
+    )}
+    <img
+      class={className || undefined}
+      src={fallbackUrl(info, scene)}
+      alt={alt}
+      width={displayWidth}
+      height={displayHeight}
+      loading={loading}
+      decoding="async"
+      fetchpriority={priority}
+      draggable={draggable}
+    />
+  </picture>
+) : (
+  <img
+    class={className || undefined}
+    src={src}
+    alt={alt}
+    width={width}
+    height={height}
+    loading={loading}
+    decoding="async"
+    fetchpriority={priority}
+    draggable={draggable}
+  />
+)}

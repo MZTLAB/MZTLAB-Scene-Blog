@@ -1,5 +1,6 @@
 ---
 import CoverArt from './CoverArt.astro';
+import SmartImage from './SmartImage.astro';
 import type { Gallery } from '../types';
 import { exifFieldVisible } from '../lib/photo';
 import { formatDate } from '../lib/format';
@@ -31,13 +32,13 @@ const coverTech = cover
   <a class="gallery-card__media" href={gallery.url} aria-label={gallery.title}>
     {
       cover ? (
-        <img
+        <SmartImage
+          image={cover.image}
           src={cover.url}
           alt={cover.alt}
+          scene="card"
           width={cover.width || undefined}
           height={cover.height || undefined}
-          loading="lazy"
-          decoding="async"
         />
       ) : (
         <CoverArt title={gallery.title} slug={gallery.slug} category="Gallery" label={label} eager={false} />

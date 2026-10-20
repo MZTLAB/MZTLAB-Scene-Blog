@@ -7,6 +7,7 @@ import '../styles/mono.css';
 import '../styles/index.css';
 import '../styles/audio-player.css';
 import { absoluteUrl, stripStyleClose } from '../lib/format';
+import { isValidImage, srcset as imageSrcset } from '../lib/images';
 import type { SiteInfo } from '../types';
 
 interface Props {
@@ -72,6 +73,12 @@ const palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
 const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
   ? String(settings.font_pair)
   : 'mono';
+// Preload the first-screen hero (AVIF) instead of waiting for HTML parsing.
+const heroInfo = isValidImage(site.hero_image_info) ? site.hero_image_info : null;
+const heroPreload =
+  settings.hero_show !== false && heroInfo && heroInfo.formats.includes('avif')
+    ? imageSrcset(heroInfo, 'hero', 'avif')
+    : '';
 ---
 <!doctype html>
 <html
@@ -92,6 +99,16 @@ const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
     <meta name="theme-color" content={accent} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href={favicon} />
+    {heroPreload && (
+      <link
+        rel="preload"
+        as="image"
+        type="image/avif"
+        imagesrcset={heroPreload}
+        imagesizes="100vw"
+        fetchpriority="high"
+      />
+    )}
     <link rel="alternate" type="application/rss+xml" title={`${siteTitle} RSS`} href="/rss.xml" />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
 

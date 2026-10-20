@@ -2,6 +2,7 @@
 import type { Photo } from '../types';
 import { exifFieldVisible, specsJson } from '../lib/photo';
 import Icon from './Icon.astro';
+import SmartImage from './SmartImage.astro';
 
 interface Props {
   photos: Photo[];
@@ -57,6 +58,7 @@ const first = photos[0];
               type="button"
               data-photo
               data-src={photo.url}
+              data-image={photo.image ? JSON.stringify(photo.image) : undefined}
               data-title={photo.title}
               data-caption={photo.caption}
               data-meta={metaLine(photo)}
@@ -65,14 +67,14 @@ const first = photos[0];
               tabindex={index === 0 ? undefined : -1}
               aria-label={`全屏查看：${photo.title || photo.alt}`}
             >
-              <img
+              <SmartImage
+                image={photo.image}
                 src={photo.url}
                 alt={photo.alt}
+                scene="viewer"
+                eager={index < 2}
                 width={photo.width || undefined}
                 height={photo.height || undefined}
-                loading={index < 2 ? 'eager' : 'lazy'}
-                fetchpriority={index === 0 ? 'high' : 'auto'}
-                decoding="async"
               />
             </button>
           </figure>
@@ -126,7 +128,7 @@ const first = photos[0];
             aria-selected={index === 0 ? 'true' : 'false'}
             aria-label={`第 ${index + 1} 张：${photo.title || photo.alt}`}
           >
-            <img src={photo.url} alt="" loading="lazy" decoding="async" />
+            <SmartImage image={photo.image} src={photo.url} alt="" scene="thumb" />
             <span>{pad(index + 1)}</span>
           </button>
         ))}

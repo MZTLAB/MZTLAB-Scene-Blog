@@ -6,3 +6,4 @@ bleach==6.3.0
 Pygments==2.19.2
 Pillow==11.3.0
 python-dotenv==1.2.4
+boto3==1.40.0

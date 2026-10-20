@@ -135,4 +135,6 @@ export const fallbackSite = {
   project_count: 0,
   photo_count: 0,
   gallery_count: 0,
+  hero_image_info: null,
+  og_image_info: null,
 };

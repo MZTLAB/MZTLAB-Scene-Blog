@@ -1,5 +1,7 @@
 import { api, qs } from '../lib/api';
 import { debounce, errorMessage, escapeHtml, formatBytes, toast } from '../lib/admin-client';
+import { thumbUrl } from '../lib/images';
+import { initQualityDialog } from '../lib/quality-dialog';
 import type { MediaItem, Paginated } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-media-page]');
@@ -152,7 +154,8 @@ if (root) {
             const actions = `<div class="media-card__actions">
               ${
                 !audio && !file
-                  ? `<button type="button" data-exif-edit="${item.id}" title="编辑 EXIF" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">EXIF</button>`
+                  ? `<button type="button" data-exif-edit="${item.id}" title="编辑 EXIF" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">EXIF</button>
+                     <button type="button" data-quality-edit="${item.id}" title="设置 AVIF 画质" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">画质</button>`
                   : ''
               }
               <button type="button" data-copy="${escapeHtml(item.url)}" title="复制链接"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
@@ -168,9 +171,13 @@ if (root) {
                       <span class="media-card__file-hint">下载文件</span>
                     </a>${actions}
                   </div>`
-                : `<div class="media-card__image"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.alt)}" loading="lazy" /></a>${actions}</div>`;
+                : `<div class="media-card__image"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(thumbUrl(item.image, item.url))}" alt="${escapeHtml(item.alt)}" loading="lazy" decoding="async" /></a>${actions}</div>`;
             const sizeLabel = audio ? 'AUDIO' : file ? 'FILE' : `${item.width}×${item.height}`;
             const altPlaceholder = audio ? '音频标题 / 描述' : file ? '文件描述' : '图片替代文字（alt）';
+            const qualityLabel =
+              !audio && !file
+                ? `<span class="media-card__quality">AVIF ${Number(item.avif_quality) || 'AUTO'}</span>`
+                : '';
             return `<article class="media-card" id="media-${item.id}">
               ${preview}
               <div class="media-card__body">
@@ -185,6 +192,7 @@ if (root) {
                     : ''
                 }
                 <input class="media-card__alt" type="text" value="${escapeHtml(item.alt)}" placeholder="${altPlaceholder}" data-alt="${item.id}" />
+                ${qualityLabel}
               </div>
             </article>`;
           })
@@ -344,6 +352,9 @@ if (root) {
       load();
     }, 350),
   );
+
+  // 画质按钮打开与 EXIF 一致的弹窗；列表重渲染后委托仍然有效。
+  initQualityDialog({ onSaved: () => load() });
 
   load();
 }

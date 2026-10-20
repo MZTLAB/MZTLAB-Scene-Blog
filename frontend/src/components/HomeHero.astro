@@ -1,6 +1,7 @@
 ---
 import Icon from './Icon.astro';
 import CoverArt from './CoverArt.astro';
+import SmartImage from './SmartImage.astro';
 import type { Gallery, SiteInfo } from '../types';
 import { exifFieldVisible } from '../lib/photo';
 import { formatMonth } from '../lib/format';
@@ -32,6 +33,9 @@ const heroClass =
 const lead = settings.hero_subtitle || settings.description;
 const frame = featuredGallery?.cover || null;
 const image = settings.hero_image || frame?.url || '';
+const imageInfo = settings.hero_image
+  ? (site.hero_image_info ?? null)
+  : (frame?.image ?? null);
 const captionMeta = frame
   ? [
       exifFieldVisible(frame, 'camera') ? frame.camera : '',
@@ -96,19 +100,19 @@ const secondaryUrl = copy('copy_hero_secondary_url', '/projects');
     style === 'image' ? (
       image && (
         <div class="masthead__image">
-          <img src={image} alt="" loading="eager" decoding="async" fetchpriority="high" />
+          <SmartImage image={imageInfo} src={image} alt="" scene="hero" eager />
         </div>
       )
     ) : style === 'split' ? (
       <div class="masthead__media">
         <a class="masthead__frame" href={galleryHref} aria-label={featuredGallery?.title || '浏览影像相册'}>
           {image ? (
-            <img
+            <SmartImage
+              image={imageInfo}
               src={image}
               alt={frame?.alt || ''}
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
+              scene="hero"
+              eager
             />
           ) : (
             <CoverArt

@@ -2,10 +2,12 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HomeHero from '../components/HomeHero.astro';
 import ProjectCard from '../components/ProjectCard.astro';
+import SmartImage from '../components/SmartImage.astro';
 import Icon from '../components/Icon.astro';
 import { apiServer, getSite } from '../lib/api';
 import { fallbackSite } from '../config';
 import { formatDate } from '../lib/format';
+import { isValidImage, srcset as imageSrcset } from '../lib/images';
 import type { Gallery, Paginated, PostSummary, SiteInfo } from '../types';
 
 let site: SiteInfo = fallbackSite as unknown as SiteInfo;
@@ -46,8 +48,30 @@ const counts = {
   texts: site.post_count || 0,
 };
 const two = (value: number) => String(value).padStart(2, '0');
+// When the hero image comes from the featured gallery (no configured
+// hero_image) BaseLayout cannot preload it, so the home page adds the hint.
+const heroCover = featuredGallery?.cover?.image ?? null;
+const heroPreload =
+  !settings.hero_image &&
+  settings.hero_show !== false &&
+  isValidImage(heroCover) &&
+  heroCover.formats.includes('avif')
+    ? imageSrcset(heroCover, 'hero', 'avif')
+    : '';
 ---
 <BaseLayout site={site} description={site.settings.description || site.settings.seo_description}>
+  {heroPreload && (
+    <Fragment slot="head">
+      <link
+        rel="preload"
+        as="image"
+        type="image/avif"
+        imagesrcset={heroPreload}
+        imagesizes="100vw"
+        fetchpriority="high"
+      />
+    </Fragment>
+  )}
   {loadError ? (
     <section class="container empty-state" style="min-height: 52vh">
       <span class="empty-mark">!</span>
@@ -86,11 +110,11 @@ const two = (value: number) => String(value).padStart(2, '0');
                     <a class="pillar__photo" href={gallery.url}>
                       <span class="pillar__thumb">
                         {gallery.cover ? (
-                          <img
+                          <SmartImage
+                            image={gallery.cover.image}
                             src={gallery.cover.url}
                             alt={gallery.cover.alt}
-                            loading="lazy"
-                            decoding="async"
+                            scene="tile"
                           />
                         ) : (
                           <span class="pillar__thumb-empty" aria-hidden="true">[ {two(gallery.photo_count)} ]</span>

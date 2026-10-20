@@ -183,6 +183,25 @@ cd frontend && npm ci
 
 每行的 `EXIF` 链接会直接打开媒体库中对应图片的 EXIF 编辑器。默认全部显示；取消勾选后，该字段不会出现在相册信息、网格摘要、大图说明或 Lightbox 中。GPS 只在后台弹窗中可见。
 
+### 图片优化与对象存储
+
+上传的原图永不修改；后端按场景生成 **AVIF / WebP / JPEG** 副本，前端用 `<picture>` + `srcset` 自动选择。后台 **设置 → 图片与存储** 可调：
+
+- **格式与质量**：AVIF 开关与编码速度；按场景（缩略 / 网格 / 卡片 / 首屏 / 大图 / 正文 / 全屏原图）分别设置 AVIF 质量；
+- **分辨率阶梯**：默认小图 `720`、大图 `2560`，全屏使用**原图尺寸**；
+- **媒体库单图覆盖**：图片卡片可单独设置 AVIF 质量（0 = 继承场景设置）并「重新生成」；
+- **对象存储**：可切换到 S3 兼容存储（Cloudflare R2 为参考实现），填写 endpoint / bucket / key / 公开访问域名后即时生效；配置公开域名后派生图直接从 R2/CDN 加载，原图与 JPEG 兜底仍走 `/media` 代理。密钥只存在服务器，不会出现在任何公开接口、导出或设置响应中。可开启「保留本地备份」，写入对象存储的同时在本地数据目录留一份副本（灾备 + 切回本地存储免迁移）。
+
+派生图 URL 形如 `/media/_v/{id}/{hash}/{场景}/{宽度}.{格式}`，带不可变缓存头；改质量或阶梯会自动换 URL。历史图片可一次性预热：
+
+```bash
+python scripts/optimize_media.py          # 生成全部派生图并标记可直连
+python scripts/prune_derivatives.py --vacuum   # 清理旧质量留下的文件
+python scripts/migrate_storage.py --to s3      # 本地原图迁移到对象存储
+```
+
+更细的实现说明见 [docs/DEVELOPMENT.md 附录 C](docs/DEVELOPMENT.md) 与 [docs/IMAGE-PIPELINE-PLAN.md](docs/IMAGE-PIPELINE-PLAN.md)。
+
 ## 内容模型
 
 | 类型 | 表 | 说明 |

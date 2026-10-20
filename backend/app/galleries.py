@@ -12,8 +12,9 @@ import sqlite3
 from typing import Any
 
 from .content import quote_slug
-from .db import now_iso
+from .db import load_settings_cached, now_iso
 from .exif import parse_stored
+from .images import image_payload
 from .photo_exif import parse_stored_exif_fields
 
 GALLERY_PUBLIC_CONDITION = "g.status = 'published'"
@@ -34,7 +35,9 @@ _PHOTO_COLUMNS = """
     ph.location, ph.camera, ph.lens, ph.taken_at, ph.width, ph.height,
     ph.exif_fields, ph.featured, ph.status, ph.sort_order, ph.created_at,
     g.title AS gallery_title, g.slug AS gallery_slug,
-    m.exif AS media_exif
+    m.exif AS media_exif, m.size AS media_size, m.mime AS media_mime,
+    m.avif_quality AS media_avif_quality, m.ready_hash AS media_ready_hash,
+    m.width AS media_width, m.height AS media_height
 """
 
 _PHOTO_JOINS = (
@@ -47,10 +50,14 @@ def media_url(filename: str) -> str:
     return f"/media/{filename}"
 
 
-def photo_dict(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
+def photo_dict(
+    row: sqlite3.Row | dict[str, Any],
+    settings: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     data = dict(row)
     width = int(data.get("width") or 0)
     height = int(data.get("height") or 0)
+    settings = settings or load_settings_cached()
     gallery = None
     if data.get("gallery_id") and data.get("gallery_slug"):
         gallery = {
@@ -95,6 +102,18 @@ def photo_dict(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
         if exif
         else None
     )
+    # Media-library metadata drives the image pipeline. A photo keeps a
+    # filename snapshot, so a deleted media row simply falls back to `<img>`.
+    media_row = {
+        "id": data.get("media_id"),
+        "filename": data["filename"],
+        "mime": data.get("media_mime") or "image/jpeg",
+        "size": data.get("media_size") or 0,
+        "width": data.get("media_width") or width,
+        "height": data.get("media_height") or height,
+        "avif_quality": data.get("media_avif_quality") or 0,
+        "ready_hash": data.get("media_ready_hash") or "",
+    }
     return {
         "id": int(data["id"]),
         "gallery_id": int(data["gallery_id"]) if data.get("gallery_id") else None,
@@ -117,6 +136,7 @@ def photo_dict(row: sqlite3.Row | dict[str, Any]) -> dict[str, Any]:
         "focal_length_35mm": technical["focal_length_35mm"],
         "exif_fields": visible_fields,
         "exif": public_exif,
+        "image": image_payload(media_row, settings),
         "width": width,
         "height": height,
         "aspect": round(width / height, 4) if width and height else 1.5,
@@ -133,8 +153,10 @@ def gallery_dict(
     *,
     detail: bool = False,
     admin: bool = False,
+    settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     data = dict(row)
+    settings = settings or load_settings_cached()
     photos = list(
         conn.execute(
             f"SELECT {_PHOTO_COLUMNS}{_PHOTO_JOINS}"
@@ -144,7 +166,7 @@ def gallery_dict(
             (data["id"],),
         )
     )
-    photo_items = [photo_dict(item) for item in photos]
+    photo_items = [photo_dict(item, settings) for item in photos]
     cover = None
     cover_id = data.get("cover_photo_id")
     if cover_id:

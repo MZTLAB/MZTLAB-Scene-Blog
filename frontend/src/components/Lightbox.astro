@@ -12,7 +12,11 @@ import Icon from './Icon.astro';
 
   <div class="lightbox__stage">
     <figure class="lightbox__figure">
-      <img class="lightbox__image" data-lb-image alt="" decoding="async" />
+      <picture>
+        <source data-lb-source="avif" type="image/avif" />
+        <source data-lb-source="webp" type="image/webp" />
+        <img class="lightbox__image" data-lb-image alt="" decoding="async" />
+      </picture>
       <figcaption class="lightbox__caption">
         <div class="lightbox__text">
           <strong data-lb-caption></strong>

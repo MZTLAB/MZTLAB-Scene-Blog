@@ -1,5 +1,6 @@
 ---
 import CoverArt from './CoverArt.astro';
+import SmartImage from './SmartImage.astro';
 import type { PostSummary, SiteInfo } from '../types';
 import { formatDate } from '../lib/format';
 
@@ -17,7 +18,13 @@ const category = post.categories?.[0]?.name || (site ? 'Writing' : 'Journal');
   <a class="story-card__media" href={post.url} aria-label={post.title}>
     {
       post.cover_image ? (
-        <img src={post.cover_image} alt="" loading={eager ? 'eager' : 'lazy'} decoding="async" />
+        <SmartImage
+          image={post.cover ?? null}
+          src={post.cover_image}
+          alt=""
+          scene="card"
+          eager={eager}
+        />
       ) : (
         <CoverArt title={post.title} slug={post.slug} category={category} label={label} eager={eager} />
       )

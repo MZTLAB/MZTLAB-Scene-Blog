@@ -7,7 +7,8 @@ import sqlite3
 from typing import Any, Iterable
 
 from .content import extract_toc, quote_slug, reading_time
-from .db import now_iso
+from .db import load_settings_cached, now_iso
+from .images import image_payload, rewrite_inline_images, url_to_filename
 
 PUBLIC_CONDITION = (
     "p.type = ? AND p.status IN ('published', 'scheduled') "
@@ -82,14 +83,41 @@ def public_url(row: dict[str, Any] | sqlite3.Row) -> str:
     return f"/posts/{quote_slug(row['slug'])}"
 
 
+def _attach_cover_images(
+    conn: sqlite3.Connection,
+    items: list[dict[str, Any]],
+    settings: dict[str, Any],
+) -> None:
+    """Resolve `cover_image` URLs to media rows and attach image metadata."""
+    filenames: list[str] = []
+    for item in items:
+        item["cover"] = None
+        filename = url_to_filename(item.get("cover_image") or "")
+        if filename and filename not in filenames:
+            filenames.append(filename)
+    if not filenames:
+        return
+    placeholders = ",".join("?" for _ in filenames)
+    rows = conn.execute(
+        f"SELECT * FROM media WHERE filename IN ({placeholders})", filenames
+    ).fetchall()
+    payloads = {row["filename"]: image_payload(row, settings) for row in rows}
+    for item in items:
+        filename = url_to_filename(item.get("cover_image") or "")
+        if filename:
+            item["cover"] = payloads.get(filename)
+
+
 def serialize_post(
     conn: sqlite3.Connection,
     row: sqlite3.Row,
     *,
     detail: bool = False,
     admin: bool = False,
+    settings: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     data = dict(row)
+    settings = settings or load_settings_cached()
     attach_taxonomies(conn, [data])
     author = {
         "name": data.get("author_name") or "MZTLAB",
@@ -126,7 +154,11 @@ def serialize_post(
         "project_url": data.get("project_url", ""),
     }
     if detail:
-        item["content_html"] = data["content_html"]
+        item["content_html"] = (
+            data["content_html"]
+            if admin
+            else rewrite_inline_images(data["content_html"], conn, settings)
+        )
         item["toc"] = extract_toc(data["content_html"])
     if admin:
         item.update(
@@ -141,6 +173,7 @@ def serialize_post(
     else:
         # Never leak e-mail addresses or the author's internal ids.
         item["author"].pop("username", None)
+    _attach_cover_images(conn, [item], settings)
     return item
 
 
@@ -149,8 +182,10 @@ def serialize_posts(
     rows: list[sqlite3.Row],
     *,
     admin: bool = False,
+    settings: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     # One taxonomy pass for the whole page instead of N+1 queries.
+    settings = settings or load_settings_cached()
     mutable: list[dict[str, Any]] = [dict(row) for row in rows]
     attach_taxonomies(conn, mutable)
     result = []
@@ -158,6 +193,7 @@ def serialize_posts(
         # serialize_post re-queries one post for detail only; for lists we feed
         # the row through a tiny shim that keeps the already attached data.
         result.append(_list_item(row, admin=admin))
+    _attach_cover_images(conn, result, settings)
     return result
 
 

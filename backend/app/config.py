@@ -19,7 +19,7 @@ load_dotenv(ROOT_DIR / ".env")
 load_dotenv(BASE_DIR / ".env", override=True)
 
 APP_NAME = "MZTLAB"
-VERSION = "2.2.0"
+VERSION = "2.3.0"
 
 # Largest integer SQLite can bind (signed 64-bit). Request parameters are
 # capped to this so oversized ids return 422 instead of an unhandled 500.
@@ -36,6 +36,33 @@ def _flag(name: str, default: bool = False) -> bool:
 DATA_DIR = Path(os.getenv("BLOG_DATA_DIR", str(BASE_DIR / "data"))).expanduser().resolve()
 DB_PATH = Path(os.getenv("BLOG_DB_PATH", str(DATA_DIR / "blog.db"))).expanduser().resolve()
 UPLOAD_DIR = Path(os.getenv("BLOG_UPLOAD_DIR", str(DATA_DIR / "uploads"))).expanduser().resolve()
+# Generated AVIF/WebP/JPEG derivatives live outside the original upload tree so
+# backups of `uploads/` stay canonical and a cache can be discarded safely.
+IMAGE_CACHE_DIR = Path(
+    os.getenv("BLOG_IMAGE_CACHE_DIR", str(DATA_DIR / "cache"))
+).expanduser().resolve()
+# AVIF/WebP encoding is CPU heavy; a small ceiling keeps a burst of image
+# requests from starving the rest of the API.
+IMAGE_ENCODE_WORKERS = max(1, min(8, int(os.getenv("BLOG_IMAGE_ENCODE_WORKERS", "2"))))
+# Hard technical ceiling for the "full" (original resolution) derivative.
+# 0 means "no cap beyond the original image width".
+IMAGE_MAX_WIDTH_HARD_LIMIT = 8192
+
+# Object storage. The admin panel writes these values into the settings table;
+# environment variables are only a fallback (useful for Docker secrets). The
+# secret key never leaves the process: it is never part of /api/site and the
+# admin API only reports whether one is configured.
+S3_ENV_FALLBACK = {
+    "storage_backend": os.getenv("BLOG_STORAGE_BACKEND", ""),
+    "storage_s3_endpoint": os.getenv("BLOG_S3_ENDPOINT", ""),
+    "storage_s3_bucket": os.getenv("BLOG_S3_BUCKET", ""),
+    "storage_s3_region": os.getenv("BLOG_S3_REGION", ""),
+    "storage_s3_access_key": os.getenv("BLOG_S3_ACCESS_KEY", ""),
+    "storage_s3_secret_key": os.getenv("BLOG_S3_SECRET_KEY", ""),
+    "storage_s3_prefix": os.getenv("BLOG_S3_PREFIX", ""),
+    "storage_public_base_url": os.getenv("BLOG_S3_PUBLIC_BASE_URL", ""),
+}
+S3_PATH_STYLE_ENV = _flag("BLOG_S3_PATH_STYLE", False)
 
 FRONTEND_URL = os.getenv("BLOG_FRONTEND_URL", "http://127.0.0.1:4321").rstrip("/")
 SITE_URL = os.getenv("BLOG_SITE_URL", "").rstrip("/")
@@ -84,5 +111,5 @@ CORS_ORIGINS = [
     if origin.strip()
 ]
 
-for directory in (DATA_DIR, UPLOAD_DIR):
+for directory in (DATA_DIR, UPLOAD_DIR, IMAGE_CACHE_DIR):
     directory.mkdir(parents=True, exist_ok=True)

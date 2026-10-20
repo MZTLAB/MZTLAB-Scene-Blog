@@ -27,7 +27,11 @@ from ..defaults import (
     COLOR_MODES,
     FONT_PAIRS,
     HERO_STYLES,
+    IMAGE_SCENES,
     POST_LAYOUTS,
+    SECRET_SETTING_KEYS,
+    STORAGE_BACKENDS,
+    STORAGE_SERVE_MODES,
     THEMES,
     UPLOAD_AUDIO_FORMATS,
     UPLOAD_FILE_FORMATS,
@@ -37,8 +41,10 @@ from ..defaults import (
 )
 from ..deps import require_permission, require_staff
 from ..galleries import public_counts
+from ..images import AVIF_SUPPORTED, WEBP_SUPPORTED
 from ..permissions import ROLE_LABELS, can, owns
 from ..posts import fetch_posts, get_post, pagination, serialize_post, serialize_posts
+from ..storage import reset_storage
 from ..schemas import (
     AppearanceIn,
     CommentStatusIn,
@@ -782,12 +788,28 @@ def delete_term(
 # Settings / appearance / profile
 # ---------------------------------------------------------------------------
 
+def _admin_settings() -> dict[str, Any]:
+    """Settings for the admin UI, with secret values masked.
+
+    The secret itself is never returned; the `_configured` flag lets the form
+    tell "not set yet" from "saved, leave blank to keep". Saving an empty value
+    for a secret key means "keep the current one".
+    """
+    settings = load_settings()
+    result = dict(settings)
+    for key in SECRET_SETTING_KEYS:
+        configured = bool(str(settings.get(key) or "").strip())
+        result[key] = ""
+        result[f"{key}_configured"] = configured
+    return result
+
+
 @router.get("/settings")
 def get_settings(
     user: dict = Depends(require_permission("settings.manage")),
 ) -> dict[str, Any]:
     return {
-        "settings": load_settings(),
+        "settings": _admin_settings(),
         "meta": {
             "version": VERSION,
             "themes": sorted(THEMES),
@@ -795,6 +817,15 @@ def get_settings(
             "font_pairs": sorted(FONT_PAIRS),
             "post_layouts": sorted(POST_LAYOUTS),
             "hero_styles": sorted(HERO_STYLES),
+            "image": {
+                "avif": AVIF_SUPPORTED,
+                "webp": WEBP_SUPPORTED,
+                "scenes": list(IMAGE_SCENES),
+            },
+            "storage": {
+                "backends": sorted(STORAGE_BACKENDS),
+                "serve_modes": sorted(STORAGE_SERVE_MODES),
+            },
         },
     }
 
@@ -837,6 +868,19 @@ def _sanitize_links(value: Any, label_key: str = "label") -> list[dict[str, str]
     return result
 
 
+def _sanitize_width_ladder(value: Any) -> list[int]:
+    """Parse the comma-separated image width ladder, keeping sane entries."""
+    widths: set[int] = set()
+    for token in str(value or "").replace(";", ",").split(","):
+        token = token.strip()
+        if not token.isdigit():
+            continue
+        width = int(token)
+        if 64 <= width <= 8192:
+            widths.add(width)
+    return sorted(widths)[:10]
+
+
 @router.put("/settings")
 def update_settings(
     payload: dict[str, Any],
@@ -862,8 +906,57 @@ def update_settings(
         elif key in {
             "hero_show", "show_reading_time", "show_author", "show_views",
             "comments_enabled", "comment_moderation", "editor_manage_others",
+            "image_avif_enabled", "image_webp_enabled", "image_prewarm",
+            "image_lazy_enabled", "storage_s3_path_style", "storage_backup_local",
         }:
             clean[key] = bool(value)
+        elif key == "image_avif_speed":
+            try:
+                clean[key] = max(0, min(10, int(value)))
+            except (TypeError, ValueError):
+                continue
+        elif key in {"image_webp_quality", "image_jpeg_quality"} or key in {
+            f"image_quality_{scene}" for scene in IMAGE_SCENES
+        }:
+            try:
+                clean[key] = max(1, min(100, int(value)))
+            except (TypeError, ValueError):
+                continue
+        elif key == "image_widths":
+            widths = _sanitize_width_ladder(value)
+            if widths:
+                clean[key] = ",".join(str(width) for width in widths)
+        elif key == "image_max_width":
+            try:
+                clean[key] = max(0, min(8192, int(value)))
+            except (TypeError, ValueError):
+                continue
+        elif key == "image_cache_days":
+            try:
+                clean[key] = max(1, min(3650, int(value)))
+            except (TypeError, ValueError):
+                continue
+        elif key == "storage_backend":
+            if value in STORAGE_BACKENDS:
+                clean[key] = value
+        elif key == "storage_serve_mode":
+            if value in STORAGE_SERVE_MODES:
+                clean[key] = value
+        elif key == "storage_s3_secret_key":
+            # An empty secret means "keep the stored one", so a masked admin
+            # form can be submitted without ever exposing the value.
+            secret = _as_text(value, 400).strip()
+            if secret:
+                clean[key] = secret
+        elif key in {"storage_s3_endpoint", "storage_public_base_url"}:
+            url = _as_text(value, 500).strip().rstrip("/")
+            if not url or re.match(r"^https?://", url):
+                clean[key] = url
+        elif key in {
+            "storage_s3_bucket", "storage_s3_region",
+            "storage_s3_access_key", "storage_s3_prefix",
+        }:
+            clean[key] = _as_text(value, 200).strip()
         elif key == "posts_per_page":
             try:
                 clean[key] = max(1, min(30, int(value)))
@@ -934,8 +1027,10 @@ def update_settings(
             raise HTTPException(status_code=400, detail="站点地址需要以 http:// 或 https:// 开头")
         clean["site_url"] = url
     save_settings(clean)
-    # The admin endpoint may return private settings (unlike /api/site).
-    return {"ok": True, "settings": load_settings(), "updated": sorted(clean)}
+    # A storage / image setting change invalidates the cached backend and the
+    # derivative tokens, so reset both together.
+    reset_storage()
+    return {"ok": True, "settings": _admin_settings(), "updated": sorted(clean)}
 
 
 @router.put("/appearance")
