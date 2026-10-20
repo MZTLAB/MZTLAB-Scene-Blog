@@ -5,7 +5,7 @@ from __future__ import annotations
 import io
 import unittest
 
-from PIL import Image
+from PIL import Image, ImageCms
 
 from app import images
 from app.defaults import default_settings
@@ -138,6 +138,19 @@ class EncodeTests(unittest.TestCase):
         data, width, height = images._encode(self._image(), 720, "avif", 55, 8)
         self.assertTrue(data[4:12].startswith(b"ftyp"))
         self.assertEqual((width, height), (720, 480))
+
+    def test_avif_keeps_the_icc_profile(self):
+        if not images.AVIF_SUPPORTED:
+            self.skipTest("Pillow has no AVIF encoder")
+        profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+        image = self._image()
+        image.info["icc_profile"] = profile
+        try:  # 720 < 1600 so the resize/convert path is exercised too
+            data, _, _ = images._encode(image, 720, "avif", 55, 8)
+        finally:
+            image.close()
+        embedded = Image.open(io.BytesIO(data)).info.get("icc_profile")
+        self.assertEqual(embedded, profile)
 
     def test_webp_and_jpeg_outputs(self):
         webp, _, _ = images._encode(self._image(), 480, "webp", 80, 6)

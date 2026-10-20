@@ -170,7 +170,7 @@ def encode_variant(source_bytes: bytes, width: int, fmt: str, quality: int,
         im.thumbnail((width, width * 4), Image.Resampling.LANCZOS)  # 不放大
         out = BytesIO()
         if fmt == "avif":
-            im.save(out, "AVIF", quality=quality, speed=speed, subsampling="4:2:0")
+            im.save(out, "AVIF", quality=quality, speed=speed, subsampling="4:4:4")
         elif fmt == "webp":
             im.save(out, "WEBP", quality=quality, method=4, icc_profile=im.info.get("icc_profile"))
         else:
@@ -623,7 +623,7 @@ def get_storage() -> Storage:    # 按 config 缓存实例（配置元组变化�
 ## 附录 B：默认参数速查
 
 ```text
-AVIF      quality=55  speed=6  subsampling=4:2:0
+AVIF      quality=55  speed=6  subsampling=4:4:4
 WebP      quality=80  method=4
 JPEG      quality=82  progressive+optimize
 阶梯      320,480,720,960,1440,1920（上限 2560；原图宽更小时自动截断）

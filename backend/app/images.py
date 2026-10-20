@@ -40,7 +40,7 @@ from .storage import (
 
 logger = logging.getLogger("mztlab.images")
 
-PIPELINE_VERSION = 2
+PIPELINE_VERSION = 3
 SCENES = ("thumb", "tile", "card", "hero", "viewer", "prose", "full")
 SMALL_SCENES = frozenset({"thumb", "tile", "card"})
 LARGE_SCENES = frozenset({"hero", "viewer"})
@@ -391,7 +391,14 @@ def _encode(image: Image.Image, width: int, fmt: str, quality: int, speed: int) 
     icc = image.info.get("icc_profile")
     buffer = io.BytesIO()
     if fmt == "avif":
-        image.save(buffer, "AVIF", quality=quality, speed=speed, subsampling="4:2:0")
+        image.save(
+            buffer,
+            "AVIF",
+            quality=quality,
+            speed=speed,
+            subsampling="4:4:4",
+            icc_profile=icc,
+        )
     elif fmt == "webp":
         image.save(
             buffer, "WEBP", quality=quality, method=4,
