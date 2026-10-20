@@ -24,6 +24,7 @@ if (root) {
   const captionNode = root.querySelector<HTMLElement>('[data-gv-caption]');
   const thumbnails = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-gv-go]'));
   const stage = root.querySelector<HTMLElement>('.gallery-viewer__stage');
+  const downloadLink = root.querySelector<HTMLAnchorElement>('[data-gv-download]');
   const count = slides.length;
 
   if (track && count > 0) {
@@ -83,6 +84,22 @@ if (root) {
       if (captionNode) {
         captionNode.textContent = current.caption;
         captionNode.hidden = !current.caption;
+      }
+
+      // Original download is per-photo: hide the affordance unless allowed.
+      if (downloadLink) {
+        const trigger = slides[index]?.querySelector<HTMLElement>('[data-photo]');
+        const url = trigger?.dataset.downloadUrl || '';
+        const name = trigger?.dataset.downloadName || '';
+        downloadLink.hidden = !url;
+        if (url) {
+          downloadLink.href = url;
+          if (name) downloadLink.setAttribute('download', name);
+          else downloadLink.removeAttribute('download');
+        } else {
+          downloadLink.removeAttribute('href');
+          downloadLink.removeAttribute('download');
+        }
       }
 
       thumbnails.forEach((thumb, position) => {

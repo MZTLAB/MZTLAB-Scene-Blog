@@ -21,6 +21,8 @@ import {
 interface PhotoEntry {
   src: string;
   image: ImageInfo | null;
+  downloadUrl: string;
+  downloadName: string;
   title: string;
   caption: string;
   meta: string;
@@ -39,6 +41,7 @@ if (box) {
     avif: box.querySelector<HTMLSourceElement>('[data-lb-source="avif"]'),
     webp: box.querySelector<HTMLSourceElement>('[data-lb-source="webp"]'),
   };
+  const downloadLink = box.querySelector<HTMLAnchorElement>('[data-lb-download]');
   const titleNode = box.querySelector<HTMLElement>('[data-lb-title]');
   const captionNode = box.querySelector<HTMLElement>('[data-lb-caption]');
   const metaNode = box.querySelector<HTMLElement>('[data-lb-meta]');
@@ -77,6 +80,8 @@ if (box) {
     return {
       src: element.dataset.src || '',
       image: parsedImage,
+      downloadUrl: element.dataset.downloadUrl || '',
+      downloadName: element.dataset.downloadName || '',
       title: element.dataset.title || '',
       caption: element.dataset.caption || '',
       meta: element.dataset.meta || '',
@@ -127,6 +132,17 @@ if (box) {
       nextDirection < 0 ? 'prev' : nextDirection > 0 ? 'next' : '';
     setSource(entry);
     image.alt = entry.title || entry.caption || '摄影作品';
+    if (downloadLink) {
+      downloadLink.hidden = !entry.downloadUrl;
+      if (entry.downloadUrl) {
+        downloadLink.href = entry.downloadUrl;
+        if (entry.downloadName) downloadLink.setAttribute('download', entry.downloadName);
+        else downloadLink.removeAttribute('download');
+      } else {
+        downloadLink.removeAttribute('href');
+        downloadLink.removeAttribute('download');
+      }
+    }
     if (nextDirection !== 0) {
       // Restart the entrance animation on every arrow press.
       void image.offsetWidth;

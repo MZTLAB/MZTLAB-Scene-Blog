@@ -255,8 +255,8 @@ def add_photos(
             cur = conn.execute(
                 """INSERT INTO photos(gallery_id, media_id, filename, title, caption,
                                       location, camera, lens, taken_at, width, height,
-                                      featured, status, sort_order, created_at)
-                   VALUES (?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, 0, ?, ?, ?)""",
+                                      featured, status, sort_order, allow_download, created_at)
+                   VALUES (?, ?, ?, ?, '', '', ?, ?, ?, ?, ?, 0, ?, ?, 1, ?)""",
                 (
                     gallery_id,
                     media["id"],
@@ -354,8 +354,9 @@ def create_photo(
         cur = conn.execute(
             """INSERT INTO photos(gallery_id, media_id, filename, title, caption,
                                   location, camera, lens, taken_at, width, height,
-                                  exif_fields, featured, status, sort_order, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                  exif_fields, featured, status, sort_order,
+                                  allow_download, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 payload.gallery_id,
                 media["id"],
@@ -376,6 +377,7 @@ def create_photo(
                 1 if payload.featured else 0,
                 payload.status,
                 next_photo_order(conn, payload.gallery_id),
+                1 if payload.allow_download else 0,
                 now_iso(),
             ),
         )
@@ -401,7 +403,8 @@ def update_photo(
         conn.execute(
             """UPDATE photos SET gallery_id = ?, title = ?, caption = ?, location = ?,
                    camera = ?, lens = ?, taken_at = ?, exif_fields = COALESCE(?, exif_fields),
-                   featured = ?, status = ?, sort_order = COALESCE(?, sort_order)
+                   featured = ?, status = ?, sort_order = COALESCE(?, sort_order),
+                   allow_download = COALESCE(?, allow_download)
                WHERE id = ?""",
             (
                 payload.gallery_id,
@@ -415,6 +418,9 @@ def update_photo(
                 1 if payload.featured else 0,
                 payload.status,
                 payload.sort_order,
+                None
+                if payload.allow_download is None
+                else (1 if payload.allow_download else 0),
                 photo_id,
             ),
         )

@@ -31,6 +31,23 @@ class GalleryShapeTests(unittest.TestCase):
         self.assertEqual(item["alt"], "夜色 01")
         self.assertTrue(item["featured"])
         self.assertEqual(item["gallery"]["url"], "/galleries/nocturne")
+        # Original download is allowed by default and uses an attachment URL.
+        self.assertTrue(item["allow_download"])
+        self.assertEqual(item["download_url"], "/media/seed/nocturne-01.jpg?download=1")
+        self.assertEqual(item["download_name"], "nocturne-01.jpg")
+
+    def test_photo_can_disable_original_download(self):
+        item = photo_dict(
+            {
+                "id": 11,
+                "filename": "scene/two.jpg",
+                "width": 1200,
+                "height": 800,
+                "allow_download": 0,
+            }
+        )
+        self.assertFalse(item["allow_download"])
+        self.assertEqual(item["download_url"], "")
 
     def test_loose_photo_has_no_gallery(self) -> None:
         item = photo_dict({"id": 1, "filename": "a.jpg", "width": 0, "height": 0})

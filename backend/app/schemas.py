@@ -329,6 +329,7 @@ class PhotoIn(StrippedModel):
     exif_fields: list[str] | None = Field(default=None, max_length=8)
     featured: bool = False
     status: Literal["draft", "published"] = "published"
+    allow_download: bool = True
 
     @field_validator("exif_fields")
     @classmethod
@@ -355,6 +356,8 @@ class PhotoUpdateIn(StrippedModel):
     featured: bool = False
     status: Literal["draft", "published"] = "published"
     sort_order: int | None = None
+    # Omitted keeps the current value so partial toggles never reset it.
+    allow_download: bool | None = None
 
     @field_validator("exif_fields")
     @classmethod

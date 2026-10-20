@@ -99,6 +99,10 @@ if (root) {
                 }).join('')}
               </div>
             </details>
+            <label class="check-row" style="margin-top:2px" title="仅隐藏前台下载入口；原图 URL 本身仍可通过媒体库访问">
+              <input type="checkbox" data-download-field ${photo.allow_download ? 'checked' : ''} />
+              <span style="font-size:10px;color:var(--ink-faint)">允许下载原图</span>
+            </label>
           </div>
           <div class="photo-row__side">
             <input data-photo-field="location" type="text" maxlength="120" value="${escapeHtml(photo.location)}" placeholder="地点" />
@@ -166,6 +170,12 @@ if (root) {
         button.addEventListener('click', () => movePhoto(photoId, Number(button.dataset.move)));
       });
 
+      row.querySelectorAll<HTMLInputElement>('[data-download-field]').forEach((input) => {
+        input.addEventListener('change', () => {
+          patchPhoto(photoId, { allow_download: input.checked });
+        });
+      });
+
       row.querySelectorAll<HTMLInputElement>('[data-exif-field]').forEach((input) => {
         input.addEventListener('change', async () => {
           const selected = Array.from(
@@ -226,6 +236,7 @@ if (root) {
           taken_at: photo.taken_at,
           featured: photo.featured,
           status: photo.status,
+          allow_download: photo.allow_download,
           ...patch,
         },
       });

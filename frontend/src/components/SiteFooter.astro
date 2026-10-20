@@ -10,6 +10,17 @@ interface Props {
 const { site } = Astro.props;
 const settings = site.settings;
 const social = settings.social || [];
+const defaultFooterLinks = [
+  { label: '影像', url: '/photos' },
+  { label: '项目', url: '/projects' },
+  { label: '文字', url: '/archive' },
+  { label: '搜索', url: '/search' },
+  { label: '后台', url: '/admin' },
+];
+const footerLinks =
+  settings.footer_links && settings.footer_links.length
+    ? settings.footer_links
+    : defaultFooterLinks;
 const year = appConfig.footerYear;
 const markSrc = settings.favicon || '/favicon.svg';
 const copy = (key: keyof typeof settings, fallback: string) => {
@@ -41,22 +52,35 @@ function iconFor(label: string, url: string): string {
     </div>
 
     <nav class="footer-links" aria-label="页脚链接">
-      {
-        social.map((item) => (
-          <a
-            href={item.url}
-            target={/^https?:\/\//.test(item.url) ? '_blank' : undefined}
-            rel={/^https?:\/\//.test(item.url) ? 'noopener noreferrer' : undefined}
-          >
-            <Icon name={iconFor(item.label, item.url)} size={13} /> {item.label}
-          </a>
-        ))
-      }
-      <a href="/photos">{copy('copy_photos_title', '影像')}</a>
-      <a href="/projects">{copy('copy_projects_title', '项目')}</a>
-      <a href="/archive">{copy('copy_texts_title', '文字')}</a>
-      <a href="/search">{copy('copy_cta_search', '搜索')}</a>
-      <a href="/admin">{copy('copy_footer_admin', '后台')}</a>
+      <span class="footer-links__group footer-links__group--social">
+        {
+          social.map((item) => (
+            <a
+              href={item.url}
+              target={/^https?:\/\//.test(item.url) ? '_blank' : undefined}
+              rel={/^https?:\/\//.test(item.url) ? 'noopener noreferrer' : undefined}
+            >
+              <Icon name={iconFor(item.label, item.url)} size={13} /> {item.label}
+            </a>
+          ))
+        }
+      </span>
+      {social.length > 0 && footerLinks.length > 0 && (
+        <span class="footer-links__sep" aria-hidden="true">/</span>
+      )}
+      <span class="footer-links__group footer-links__group--pages">
+        {
+          footerLinks.map((item) => (
+            <a
+              href={item.url}
+              target={/^https?:\/\//.test(item.url) ? '_blank' : undefined}
+              rel={/^https?:\/\//.test(item.url) ? 'noopener noreferrer' : undefined}
+            >
+              {item.label}
+            </a>
+          ))
+        }
+      </span>
     </nav>
   </div>
 

@@ -650,6 +650,25 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
   justify-content: flex-end;
 }
 
+.footer-links__group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+}
+
+.footer-links__sep {
+  color: var(--line-strong);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  user-select: none;
+}
+
+/* Social profiles keep their icons; page links stay plain text. */
+.footer-links__group--pages a {
+  letter-spacing: 0.1em;
+}
+
 .footer-links a {
   display: inline-flex;
   align-items: center;
@@ -1083,6 +1102,29 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
   font-weight: 500;
 }
 
+.lightbox__download {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  color: #d8d5cb;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.lightbox__download:hover {
+  color: #fff;
+  border-color: #fff;
+}
+
+.lightbox__download[hidden] {
+  display: none;
+}
+
 .lightbox__stage {
   position: relative;
   display: grid;
@@ -1372,6 +1414,31 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
   text-transform: uppercase;
   color: var(--ink-faint);
   white-space: nowrap;
+}
+
+.gallery-viewer__download {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.gallery-viewer__download:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.gallery-viewer__download[hidden] {
+  display: none;
 }
 
 .gallery-viewer__keys {

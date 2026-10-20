@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS photos (
     width      INTEGER NOT NULL DEFAULT 0,
     height     INTEGER NOT NULL DEFAULT 0,
     exif_fields TEXT NOT NULL DEFAULT 'camera,lens,focal_length,aperture,exposure,iso,taken_at,dimensions',
+    allow_download INTEGER NOT NULL DEFAULT 1,
     featured   INTEGER NOT NULL DEFAULT 0,
     status     TEXT NOT NULL DEFAULT 'published',
     sort_order INTEGER NOT NULL DEFAULT 0,
@@ -300,6 +301,7 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
             "TEXT NOT NULL DEFAULT "
             "'camera,lens,focal_length,aperture,exposure,iso,taken_at,dimensions'"
         ),
+        "allow_download": "INTEGER NOT NULL DEFAULT 1",
     },
     "media": {
         "owner_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",

@@ -6,7 +6,11 @@ const root = document.querySelector<HTMLElement>('[data-settings-page]');
 if (root) {
   const saveButton = document.querySelector<HTMLButtonElement>('[data-save-settings]');
   let settings: SiteSettings | null = null;
-  const links: Record<'nav' | 'social', NavLink[]> = { nav: [], social: [] };
+  const links: Record<'nav' | 'social' | 'footer', NavLink[]> = {
+    nav: [],
+    social: [],
+    footer: [],
+  };
   const numericKeys = new Set([
     'posts_per_page', 'upload_max_mb', 'image_avif_speed', 'image_webp_quality',
     'image_jpeg_quality', 'image_quality_thumb', 'image_quality_tile',
@@ -84,8 +88,10 @@ if (root) {
       }
       links.nav = [...(settings.nav || [])];
       links.social = [...(settings.social || [])];
+      links.footer = [...(settings.footer_links || [])];
       renderLinks('nav');
       renderLinks('social');
+      renderLinks('footer');
       root.querySelectorAll<HTMLElement>('[data-switch]').forEach((label) => {
         const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]');
         if (input) label.setAttribute('aria-checked', input.checked ? 'true' : 'false');
@@ -95,7 +101,7 @@ if (root) {
     }
   };
 
-  const renderLinks = (kind: 'nav' | 'social') => {
+  const renderLinks = (kind: 'nav' | 'social' | 'footer') => {
     const host = root.querySelector<HTMLElement>(`[data-links="${kind}"]`);
     if (!host) return;
     host.innerHTML = links[kind]
@@ -109,17 +115,17 @@ if (root) {
       .join('');
     host.querySelectorAll<HTMLInputElement>('[data-link-label]').forEach((input) => {
       input.addEventListener('input', () => {
-        links[input.dataset.linkLabel as 'nav' | 'social'][Number(input.dataset.index)].label = input.value;
+        links[input.dataset.linkLabel as 'nav' | 'social' | 'footer'][Number(input.dataset.index)].label = input.value;
       });
     });
     host.querySelectorAll<HTMLInputElement>('[data-link-url]').forEach((input) => {
       input.addEventListener('input', () => {
-        links[input.dataset.linkUrl as 'nav' | 'social'][Number(input.dataset.index)].url = input.value;
+        links[input.dataset.linkUrl as 'nav' | 'social' | 'footer'][Number(input.dataset.index)].url = input.value;
       });
     });
     host.querySelectorAll<HTMLButtonElement>('[data-remove-link]').forEach((button) => {
       button.addEventListener('click', () => {
-        links[button.dataset.removeLink as 'nav' | 'social'].splice(Number(button.dataset.index), 1);
+        links[button.dataset.removeLink as 'nav' | 'social' | 'footer'].splice(Number(button.dataset.index), 1);
         renderLinks(kind);
       });
     });
@@ -127,7 +133,7 @@ if (root) {
 
   root.querySelectorAll<HTMLButtonElement>('[data-add-link]').forEach((button) => {
     button.addEventListener('click', () => {
-      const kind = button.dataset.addLink as 'nav' | 'social';
+      const kind = button.dataset.addLink as 'nav' | 'social' | 'footer';
       if (links[kind].length >= 12) return;
       links[kind].push({ label: '', url: '' });
       renderLinks(kind);
@@ -147,6 +153,9 @@ if (root) {
     });
     payload.nav = links.nav.filter((link) => link.label.trim() && link.url.trim());
     payload.social = links.social.filter((link) => link.label.trim() && link.url.trim());
+    payload.footer_links = links.footer.filter(
+      (link) => link.label.trim() && link.url.trim(),
+    );
     return payload;
   };
 

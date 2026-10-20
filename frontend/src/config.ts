@@ -114,7 +114,17 @@ export const fallbackSite = {
     show_author: true,
     show_views: true,
     nav: [],
-    social: [],
+    social: [
+      { label: 'GitHub', url: 'https://github.com/' },
+      { label: 'RSS', url: '/rss.xml' },
+    ],
+    footer_links: [
+      { label: '影像', url: '/photos' },
+      { label: '项目', url: '/projects' },
+      { label: '文字', url: '/archive' },
+      { label: '搜索', url: '/search' },
+      { label: '后台', url: '/admin' },
+    ],
     footer_text: '影像、项目与文字。',
     footer_note: 'MZTLAB // ASTRO × FASTAPI',
     custom_css: '',

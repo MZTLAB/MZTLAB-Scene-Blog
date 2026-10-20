@@ -395,6 +395,19 @@ const user = guard;
           </div>
         </div>
         <div class="admin-card" style="margin-top:16px">
+          <div class="admin-card__head">
+            <h3>页脚导航链接</h3>
+            <button class="a-btn a-btn--sm" type="button" data-add-link="footer"><Icon name="plus" size={13} /> 添加</button>
+          </div>
+          <div class="admin-card__body">
+            <div class="nav-editor" data-links="footer"></div>
+            <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">
+              这些是页脚里的普通导航链接（影像 / 项目 / 文字 / 搜索 / 后台），显示在社交媒体图标之后。
+              留空时使用默认的五个入口；社交媒体请用下面的「社交链接」单独配置。
+            </p>
+          </div>
+        </div>
+        <div class="admin-card" style="margin-top:16px">
           <div class="admin-card__head"><h3>社交链接</h3><button class="a-btn a-btn--sm" type="button" data-add-link="social"><Icon name="plus" size={13} /> 添加</button></div>
           <div class="admin-card__body">
             <div class="nav-editor" data-links="social"></div>

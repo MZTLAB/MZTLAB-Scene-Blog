@@ -59,6 +59,8 @@ const first = photos[0];
               data-photo
               data-src={photo.url}
               data-image={photo.image ? JSON.stringify(photo.image) : undefined}
+              data-download-url={photo.allow_download ? photo.download_url : undefined}
+              data-download-name={photo.allow_download ? photo.download_name : undefined}
               data-title={photo.title}
               data-caption={photo.caption}
               data-meta={metaLine(photo)}
@@ -110,6 +112,9 @@ const first = photos[0];
         <span data-gv-caption>{first?.caption || ''}</span>
       </div>
     </div>
+    <a class="gallery-viewer__download" data-gv-download hidden href="#" download>
+      <Icon name="download" size={13} /> 下载原图
+    </a>
     <span class="gallery-viewer__hint">
       <span class="gallery-viewer__keys" aria-hidden="true">← →</span>
       或滑动切换

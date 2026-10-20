@@ -997,6 +997,9 @@ def update_settings(
             clean[key] = _sanitize_links(value)
         elif key == "social":
             clean[key] = _sanitize_links(value)
+        elif key == "footer_links":
+            # Page navigation shown in the footer, distinct from social links.
+            clean[key] = _sanitize_links(value)
         elif key == "theme" and value in THEMES:
             clean[key] = value
         elif key == "color_mode" and value in COLOR_MODES:

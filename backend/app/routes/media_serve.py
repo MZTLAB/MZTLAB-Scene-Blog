@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
@@ -49,16 +51,37 @@ _SAFE_KEY = re.compile(r"^[A-Za-z0-9_\-./]+$")
 _DERIVATIVE_NAME = re.compile(r"^(\d{1,5})\.(avif|webp|jpg)$")
 
 
+def _content_disposition(filename: str) -> str:
+    """Build a safe attachment header that keeps the original (Unicode) name."""
+    cleaned = re.sub(r"[\r\n\"\\/]", "_", filename).strip() or "download"
+    ascii_name = re.sub(r"[^A-Za-z0-9._-]+", "_", cleaned).strip("._") or "download"
+    if "." not in ascii_name:
+        suffix = Path(cleaned).suffix
+        if suffix:
+            ascii_name += suffix
+    return (
+        f"attachment; filename=\"{ascii_name[:150]}\"; "
+        f"filename*=UTF-8''{quote(cleaned, safe='')}"
+    )
+
+
 def _send(
     key: str,
     *,
     cache_seconds: int,
     attachment: bool = False,
     allow_redirect: bool = True,
+    download_name: str | None = None,
 ) -> Response:
     storage = get_storage()
     headers = {"Cache-Control": f"public, max-age={cache_seconds}"}
-    if attachment:
+    if download_name:
+        headers["Content-Disposition"] = _content_disposition(download_name)
+        headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
+        # The attachment header must survive, so never hand the request over
+        # to a storage redirect for downloads.
+        allow_redirect = False
+    elif attachment:
         headers["Content-Disposition"] = "attachment"
         headers["Content-Security-Policy"] = "sandbox; default-src 'none'"
         allow_redirect = False
@@ -123,7 +146,7 @@ def image_derivative(media_id: int, token: str, scene: str, name: str) -> Respon
 
 
 @router.get("/media/{path:path}")
-def media_file(path: str) -> Response:
+def media_file(path: str, download: bool = False) -> Response:
     key = (path or "").strip()
     if (
         not key
@@ -135,11 +158,24 @@ def media_file(path: str) -> Response:
         raise HTTPException(status_code=400, detail="非法路径")
     extension = key.rsplit(".", 1)[-1].lower() if "." in key else ""
     attachment = extension in ACTIVE_MEDIA_EXTENSIONS
+    download_name: str | None = None
+    if download:
+        # Prefer the original filename for the browser's "save as" dialog.
+        with db() as conn:
+            row = conn.execute(
+                "SELECT original_name FROM media WHERE filename = ?", (key,)
+            ).fetchone()
+        download_name = (
+            str(row["original_name"]).strip()
+            if row and str(row["original_name"]).strip()
+            else key.rsplit("/", 1)[-1]
+        )
     return _send(
         key,
-        cache_seconds=604800,
+        cache_seconds=86400 if download else 604800,
         attachment=attachment,
         allow_redirect=not attachment,
+        download_name=download_name,
     )
 
 

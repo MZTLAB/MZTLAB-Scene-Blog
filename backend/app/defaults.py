@@ -169,6 +169,15 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         {"label": "GitHub", "url": "https://github.com/"},
         {"label": "RSS", "url": "/rss.xml"},
     ],
+    # Page links shown in the footer, kept separate from social profiles.
+    # Editable in 设置 → 页脚与社交 → 页脚导航链接.
+    "footer_links": [
+        {"label": "影像", "url": "/photos"},
+        {"label": "项目", "url": "/projects"},
+        {"label": "文字", "url": "/archive"},
+        {"label": "搜索", "url": "/search"},
+        {"label": "后台", "url": "/admin"},
+    ],
     "footer_text": "影像、项目与文字。",
     "footer_note": "MZTLAB // ASTRO × FASTAPI",
     "icp": "",

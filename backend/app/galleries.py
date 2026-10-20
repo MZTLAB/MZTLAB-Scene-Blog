@@ -34,10 +34,12 @@ _PHOTO_COLUMNS = """
     ph.id, ph.gallery_id, ph.media_id, ph.filename, ph.title, ph.caption,
     ph.location, ph.camera, ph.lens, ph.taken_at, ph.width, ph.height,
     ph.exif_fields, ph.featured, ph.status, ph.sort_order, ph.created_at,
+    ph.allow_download,
     g.title AS gallery_title, g.slug AS gallery_slug,
     m.exif AS media_exif, m.size AS media_size, m.mime AS media_mime,
     m.avif_quality AS media_avif_quality, m.ready_hash AS media_ready_hash,
-    m.width AS media_width, m.height AS media_height
+    m.width AS media_width, m.height AS media_height,
+    m.original_name AS media_original_name
 """
 
 _PHOTO_JOINS = (
@@ -114,6 +116,13 @@ def photo_dict(
         "avif_quality": data.get("media_avif_quality") or 0,
         "ready_hash": data.get("media_ready_hash") or "",
     }
+    filename = data["filename"]
+    download_name = (
+        data.get("media_original_name")
+        or str(filename).rsplit("/", 1)[-1]
+        or "photo"
+    )
+    allow_download = bool(data.get("allow_download", 1))
     return {
         "id": int(data["id"]),
         "gallery_id": int(data["gallery_id"]) if data.get("gallery_id") else None,
@@ -137,6 +146,9 @@ def photo_dict(
         "exif_fields": visible_fields,
         "exif": public_exif,
         "image": image_payload(media_row, settings),
+        "allow_download": allow_download,
+        "download_name": download_name,
+        "download_url": f"{media_url(filename)}?download=1" if allow_download else "",
         "width": width,
         "height": height,
         "aspect": round(width / height, 4) if width and height else 1.5,

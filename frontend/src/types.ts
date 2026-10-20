@@ -159,6 +159,8 @@ export interface SiteSettings {
   editor_manage_others: boolean;
   nav: NavLink[];
   social: NavLink[];
+  /** Page navigation links shown in the footer (separate from social). */
+  footer_links: NavLink[];
   footer_text: string;
   footer_note: string;
   icp: string;
@@ -328,6 +330,12 @@ export interface Photo {
   exif: PhotoExif | null;
   /** Derivative metadata for the linked media row (null when unavailable). */
   image: ImageInfo | null;
+  /** Whether the original file may be offered as a download. */
+  allow_download: boolean;
+  /** Suggested filename for the download dialog. */
+  download_name: string;
+  /** Original-file URL that forces `Content-Disposition: attachment`. */
+  download_url: string;
   width: number;
   height: number;
   aspect: number;
