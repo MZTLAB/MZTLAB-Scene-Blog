@@ -76,6 +76,46 @@ class LocalStorageTests(unittest.TestCase):
         self.assertIsNone(self.storage.derived_base(1, "token"))
 
 
+class _FakeS3Primary:
+    """Minimal primary backend used to test MirrorStorage delegation."""
+
+    def __init__(self):
+        self.client = object()
+        self.config = object()
+
+    def health(self):
+        return {"ok": True, "backend": "s3", "bucket": "bucket"}
+
+
+class MirrorHealthTests(unittest.TestCase):
+    def test_health_and_client_delegate_to_the_primary(self):
+        primary = _FakeS3Primary()
+        storage = LocalStorage()
+        storage.upload_dir = Path(tempfile.mkdtemp())
+        storage.cache_dir = Path(tempfile.mkdtemp())
+        try:
+            mirror = MirrorStorage(primary, storage)
+            health = mirror.health()
+            self.assertTrue(health["ok"])
+            self.assertEqual(health["backend"], "s3")
+            self.assertTrue(health["backup_ok"])
+            self.assertIs(mirror.client, primary.client)
+            self.assertIs(mirror.config, primary.config)
+        finally:
+            for directory in (storage.upload_dir, storage.cache_dir):
+                for child in sorted(directory.rglob("*"), reverse=True):
+                    if child.is_file():
+                        child.unlink()
+                    else:
+                        child.rmdir()
+                directory.rmdir()
+
+    def test_local_health_reports_ok(self):
+        with tempfile.TemporaryDirectory() as root:
+            storage = local_storage(Path(root))
+            self.assertTrue(storage.health()["ok"])
+
+
 class ContentTypeTests(unittest.TestCase):
     def test_known_derivative_types(self):
         self.assertEqual(content_type_for("a/b/720.avif"), "image/avif")

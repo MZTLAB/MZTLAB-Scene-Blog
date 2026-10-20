@@ -126,6 +126,7 @@ class Storage(Protocol):
     def derived_base(self, media_id: int, token: str) -> str | None: ...
     def local_path(self, key: str) -> Path | None: ...
     def stream(self, key: str) -> Iterator[bytes]: ...
+    def health(self) -> dict[str, Any]: ...
 
 
 class LocalStorage:
@@ -204,6 +205,11 @@ class LocalStorage:
 
     def stream(self, key: str) -> Iterator[bytes]:
         raise StorageError("local storage serves files through local_path()")
+
+    def health(self) -> dict[str, Any]:
+        if not self.upload_dir.exists() or not self.cache_dir.exists():
+            raise StorageError("本地数据目录不存在")
+        return {"ok": True, "backend": "local"}
 
 
 class S3Storage:
@@ -340,6 +346,18 @@ class S3Storage:
         except Exception:
             return None
 
+    def health(self) -> dict[str, Any]:
+        """Cheap connectivity probe used by the admin storage status card."""
+        if not self.config.bucket:
+            raise StorageError("未配置 bucket")
+        try:
+            self.client.head_bucket(Bucket=self.config.bucket)
+        except StorageError:
+            raise
+        except Exception as error:
+            raise StorageError(f"无法连接对象存储：{error}") from error
+        return {"ok": True, "backend": "s3", "bucket": self.config.bucket}
+
 
 def _is_missing(error: Exception) -> bool:
     code = getattr(error, "response", {}).get("Error", {}).get("Code", "")
@@ -364,6 +382,31 @@ class MirrorStorage:
     def __init__(self, primary: Storage, backup: Storage) -> None:
         self.primary = primary
         self.backup = backup
+
+    @property
+    def client(self) -> Any:
+        """Expose the primary client (probes/scripts use it directly)."""
+        client = getattr(self.primary, "client", None)
+        if client is None:
+            raise StorageError("当前存储后端没有可用的 S3 客户端")
+        return client
+
+    @property
+    def config(self) -> Any:
+        return getattr(self.primary, "config", None)
+
+    def health(self) -> dict[str, Any]:
+        result = dict(self.primary.health())
+        result["backup_local"] = True
+        try:
+            self.backup.health()
+        except StorageError as error:
+            # The primary is what matters for serving; report the backup issue.
+            result["backup_ok"] = False
+            result["backup_error"] = str(error)
+        else:
+            result["backup_ok"] = True
+        return result
 
     def save(self, key: str, data: bytes, content_type: str) -> None:
         self.primary.save(key, data, content_type)

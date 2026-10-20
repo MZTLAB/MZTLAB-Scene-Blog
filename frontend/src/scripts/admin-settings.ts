@@ -177,6 +177,7 @@ if (root) {
         webp: boolean;
         reachable: boolean | null;
         error: string;
+        health?: { backup_ok?: boolean; backup_error?: string } | null;
         derivatives: { files: number; bytes: number };
       }>('/api/admin/storage/status');
       const config = data.config;
@@ -190,7 +191,8 @@ if (root) {
       }
       if (result && (notify || config.backend === 's3')) {
         const reach = data.reachable === null ? '' : data.reachable ? ' · 连接正常' : ` · 连接失败：${data.error}`;
-        result.textContent = `${config.backend === 's3' ? '对象存储' : '本地存储'}${reach}`;
+        const backupIssue = data.health && data.health.backup_ok === false ? ' · 本地备份异常' : '';
+        result.textContent = `${config.backend === 's3' ? '对象存储' : '本地存储'}${reach}${backupIssue}`;
       }
     } catch (error) {
       if (result && notify) result.textContent = errorMessage(error);

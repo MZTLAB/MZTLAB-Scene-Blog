@@ -631,19 +631,22 @@ def storage_status(
     config = storage_config()
     reachable: bool | None = None
     error = ""
-    if config.is_s3 and config.bucket:
-        try:
-            get_storage().client.head_bucket(Bucket=config.bucket)
-            reachable = True
-        except Exception as exception:
-            reachable = False
-            error = str(exception)
+    health: dict[str, Any] | None = None
+    try:
+        # Works for local, S3 and MirrorStorage alike; never reaches into a
+        # backend-specific client from the route.
+        health = get_storage().health()
+        reachable = bool(health.get("ok", True))
+    except Exception as exception:
+        reachable = False
+        error = str(exception)
     return {
         "config": config.describe(),
         "avif": AVIF_SUPPORTED,
         "webp": WEBP_SUPPORTED,
         "reachable": reachable,
         "error": error,
+        "health": health,
         "derivatives": derivative_stats(),
     }
 
