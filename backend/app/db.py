@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from .config import DB_PATH
 from .defaults import default_settings
 
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 13
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -272,6 +272,10 @@ def init_db() -> None:
             _migrate_avif_quality_auto(conn)
         if version < 11:
             _migrate_quality_defaults(conn)
+        if version < 12:
+            _migrate_full_quality_default(conn)
+        if version < 13:
+            _migrate_quality_trim(conn)
         _migrate_scene(conn)
         _migrate_mono(conn)
         _migrate_scene_v22(conn)
@@ -374,6 +378,42 @@ def _migrate_quality_defaults(conn: sqlite3.Connection) -> None:
     }
     now = now_iso()
     for key, (old, new) in upgrades.items():
+        conn.execute(
+            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ? AND value = ?",
+            (json.dumps(new), now, key, json.dumps(old)),
+        )
+
+
+def _migrate_full_quality_default(conn: sqlite3.Connection) -> None:
+    """Lower the untouched full-resolution default from 90 to 75.
+
+    q90 made the largest derivative unnecessarily heavy; 75 is the agreed
+    default. Only values still equal to the previous default are rewritten.
+    """
+    conn.execute(
+        "UPDATE settings SET value = ?, updated_at = ? "
+        "WHERE key = 'image_quality_full' AND value = ?",
+        (json.dumps(75), now_iso(), json.dumps(90)),
+    )
+
+
+def _migrate_quality_trim(conn: sqlite3.Connection) -> None:
+    """Trim every untouched AVIF scene quality by a small step (-5).
+
+    Balances file size against the quality bump from schema 11/12. Only values
+    still equal to the previous defaults are rewritten.
+    """
+    trims = {
+        "image_quality_thumb": (50, 45),
+        "image_quality_tile": (55, 50),
+        "image_quality_card": (60, 55),
+        "image_quality_hero": (72, 67),
+        "image_quality_viewer": (70, 65),
+        "image_quality_prose": (65, 60),
+        "image_quality_full": (75, 70),
+    }
+    now = now_iso()
+    for key, (old, new) in trims.items():
         conn.execute(
             "UPDATE settings SET value = ?, updated_at = ? WHERE key = ? AND value = ?",
             (json.dumps(new), now, key, json.dumps(old)),

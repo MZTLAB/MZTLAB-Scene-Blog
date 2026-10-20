@@ -205,13 +205,13 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "image_cache_days": 365,
     "image_prewarm": True,               # generate known variants after upload
     "image_lazy_enabled": True,          # emit loading="lazy" below the fold
-    "image_quality_thumb": 50,
-    "image_quality_tile": 55,
-    "image_quality_card": 60,
-    "image_quality_hero": 72,
-    "image_quality_viewer": 70,
-    "image_quality_prose": 65,
-    "image_quality_full": 90,
+    "image_quality_thumb": 45,
+    "image_quality_tile": 50,
+    "image_quality_card": 55,
+    "image_quality_hero": 67,
+    "image_quality_viewer": 65,
+    "image_quality_prose": 60,
+    "image_quality_full": 70,
 
     # Object storage ---------------------------------------------------------
     # R2-oriented S3-compatible object storage. Values are written from the
