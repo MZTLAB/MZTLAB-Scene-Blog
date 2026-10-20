@@ -30,25 +30,42 @@ export function initQualityDialog(
   const range = root.querySelector<HTMLInputElement>('[data-quality-range]');
   const number = root.querySelector<HTMLInputElement>('[data-quality-number]');
   const hint = root.querySelector<HTMLElement>('[data-quality-hint]');
+  const modeHint = root.querySelector<HTMLElement>('[data-quality-mode-hint]');
+  const auto = root.querySelector<HTMLInputElement>('[data-quality-auto]');
   const regenerate = root.querySelector<HTMLButtonElement>('[data-quality-regenerate]');
 
   let current: MediaItem | null = null;
   let saving = false;
+  let autoMode = true;
 
-  const sceneHint = (quality: number) => {
-    if (quality === 0) return '当前继承全局场景质量。';
+  const qualityHint = (quality: number) => {
     if (quality <= 40) return '偏省流量，适合缩略图 / 背景图。';
     if (quality <= 60) return '日常推荐区间，细节与体积平衡。';
     if (quality <= 80) return '偏高画质，适合首屏或大幅输出。';
     return '接近无损，文件会明显变大。';
   };
 
+  const setMode = (nextAuto: boolean) => {
+    autoMode = nextAuto;
+    if (auto) auto.checked = autoMode;
+    if (range) range.disabled = autoMode;
+    if (number) number.disabled = autoMode;
+    if (modeHint) {
+      modeHint.textContent = autoMode
+        ? '按各场景设置分别编码：缩略 / 网格 / 卡片 / 首屏 / 大图 / 正文 / 全屏。'
+        : '仅这张图使用下面的手动数值，不影响其他图片。';
+    }
+    const quality = Number(number?.value) || 62;
+    if (output) output.textContent = autoMode ? 'AUTO' : String(quality);
+    if (hint) hint.textContent = autoMode ? '自动模式：全屏等大尺寸也使用场景质量。' : qualityHint(quality);
+  };
+
   const setValue = (value: number) => {
-    const quality = Math.max(0, Math.min(100, Math.round(Number.isFinite(value) ? value : 0)));
+    const quality = Math.max(1, Math.min(100, Math.round(Number.isFinite(value) ? value : 62)));
     if (range) range.value = String(quality);
     if (number) number.value = String(quality);
-    if (output) output.textContent = quality === 0 ? 'AUTO' : String(quality);
-    if (hint) hint.textContent = sceneHint(quality);
+    if (output) output.textContent = autoMode ? 'AUTO' : String(quality);
+    if (hint && !autoMode) hint.textContent = qualityHint(quality);
   };
 
   const close = () => {
@@ -63,10 +80,12 @@ export function initQualityDialog(
       const item = await api<MediaItem>(`/api/admin/media/${mediaId}`);
       current = item;
       if (title) title.textContent = `图片画质 · ${item.original_name || item.filename}`;
-      setValue(Number(item.avif_quality) || 0);
+      autoMode = item.avif_quality_auto !== false;
+      setValue(Number(item.avif_quality) || 62);
+      setMode(autoMode);
       root.classList.add('is-open');
       document.body.style.overflow = 'hidden';
-      range?.focus();
+      (autoMode ? auto : range)?.focus();
     } catch (error) {
       toast(errorMessage(error), 'error');
     }
@@ -74,6 +93,10 @@ export function initQualityDialog(
 
   range?.addEventListener('input', () => setValue(Number(range.value)));
   number?.addEventListener('input', () => setValue(Number(number.value)));
+  auto?.addEventListener('change', () => {
+    setValue(Number(number?.value) || 62);
+    setMode(Boolean(auto.checked));
+  });
 
   root.querySelectorAll<HTMLElement>('[data-close-quality]').forEach((button) => {
     button.addEventListener('click', () => close());
@@ -90,16 +113,22 @@ export function initQualityDialog(
     if (!current || saving) return;
     saving = true;
     const mediaId = current.id;
-    const quality = Math.max(0, Math.min(100, Number(number?.value) || 0));
+    const quality = Math.max(1, Math.min(100, Math.round(Number(number?.value) || 62)));
     try {
       // `alt` is required by the endpoint; send the current value so a quality
       // edit never clears the alternative text.
       await api(`/api/admin/media/${mediaId}`, {
         method: 'PUT',
-        body: { alt: current.alt, avif_quality: quality },
+        body: {
+          alt: current.alt,
+          avif_quality_auto: autoMode,
+          avif_quality: quality,
+        },
       });
       toast(
-        quality === 0 ? '已恢复为继承场景质量，正在后台重新生成' : `画质已设为 ${quality}，正在后台重新生成`,
+        autoMode
+          ? '已切换为自动质量，正在后台重新生成'
+          : `已设为手动质量 ${quality}，正在后台重新生成`,
         'success',
       );
       close();

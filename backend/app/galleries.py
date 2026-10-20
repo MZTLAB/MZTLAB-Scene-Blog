@@ -37,7 +37,9 @@ _PHOTO_COLUMNS = """
     ph.allow_download,
     g.title AS gallery_title, g.slug AS gallery_slug,
     m.exif AS media_exif, m.size AS media_size, m.mime AS media_mime,
-    m.avif_quality AS media_avif_quality, m.ready_hash AS media_ready_hash,
+    m.avif_quality AS media_avif_quality,
+    m.avif_quality_auto AS media_avif_quality_auto,
+    m.ready_hash AS media_ready_hash,
     m.width AS media_width, m.height AS media_height,
     m.original_name AS media_original_name
 """
@@ -113,7 +115,8 @@ def photo_dict(
         "size": data.get("media_size") or 0,
         "width": data.get("media_width") or width,
         "height": data.get("media_height") or height,
-        "avif_quality": data.get("media_avif_quality") or 0,
+        "avif_quality": data.get("media_avif_quality") or 55,
+        "avif_quality_auto": data.get("media_avif_quality_auto", 1),
         "ready_hash": data.get("media_ready_hash") or "",
     }
     filename = data["filename"]

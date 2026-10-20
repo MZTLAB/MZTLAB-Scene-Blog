@@ -488,6 +488,8 @@ export interface MediaItem {
   image?: ImageInfo | null;
   /** Per-image AVIF quality override; 0 inherits the scene setting. */
   avif_quality?: number;
+  /** True (default) = follow per-scene quality; false = use avif_quality. */
+  avif_quality_auto?: boolean;
 }
 
 export interface Stats {

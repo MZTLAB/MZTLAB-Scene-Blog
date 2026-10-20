@@ -18,7 +18,7 @@ from typing import Any, Iterator
 from .config import DB_PATH
 from .defaults import default_settings
 
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 11
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -130,10 +130,11 @@ CREATE TABLE IF NOT EXISTS media (
     uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
     owner_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
     exif          TEXT NOT NULL DEFAULT '',
-    -- Image pipeline: per-image AVIF quality override (0 = inherit the scene
-    -- setting), a dominant-colour placeholder and the hash of the derivative
-    -- set that is already generated (enables direct object-storage URLs).
-    avif_quality  INTEGER NOT NULL DEFAULT 0,
+    -- Image pipeline: whether AVIF quality is decided per scene (automatic)
+    -- or by the manual `avif_quality` value, plus a dominant-colour placeholder
+    -- and the hash of the derivative set that is already generated.
+    avif_quality       INTEGER NOT NULL DEFAULT 55,
+    avif_quality_auto  INTEGER NOT NULL DEFAULT 1,
     placeholder   TEXT NOT NULL DEFAULT '',
     ready_hash    TEXT NOT NULL DEFAULT '',
     created_at    TEXT NOT NULL
@@ -267,6 +268,10 @@ def init_db() -> None:
             _backfill_owners(conn)
             _backfill_media_exif(conn)
         _ensure_default_settings(conn)
+        if version < 10:
+            _migrate_avif_quality_auto(conn)
+        if version < 11:
+            _migrate_quality_defaults(conn)
         _migrate_scene(conn)
         _migrate_mono(conn)
         _migrate_scene_v22(conn)
@@ -306,7 +311,8 @@ _ADDED_COLUMNS: dict[str, dict[str, str]] = {
     "media": {
         "owner_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
         "exif": "TEXT NOT NULL DEFAULT ''",
-        "avif_quality": "INTEGER NOT NULL DEFAULT 0",
+        "avif_quality": "INTEGER NOT NULL DEFAULT 55",
+        "avif_quality_auto": "INTEGER NOT NULL DEFAULT 1",
         "placeholder": "TEXT NOT NULL DEFAULT ''",
         "ready_hash": "TEXT NOT NULL DEFAULT ''",
     },
@@ -331,6 +337,47 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
         "UPDATE media SET owner_id = uploaded_by "
         "WHERE owner_id IS NULL AND uploaded_by IS NOT NULL"
     )
+
+
+def _migrate_avif_quality_auto(conn: sqlite3.Connection) -> None:
+    """`avif_quality = 0` used to mean "inherit the scene quality".
+
+    schema 10 replaces that sentinel with the explicit `avif_quality_auto`
+    flag: an old override above 0 becomes manual, everything else automatic,
+    and the manual column is normalised to a valid 1-100 value.
+    """
+    conn.execute(
+        "UPDATE media SET avif_quality_auto = "
+        "CASE WHEN avif_quality BETWEEN 1 AND 100 THEN 0 ELSE 1 END"
+    )
+    conn.execute(
+        "UPDATE media SET avif_quality = 55 "
+        "WHERE avif_quality IS NULL OR avif_quality < 1 OR avif_quality > 100"
+    )
+
+
+def _migrate_quality_defaults(conn: sqlite3.Connection) -> None:
+    """Raise the default AVIF quality for the large/full scenes.
+
+    The first pipeline release used q62 for `hero`/`full`, which looked soft
+    when a 6K file is viewed at 100%. Only untouched defaults are rewritten so
+    hand-tuned quality settings survive the upgrade.
+    """
+    upgrades = {
+        "image_quality_thumb": (45, 50),
+        "image_quality_tile": (50, 55),
+        "image_quality_card": (55, 60),
+        "image_quality_prose": (58, 65),
+        "image_quality_viewer": (58, 70),
+        "image_quality_hero": (62, 72),
+        "image_quality_full": (62, 90),
+    }
+    now = now_iso()
+    for key, (old, new) in upgrades.items():
+        conn.execute(
+            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ? AND value = ?",
+            (json.dumps(new), now, key, json.dumps(old)),
+        )
 
 
 def _backfill_owners(conn: sqlite3.Connection) -> None:

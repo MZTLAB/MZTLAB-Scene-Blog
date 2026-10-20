@@ -176,7 +176,7 @@ if (root) {
             const altPlaceholder = audio ? '音频标题 / 描述' : file ? '文件描述' : '图片替代文字（alt）';
             const qualityLabel =
               !audio && !file
-                ? `<span class="media-card__quality">AVIF ${Number(item.avif_quality) || 'AUTO'}</span>`
+                ? `<span class="media-card__quality">AVIF ${item.avif_quality_auto === false ? Number(item.avif_quality) || 62 : 'AUTO'}</span>`
                 : '';
             return `<article class="media-card" id="media-${item.id}">
               ${preview}

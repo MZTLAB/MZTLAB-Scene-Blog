@@ -4190,6 +4190,27 @@ html[data-theme="scene"] input[type="range"]::-moz-range-thumb {
   gap: 10px;
 }
 
+.quality-dialog__mode {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+}
+
+.quality-dialog__mode .hint {
+  margin: 0;
+  font-size: 9.5px;
+  line-height: 1.6;
+  color: var(--ink-faint);
+}
+
+.quality-dialog__range:disabled,
+.quality-dialog__row input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .quality-dialog__value output {
   min-width: 74px;
   font-family: var(--font-display);

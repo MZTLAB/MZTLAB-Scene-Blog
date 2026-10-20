@@ -539,12 +539,29 @@ def update_media(
         conn.execute(
             "UPDATE media SET alt = ? WHERE id = ?", (payload.alt, media_id)
         )
-        if payload.avif_quality is not None and is_image_row(row):
+        if is_image_row(row) and (
+            payload.avif_quality_auto is not None or payload.avif_quality is not None
+        ):
+            # Explicit auto/manual switch: `avif_quality` is only meaningful in
+            # manual mode, so always keep a valid 1-100 value in the column.
+            auto = (
+                (1 if payload.avif_quality_auto else 0)
+                if payload.avif_quality_auto is not None
+                else int(row["avif_quality_auto"] or 0)
+            )
+            manual = (
+                payload.avif_quality
+                if payload.avif_quality is not None
+                else int(row["avif_quality"] or 0)
+            )
+            if not 1 <= int(manual or 0) <= 100:
+                manual = 55
             # A changed quality produces a new URL token; drop the "ready" mark
             # so the API falls back to proxy URLs until the new set is built.
             conn.execute(
-                "UPDATE media SET avif_quality = ?, ready_hash = '' WHERE id = ?",
-                (payload.avif_quality, media_id),
+                """UPDATE media SET avif_quality_auto = ?, avif_quality = ?,
+                          ready_hash = '' WHERE id = ?""",
+                (auto, int(manual), media_id),
             )
             if load_settings_cached().get("image_prewarm", True):
                 background.add_task(prewarm_media, media_id)

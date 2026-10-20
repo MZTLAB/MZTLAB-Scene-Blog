@@ -1705,7 +1705,8 @@ docker compose logs -f backend
 | `image_avif_speed` | 6 | 0 最慢 / 10 最快 |
 | `image_widths` | `720,2560` | 小图 / 大图阶梯；原图始终是 `full` 档 |
 | `image_max_width` | 0 | 0 = full 使用原图尺寸 |
-| `image_quality_{thumb,tile,card,hero,viewer,prose,full}` | 45/50/55/62/58/58/62 | 按场景 AVIF 质量 |
+| `image_quality_{thumb,tile,card,hero,viewer,prose,full}` | 50/55/60/72/70/65/90 | 按场景 AVIF 质量（自动模式的来源；全屏场景默认 90，避免原尺寸观感发软） |
+| 单图覆盖 | 自动（默认）/ 手动 | `media.avif_quality_auto` + `media.avif_quality`（1–100）；没有用 0 表示自动的约定 |
 | `image_webp_quality` / `image_jpeg_quality` | 80 / 82 | 兜底格式质量 |
 | `image_prewarm` / `image_lazy_enabled` | true | 上传后预热 / 懒加载 |
 | `storage_backend` | `local` | `local` / `s3` |
@@ -1738,6 +1739,6 @@ docker compose logs -f backend
 
 ---
 
-*本文档基于仓库当前代码整理（`2.3.0` / schema `9`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
+*本文档基于仓库当前代码整理（`2.3.0` / schema `11`）。修改代码后，请同步更新对应章节，尤其是第 4.10、5.5、7、8 节中的行号与路径。*
 
 

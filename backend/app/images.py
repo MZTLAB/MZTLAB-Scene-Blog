@@ -40,7 +40,7 @@ from .storage import (
 
 logger = logging.getLogger("mztlab.images")
 
-PIPELINE_VERSION = 1
+PIPELINE_VERSION = 2
 SCENES = ("thumb", "tile", "card", "hero", "viewer", "prose", "full")
 SMALL_SCENES = frozenset({"thumb", "tile", "card"})
 LARGE_SCENES = frozenset({"hero", "viewer"})
@@ -117,12 +117,29 @@ def scene_quality(scene: str, settings: dict[str, Any]) -> int:
     return max(1, min(100, value))
 
 
-def quality_for(scene: str, fmt: str, settings: dict[str, Any]) -> int:
+def media_quality_override(media_row: Any) -> int | None:
+    """Manual AVIF quality for one image, or None when it follows the scenes."""
+    if media_row is None:
+        return None
+    auto = int(_field(media_row, "avif_quality_auto", 1) or 0)
+    if auto:
+        return None
+    quality = int(_field(media_row, "avif_quality", 0) or 0)
+    return quality if 1 <= quality <= 100 else None
+
+
+def quality_for(
+    scene: str,
+    fmt: str,
+    settings: dict[str, Any],
+    media_row: Any = None,
+) -> int:
     if fmt == "webp":
         return max(1, min(100, _int_setting(settings, "image_webp_quality", 80)))
     if fmt == "jpeg":
         return max(1, min(100, _int_setting(settings, "image_jpeg_quality", 82)))
-    return scene_quality(scene, settings)
+    override = media_quality_override(media_row)
+    return override if override is not None else scene_quality(scene, settings)
 
 
 def full_width(settings: dict[str, Any], original: int) -> int:
@@ -186,12 +203,14 @@ def variants_hash(row: Any, settings: dict[str, Any]) -> str:
     every generated URL changes with it and stale CDN entries are never served.
     """
     orig = int(_field(row, "width", 0) or 0)
+    manual_quality = media_quality_override(row)
     parts = [
         str(PIPELINE_VERSION),
         str(_field(row, "id", 0)),
         str(_field(row, "filename", "")),
         str(_field(row, "size", 0)),
-        str(_field(row, "avif_quality", 0) or 0),
+        str(_field(row, "avif_quality_auto", 1) or 0),
+        str(manual_quality if manual_quality is not None else "auto"),
         ",".join(str(w) for w in width_ladder(settings)),
         str(full_width(settings, orig or 1)),
         ",".join(f"{scene}:{scene_quality(scene, settings)}" for scene in SCENES),
@@ -414,7 +433,7 @@ def ensure_derivative(
             source = storage.read(str(_field(media_row, "filename", "")))
         except StorageMissing as error:
             raise SkipDerivative("original file is missing") from error
-        quality = quality_for(scene, fmt, settings)
+        quality = quality_for(scene, fmt, settings, media_row)
         speed = max(0, min(10, _int_setting(settings, "image_avif_speed", 6)))
         image = _load_source(source, width)
         try:

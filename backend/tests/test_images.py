@@ -45,10 +45,26 @@ class LadderTests(unittest.TestCase):
         self.assertEqual(images.scene_widths("hero", 6000, settings), [2560])
 
     def test_per_scene_quality_override(self):
-        settings = settings_with(image_quality_tile=35)
+        settings = settings_with(image_quality_tile=35, image_quality_hero=62)
         self.assertEqual(images.scene_quality("tile", settings), 35)
         self.assertEqual(images.scene_quality("hero", settings), 62)
         self.assertEqual(images.scene_quality("tile", settings_with(image_quality_tile=500)), 100)
+
+    def test_manual_quality_switch_overrides_scene_quality(self):
+        settings = settings_with(image_quality_tile=50, image_webp_quality=77)
+        manual = {"avif_quality_auto": 0, "avif_quality": 33}
+        auto = {"avif_quality_auto": 1, "avif_quality": 33}
+        self.assertEqual(images.quality_for("tile", "avif", settings, manual), 33)
+        self.assertEqual(images.quality_for("hero", "avif", settings, manual), 33)
+        self.assertEqual(images.quality_for("tile", "avif", settings, auto), 50)
+        # WebP/JPEG always use their global quality, whatever the override says.
+        self.assertEqual(images.quality_for("tile", "webp", settings, manual), 77)
+        self.assertIsNone(images.media_quality_override(auto))
+        self.assertEqual(images.media_quality_override(manual), 33)
+        # A malformed stored value falls back to the scene setting.
+        self.assertIsNone(
+            images.media_quality_override({"avif_quality_auto": 0, "avif_quality": 0})
+        )
 
 
 class PayloadTests(unittest.TestCase):
@@ -60,7 +76,8 @@ class PayloadTests(unittest.TestCase):
             "size": 1_000_000,
             "width": 6000,
             "height": 4000,
-            "avif_quality": 0,
+            "avif_quality": 55,
+            "avif_quality_auto": 1,
             "ready_hash": "",
         }
         row.update(overrides)
@@ -93,7 +110,12 @@ class PayloadTests(unittest.TestCase):
         self.assertEqual(base, images.variants_hash(row, settings_with()))
         self.assertNotEqual(base, images.variants_hash(row, settings_with(image_quality_full=40)))
         self.assertNotEqual(base, images.variants_hash(row, settings_with(image_widths="640,1920")))
-        self.assertNotEqual(base, images.variants_hash(self._row(avif_quality=70), settings_with()))
+        manual = self._row(avif_quality_auto=0, avif_quality=70)
+        self.assertNotEqual(base, images.variants_hash(manual, settings_with()))
+        self.assertNotEqual(
+            images.variants_hash(manual, settings_with()),
+            images.variants_hash(self._row(avif_quality_auto=0, avif_quality=60), settings_with()),
+        )
 
     def test_url_helpers(self):
         settings = settings_with(image_widths="720,2560")

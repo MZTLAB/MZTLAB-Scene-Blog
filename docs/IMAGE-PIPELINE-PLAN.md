@@ -1,7 +1,7 @@
 # 图片加载优化实现方案
 
 > 状态：**待评审**（本文只描述方案，尚未改代码）
-> 目标版本：`2.3.0` / schema `9`
+> 目标版本：`2.3.0` / schema `11`
 > 关联需求：AVIF 编码 + 手动质量控制 · 按场景动态分辨率 · 可选 S3 兼容对象存储
 
 ---
@@ -89,8 +89,9 @@ API 序列化（media / photo / post cover / site hero）
 
 ```python
 "media": {
-    # 0 = 继承全局设置；1-100 = 该图单独指定 AVIF 质量
-    "avif_quality": "INTEGER NOT NULL DEFAULT 0",
+    # 自动 / 手动开关（schema 10 起不再用 0 表示自动）
+    "avif_quality_auto": "INTEGER NOT NULL DEFAULT 1",
+    "avif_quality": "INTEGER NOT NULL DEFAULT 55",
     # 派生图管线版本：编码参数/实现变更时 +1，强制全站换 URL
     "pipeline_version": "INTEGER NOT NULL DEFAULT 1",
     # 主色占位（"#rrggbb"），可选 LQIP，无额外依赖
@@ -134,7 +135,7 @@ DEFAULT_WIDTHS = (320, 480, 720, 960, 1440, 1920)
 
 **质量来源优先级**（逐级覆盖）：
 
-1. 单图 `media.avif_quality`（1-100，0 表示不覆盖）
+1. 单图手动模式 `media.avif_quality`（1-100）；自动模式使用场景设置
 2. 全局设置 `image_avif_quality`
 3. 硬编码默认 55
 
@@ -197,7 +198,7 @@ docker run --rm mztlab-backend python -c "from PIL import features; assert featu
 **手动控制质量的三层入口**：
 
 1. 后台「设置 → 图片」滑杆（全局，保存后 URL 哈希变化 → 全站重新生成）。
-2. 媒体库单图覆盖：`PUT /api/admin/media/{id}` 扩展 `MediaAltIn`，新增 `avif_quality: int = 0`（0=继承）。
+2. 媒体库单图覆盖：`PUT /api/admin/media/{id}` 扩展 `MediaAltIn`，新增自动/手动开关与手动数值。
 3. 预览调参（可选，Phase 4）：`GET /api/admin/media/{id}/preview?quality=45&width=960` 返回一张即时编码的图，后台滑块旁显示预览与体积，满意再保存（预览结果走 `no-store`，不落库）。
 
 ### 3.3 派生图 URL 与生成（核心）
