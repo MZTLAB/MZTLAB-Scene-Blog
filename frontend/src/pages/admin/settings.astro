@@ -15,7 +15,7 @@ const user = guard;
   <div class="settings-layout" data-settings-page>
     <nav class="settings-nav" aria-label="设置分类">
       <button type="button" class="is-active" data-settings-tab="general">常规</button>
-      <button type="button" data-settings-tab="reading">阅读与评论</button>
+      <button type="button" data-settings-tab="reading">阅读</button>
       <button type="button" data-settings-tab="uploads">上传与媒体</button>
       <button type="button" data-settings-tab="images">图片与存储</button>
       <button type="button" data-settings-tab="team">协作与权限</button>
@@ -71,7 +71,7 @@ const user = guard;
 
       <section class="settings-panel" data-settings-panel="reading">
         <div class="admin-page-intro">
-          <div><h2>阅读与评论</h2><p>控制文章列表密度、元信息与留言行为。</p></div>
+          <div><h2>阅读</h2><p>控制文章列表密度与元信息。</p></div>
         </div>
         <div class="admin-card">
           <div class="admin-card__body">
@@ -87,26 +87,6 @@ const user = guard;
               <div class="setting-row__label"><strong>显示作者</strong><span>文章页署名与头像。</span></div>
               <label class="switch" data-switch><input type="checkbox" data-setting="show_author" hidden /><span></span></label>
             </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>显示阅读量</strong><span>在首页卡片与文章页显示。</span></div>
-              <label class="switch" data-switch><input type="checkbox" data-setting="show_views" hidden /><span></span></label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>开启评论</strong><span>关闭后文章下方与后台都将停止接收留言。</span></div>
-              <label class="switch" data-switch><input type="checkbox" data-setting="comments_enabled" hidden /><span></span></label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>留言审核</strong><span>开启后新留言默认待审核。</span></div>
-              <label class="switch" data-switch><input type="checkbox" data-setting="comment_moderation" hidden /><span></span></label>
-            </div>
-          </div>
-        </div>
-        <div class="admin-card" style="margin-top:16px">
-          <div class="admin-card__body">
-            <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7">
-              评论没有引入第三方服务。数据存放在本地 SQLite 的 comments 表中，删除文章时会一并删除。
-              如果站点公开在互联网上，建议在反向代理层启用限流。
-            </p>
           </div>
         </div>
       </section>
@@ -278,15 +258,8 @@ const user = guard;
               </div>
             </div>
             <div class="setting-row">
-              <div class="setting-row__label"><strong>Access Key ID</strong><span>R2 API 令牌的 Access Key ID。</span></div>
-              <div class="a-field"><input type="text" maxlength="200" data-setting="storage_s3_access_key" autocomplete="off" /></div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>Secret Access Key</strong><span>只保存在服务器；留空表示保持原值不变。</span></div>
-              <div class="a-field">
-                <input type="password" maxlength="400" data-setting="storage_s3_secret_key" autocomplete="new-password" data-secret placeholder="留空则不修改" />
-                <p class="hint" data-secret-hint></p>
-              </div>
+              <div class="setting-row__label"><strong>访问密钥</strong><span>Access Key / Secret Key 只从服务端环境变量读取（BLOG_S3_ACCESS_KEY / BLOG_S3_SECRET_KEY），不再写入数据库，也不在后台提供输入框。</span></div>
+              <div class="a-field"><p class="hint" data-storage-secrets>—</p></div>
             </div>
             <div class="setting-row">
               <div class="setting-row__label"><strong>对象前缀 / 路径风格</strong><span>同一桶多站点时用前缀区分；MinIO 通常开启路径风格。</span></div>
@@ -345,7 +318,7 @@ const user = guard;
             <div class="setting-row">
               <div class="setting-row__label">
                 <strong>编辑可管理他人内容</strong>
-                <span>开启（默认）时，编辑可以查看并管理所有成员的文章 / 相册与媒体；关闭后只能编辑、删除自己的内容（评论审核、分类与导出不受影响）。</span>
+                <span>开启（默认）时，编辑可以查看并管理所有成员的文章 / 相册与媒体；关闭后只能编辑、删除自己的内容（分类与导出不受影响）。</span>
               </div>
               <label class="switch" data-switch><input type="checkbox" data-setting="editor_manage_others" hidden /><span></span></label>
             </div>
@@ -354,7 +327,7 @@ const user = guard;
         <div class="admin-card" style="margin-top:16px">
           <div class="admin-card__body">
             <p style="color:var(--ink-faint);font-size:9.5px;line-height:1.7">
-              所有权规则：文章 / 页面与相册记录 <code>author_id</code>，媒体记录 <code>owner_id</code>。
+              所有权规则：文章 / 页面 / 项目与相册统一记录 <code>owner_id</code>，媒体记录 <code>owner_id</code>。
               越权请求由后端返回 403；关闭上面的开关后，后台列表只会显示当前成员自己的内容。
             </p>
           </div>

@@ -1674,61 +1674,6 @@ html[data-color-mode="dark"] .badge--pending {
   outline: 0;
 }
 
-/* Comments ----------------------------------------------------------------- */
-
-.comment-admin-list {
-  display: flex;
-  flex-direction: column;
-}
-
-.comment-admin-item {
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) auto;
-  gap: 13px;
-  padding: 17px 20px;
-  border-bottom: 1px solid var(--line);
-}
-
-.comment-admin-item:last-child {
-  border-bottom: 0;
-}
-
-.comment-admin-item__body {
-  min-width: 0;
-}
-
-.comment-admin-item__meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-}
-
-.comment-admin-item__meta strong {
-  font-size: 11.5px;
-  font-weight: 600;
-}
-
-.comment-admin-item__meta span {
-  color: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 8px;
-}
-
-.comment-admin-item p {
-  margin-top: 6px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-
-.comment-admin-item__actions {
-  display: flex;
-  align-items: flex-start;
-  gap: 4px;
-}
-
 /* Taxonomy ---------------------------------------------------------------- */
 
 .taxonomy-grid {
@@ -2838,15 +2783,6 @@ input[type="range"]::-moz-range-thumb {
 
   .admin-search input {
     width: 100%;
-  }
-
-  .comment-admin-item {
-    grid-template-columns: 32px minmax(0, 1fr);
-  }
-
-  .comment-admin-item__actions {
-    grid-column: 2;
-    margin-top: 8px;
   }
 
   .media-grid {

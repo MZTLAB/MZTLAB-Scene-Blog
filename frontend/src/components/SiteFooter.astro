@@ -2,13 +2,14 @@
 import Icon from './Icon.astro';
 import type { SiteInfo } from '../types';
 import { appConfig } from '../config';
+import { copyReader } from '../lib/site';
 
 interface Props {
   site: SiteInfo;
 }
 
 const { site } = Astro.props;
-const settings = site.settings;
+const settings = site.settings.site;
 const social = settings.social || [];
 const defaultFooterLinks = [
   { label: '影像', url: '/photos' },
@@ -23,10 +24,7 @@ const footerLinks =
     : defaultFooterLinks;
 const year = appConfig.footerYear;
 const markSrc = settings.favicon || '/favicon.svg';
-const copy = (key: keyof typeof settings, fallback: string) => {
-  const value = settings[key];
-  return typeof value === 'string' && value.trim() ? value : fallback;
-};
+const copy = copyReader(site.settings);
 
 function iconFor(label: string, url: string): string {
   const value = `${label} ${url}`.toLowerCase();
@@ -88,7 +86,7 @@ function iconFor(label: string, url: string): string {
     <span>© {year} {settings.site_title} · {settings.footer_note || 'SCENE'}</span>
     <span>
       {settings.icp && <span>{settings.icp} · </span>}
-      <a class="back-to-top" href="#top">{copy('copy_back_to_top', '回到顶部')} <Icon name="arrowUp" size={12} /></a>
+      <a class="back-to-top" href="#top">{copy('back_to_top', '回到顶部')} <Icon name="arrowUp" size={12} /></a>
     </span>
   </div>
 </footer>

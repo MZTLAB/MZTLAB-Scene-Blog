@@ -1,25 +1,31 @@
-"""First-run demo content for the Scene theme.
+"""First-run demo content for the Scene theme (3.0.0).
 
-The demo is deliberately small: three articles, one about page and three photo
-galleries. Gallery images are generated as flat colour studies so a fresh
-clone has something to look at without shipping binary assets in the repo.
+Demo content is explicit opt-in: it is only written when `BLOG_SEED_DEMO=true`.
+The demo is deliberately small: three articles, four projects, one about page
+and three photo galleries. Gallery images are generated as flat colour studies
+so a fresh clone has something to look at without shipping binary assets.
 
-Delete anything from the admin and it stays deleted. To start empty, set
-`BLOG_SEED_DEMO=false` before the first launch.
+Seeding is idempotent and all-or-nothing. Every row carries a NOT NULL
+`owner_id`, so seeding only starts once an account exists (the setup page calls
+it again after the first account is created) and stops as soon as any content
+already exists. Delete anything from the admin and it stays deleted.
 """
 
 from __future__ import annotations
 
 import io
+import json
+import logging
 import sqlite3
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from .config import SEED_DEMO, UPLOAD_DIR
-from .content import make_excerpt, render_markdown, slugify
+from .content import extract_toc, make_excerpt, reading_time, render_markdown, slugify
 from .db import db, now_iso
 from .exif import dump_exif, read_exif_bytes
+
+logger = logging.getLogger("mztlab.seed")
 
 CATEGORIES = {
     "影像": ("photography", "光、结构与日常画面。"),
@@ -40,7 +46,6 @@ ARTICLES: list[dict[str, Any]] = [
         "tags": ["自然光", "工作方法", "色彩"],
         "featured": 1,
         "days_ago": 3,
-        "views": 148,
         "excerpt": "取景框不是画框。按下快门之前，真正发生的事情是选择：放弃什么，留下什么。",
         "content": """\
 ## 先减法，再构图
@@ -76,7 +81,6 @@ ARTICLES: list[dict[str, Any]] = [
         "tags": ["工作方法", "室内", "结构"],
         "featured": 0,
         "days_ago": 16,
-        "views": 96,
         "excerpt": "关于工作台的整理、文件的命名、以及为什么我最后只留了三支镜头。",
         "content": """\
 ## 桌面是第一张照片
@@ -112,7 +116,6 @@ YYYY-MM-DD_location_subject_vNN
         "tags": ["城市", "自然光", "田野"],
         "featured": 0,
         "days_ago": 34,
-        "views": 233,
         "excerpt": "HABITAT 拍摄了四十天。这篇笔记记录方法、失误，以及一次被保安请出去的下午。",
         "content": """\
 ## 一次关于居所的观察
@@ -167,7 +170,6 @@ PROJECTS: list[dict[str, Any]] = [
         "url": "https://github.com/",
         "featured": 1,
         "days_ago": 6,
-        "views": 87,
         "excerpt": "一个刻意保持小的博客系统：Astro 负责页面，FastAPI + SQLite 负责内容与权限。",
         "content": """\
 ## 要解决的问题
@@ -201,7 +203,6 @@ PROJECTS: list[dict[str, Any]] = [
         "url": "",
         "featured": 0,
         "days_ago": 40,
-        "views": 132,
         "excerpt": "把照片、项目与文字放进同一组等宽列里，让三种工作获得同等的注意力。",
         "content": """\
 ## 问题
@@ -236,7 +237,6 @@ PROJECTS: list[dict[str, Any]] = [
         "url": "https://github.com/",
         "featured": 0,
         "days_ago": 90,
-        "views": 64,
         "excerpt": "在户外用一个命令记下时间、位置与一段文字，回到工作室自动整理成 Markdown。",
         "content": """\
 ## 背景
@@ -269,7 +269,6 @@ fieldnote "下午四点的侧面光" --tag light --tag studio
         "url": "",
         "featured": 0,
         "days_ago": 18,
-        "views": 41,
         "excerpt": "一部关于清晨光线的短片。这里只放文字介绍，影像本身在别处放映。",
         "content": """\
 ## 说明
@@ -363,57 +362,116 @@ def _iso(days_ago: int) -> str:
     )
 
 
+def _has_content(conn: sqlite3.Connection) -> bool:
+    """True when any authorizable content row already exists."""
+    return bool(
+        conn.execute("SELECT 1 FROM posts LIMIT 1").fetchone()
+        or conn.execute("SELECT 1 FROM galleries LIMIT 1").fetchone()
+    )
+
+
+def _first_owner_id(conn: sqlite3.Connection) -> int | None:
+    """Prefer the first administrator, otherwise the first account."""
+    row = conn.execute(
+        "SELECT id FROM users ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id LIMIT 1"
+    ).fetchone()
+    return int(row["id"]) if row else None
+
+
+def _seed_taxonomy(conn: sqlite3.Connection) -> tuple[dict[str, int], dict[str, int]]:
+    """Create the demo categories/tags in `taxonomy_terms` (idempotent)."""
+    created_at = now_iso()
+    category_ids: dict[str, int] = {}
+    for name, (slug, description) in CATEGORIES.items():
+        row = conn.execute(
+            "SELECT id FROM taxonomy_terms WHERE kind = 'category' AND slug = ?", (slug,)
+        ).fetchone()
+        if row:
+            category_ids[name] = int(row["id"])
+            continue
+        cur = conn.execute(
+            """INSERT INTO taxonomy_terms(kind, name, slug, description, created_at)
+               VALUES ('category', ?, ?, ?, ?)""",
+            (name, slug, description, created_at),
+        )
+        category_ids[name] = int(cur.lastrowid)
+
+    tag_ids: dict[str, int] = {}
+    for name in TAGS:
+        slug = slugify(name)
+        row = conn.execute(
+            "SELECT id FROM taxonomy_terms WHERE kind = 'tag' AND slug = ?", (slug,)
+        ).fetchone()
+        if row:
+            tag_ids[name] = int(row["id"])
+            continue
+        cur = conn.execute(
+            """INSERT INTO taxonomy_terms(kind, name, slug, description, created_at)
+               VALUES ('tag', ?, ?, '', ?)""",
+            (name, slug, created_at),
+        )
+        tag_ids[name] = int(cur.lastrowid)
+    return category_ids, tag_ids
+
+
 def _insert_post(
     conn: sqlite3.Connection,
     entry: dict[str, Any],
-    category_id: int | None,
-    tag_ids: list[int],
     *,
+    owner_id: int,
     post_type: str = "post",
-    author_id: int | None = None,
+    category_id: int | None = None,
+    tag_ids: list[int] | None = None,
 ) -> int:
-    content = entry["content"].strip() + "\n"
+    content_md = str(entry["content"]).strip() + "\n"
+    content_html = render_markdown(content_md)
     published = _iso(int(entry.get("days_ago", 7)))
     cur = conn.execute(
         """INSERT INTO posts(
                type, title, slug, excerpt, content_md, content_html, cover_image,
-               status, featured, allow_comments, author_id, published_at,
-               created_at, updated_at, seo_title, seo_description,
-               project_year, project_role, project_client, project_kind, project_url,
-               view_count
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, ?, '', '',
-                     ?, ?, ?, ?, ?, ?)""",
+               status, published_at, featured, owner_id,
+               reading_time, toc_json, seo_title, seo_description,
+               created_at, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published', ?, ?, ?, ?, ?, '', '', ?, ?)""",
         (
             post_type,
             entry["title"],
             entry["slug"],
-            entry.get("excerpt") or make_excerpt(content),
-            content,
-            render_markdown(content),
+            entry.get("excerpt") or make_excerpt(content_md),
+            content_md,
+            content_html,
             entry.get("cover_image", ""),
+            published,
             1 if entry.get("featured") else 0,
-            0 if post_type in {"page", "project"} else 1,
-            author_id,
+            owner_id,
+            reading_time(content_md),
+            json.dumps(extract_toc(content_html), ensure_ascii=False),
             published,
             published,
-            published,
-            entry.get("year", ""),
-            entry.get("role", ""),
-            entry.get("client", ""),
-            entry.get("kind", ""),
-            entry.get("url", ""),
-            int(entry.get("views", 0)),
         ),
     )
     post_id = int(cur.lastrowid)
+    if post_type == "project":
+        conn.execute(
+            """INSERT INTO project_details(post_id, kind, year, role, client, url)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                post_id,
+                entry.get("kind", ""),
+                entry.get("year", ""),
+                entry.get("role", ""),
+                entry.get("client", ""),
+                entry.get("url", ""),
+            ),
+        )
     if category_id is not None:
         conn.execute(
-            "INSERT OR IGNORE INTO post_categories(post_id, category_id) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO post_terms(post_id, term_id) VALUES (?, ?)",
             (post_id, category_id),
         )
-    for tag_id in tag_ids:
+    for tag_id in tag_ids or []:
         conn.execute(
-            "INSERT OR IGNORE INTO post_tags(post_id, tag_id) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO post_terms(post_id, term_id) VALUES (?, ?)",
             (post_id, tag_id),
         )
     return post_id
@@ -468,44 +526,57 @@ def _draw_study(index: int, palette: dict[str, tuple[int, int, int]], size: tupl
     return image
 
 
-def _seed_galleries(conn: sqlite3.Connection, author_id: int | None) -> None:
-    existing = conn.execute("SELECT COUNT(*) FROM galleries").fetchone()[0]
-    if existing:
-        return
+class _DemoPhoto(TypedDict):
+    """One generated demo photo, fully materialised before the DB transaction."""
 
-    now = now_iso()
-    seed_dir = UPLOAD_DIR / "seed"
-    seed_dir.mkdir(parents=True, exist_ok=True)
+    filename: str
+    original_name: str
+    data: bytes
+    width: int
+    height: int
+    exif: str
+    alt: str
+    title: str
+    caption: str
+    location: str
+    camera: str
+    lens: str
+    taken_at: str
+    featured: bool
+    sort_order: int
+    created_at: str
+
+
+class _DemoGallery(TypedDict):
+    entry: dict[str, Any]
+    created_at: str
+    photos: list[_DemoPhoto]
+
+
+def _lens_mm(lens: object) -> float:
+    digits = "".join(ch for ch in str(lens) if ch.isdigit())
+    return float(digits) if digits else 35.0
+
+
+def _render_demo_photos() -> list[_DemoGallery]:
+    """Draw every demo photo and write the originals to `UPLOAD_DIR`.
+
+    Pillow encoding and file writes are deliberately kept outside the SQLite
+    write transaction (`db()` docs): only the row inserts take the write lock.
+    """
+    from PIL import Image  # local import: Pillow is only needed when seeding
+
+    rendered: list[_DemoGallery] = []
     photo_index = 0
-
     for gallery in GALLERIES:
         palette = _PALETTES[gallery["palette"] % len(_PALETTES)]
-        cur = conn.execute(
-            """INSERT INTO galleries(title, slug, description, status, featured,
-                                     cover_photo_id, author_id, view_count, created_at, updated_at)
-               VALUES (?, ?, ?, 'published', ?, NULL, ?, ?, ?, ?)""",
-            (
-                gallery["title"],
-                gallery["slug"],
-                gallery["description"],
-                1 if gallery["featured"] else 0,
-                author_id,
-                int(gallery.get("views", 0)),
-                _iso(int(gallery["days_ago"])),
-                _iso(int(gallery["days_ago"])),
-            ),
-        )
-        gallery_id = int(cur.lastrowid)
+        created_at = _iso(int(gallery["days_ago"]))
         taken = datetime.now(timezone.utc) - timedelta(days=int(gallery["days_ago"]))
         exif_datetime = taken.strftime("%Y:%m:%d %H:%M:%S")
         taken_date = taken.strftime("%Y-%m-%d")
-        try:
-            lens_mm = float("".join(ch for ch in str(gallery["lens"]) if ch.isdigit()) or 35)
-        except ValueError:
-            lens_mm = 35.0
-
-        cover_photo_id: int | None = None
-        from PIL import Image
+        lens_mm = _lens_mm(gallery["lens"])
+        short_title = str(gallery["title"]).split("/")[0].strip()
+        photos: list[_DemoPhoto] = []
 
         for index in range(int(gallery["count"])):
             size = _SIZES[(photo_index + index) % len(_SIZES)]
@@ -538,21 +609,72 @@ def _seed_galleries(conn: sqlite3.Connection, author_id: int | None) -> None:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
 
+            photos.append(
+                _DemoPhoto(
+                    filename=filename,
+                    original_name=f"{gallery['slug']}-{index + 1:02d}.jpg",
+                    data=data,
+                    width=size[0],
+                    height=size[1],
+                    exif=dump_exif(read_exif_bytes(data)),
+                    alt=f"{gallery['title']} 第 {index + 1} 帧",
+                    title=f"{short_title} {index + 1:02d}",
+                    caption="自然光下的表面与边界。",
+                    location=str(gallery["location"]),
+                    camera=str(gallery["camera"]),
+                    lens=str(gallery["lens"]),
+                    taken_at=taken_date,
+                    featured=index == 0,
+                    sort_order=(index + 1) * 10,
+                    created_at=created_at,
+                )
+            )
+
+        rendered.append(
+            _DemoGallery(entry=gallery, created_at=created_at, photos=photos)
+        )
+        photo_index += len(photos)
+    return rendered
+
+
+def _seed_galleries(
+    conn: sqlite3.Connection, owner_id: int, galleries: list[_DemoGallery]
+) -> None:
+    for item in galleries:
+        entry = item["entry"]
+        created_at = item["created_at"]
+        cur = conn.execute(
+            """INSERT INTO galleries(title, slug, description, status, featured,
+                                     cover_photo_id, owner_id, created_at, updated_at)
+               VALUES (?, ?, ?, 'published', ?, NULL, ?, ?, ?)""",
+            (
+                entry["title"],
+                entry["slug"],
+                entry["description"],
+                1 if entry["featured"] else 0,
+                owner_id,
+                created_at,
+                created_at,
+            ),
+        )
+        gallery_id = int(cur.lastrowid)
+        cover_photo_id: int | None = None
+
+        for photo in item["photos"]:
             media_cur = conn.execute(
                 """INSERT INTO media(filename, original_name, mime, size, width, height,
-                                     alt, uploaded_by, owner_id, exif, created_at)
-                   VALUES (?, ?, 'image/jpeg', ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                     alt, owner_id, exif, created_at)
+                   VALUES (?, ?, 'image/jpeg', ?, ?, ?, ?, ?, ?, ?)""",
                 (
-                    filename,
-                    f"{gallery['slug']}-{index + 1:02d}.jpg",
-                    len(data),
-                    size[0],
-                    size[1],
-                    f"{gallery['title']} 第 {index + 1} 帧",
-                    author_id,
-                    author_id,
-                    dump_exif(read_exif_bytes(data)),
-                    _iso(int(gallery["days_ago"])),
+                    photo["filename"],
+                    photo["original_name"],
+                    len(photo["data"]),
+                    photo["width"],
+                    photo["height"],
+                    photo["alt"],
+                    owner_id,
+                    photo["exif"],
+                    photo["created_at"],
                 ),
             )
             photo_cur = conn.execute(
@@ -563,23 +685,22 @@ def _seed_galleries(conn: sqlite3.Connection, author_id: int | None) -> None:
                 (
                     gallery_id,
                     int(media_cur.lastrowid),
-                    filename,
-                    f"{gallery['title'].split('/')[0].strip()} {index + 1:02d}",
-                    "自然光下的表面与边界。",
-                    gallery["location"],
-                    gallery["camera"],
-                    gallery["lens"],
-                    taken_date,
-                    size[0],
-                    size[1],
-                    1 if index == 0 else 0,
-                    (index + 1) * 10,
-                    _iso(int(gallery["days_ago"])),
+                    photo["filename"],
+                    photo["title"],
+                    photo["caption"],
+                    photo["location"],
+                    photo["camera"],
+                    photo["lens"],
+                    photo["taken_at"],
+                    photo["width"],
+                    photo["height"],
+                    1 if photo["featured"] else 0,
+                    photo["sort_order"],
+                    photo["created_at"],
                 ),
             )
             if cover_photo_id is None:
                 cover_photo_id = int(photo_cur.lastrowid)
-            photo_index += 1
 
         conn.execute(
             "UPDATE galleries SET cover_photo_id = ? WHERE id = ?",
@@ -587,147 +708,91 @@ def _seed_galleries(conn: sqlite3.Connection, author_id: int | None) -> None:
         )
 
 
-DEMO_SEED_VERSION = 5
+def _seed_posts(conn: sqlite3.Connection, owner_id: int) -> None:
+    category_ids, tag_ids = _seed_taxonomy(conn)
+
+    for entry in ARTICLES:
+        _insert_post(
+            conn,
+            entry,
+            owner_id=owner_id,
+            category_id=category_ids.get(entry["category"]),
+            tag_ids=[tag_ids[name] for name in entry["tags"]],
+        )
+
+    # Code/video projects reuse the posts pipeline; their own metadata lives in
+    # `project_details` (class-table inheritance).
+    for entry in PROJECTS:
+        _insert_post(conn, entry, owner_id=owner_id, post_type="project")
+
+    _insert_post(
+        conn,
+        {
+            "title": "关于 MZTLAB",
+            "slug": "about",
+            "excerpt": "影像、项目与文字。",
+            "content": ABOUT_PAGE,
+        },
+        owner_id=owner_id,
+        post_type="page",
+    )
 
 
 def seed_demo_content() -> None:
-    """Idempotent. Runs once per database, tracked by a private setting."""
+    """Seed the opt-in demo content once; safe to call on every startup."""
     if not SEED_DEMO:
         return
+
     with db() as conn:
-        marker = conn.execute(
-            "SELECT value FROM settings WHERE key = 'demo_seed_version'"
-        ).fetchone()
-        if marker is not None:
-            try:
-                seeded_version = int(str(marker["value"]).strip('"'))
-            except (TypeError, ValueError):
-                seeded_version = DEMO_SEED_VERSION
-            if seeded_version >= DEMO_SEED_VERSION:
-                return
+        # `owner_id` is NOT NULL, so demo content can only exist after the first
+        # account. The setup route calls this function again once it is created.
+        if _first_owner_id(conn) is None:
+            logger.info("demo seed deferred: no user account exists yet")
+            return
+        if _has_content(conn):
+            return
 
-        has_articles = conn.execute(
-            "SELECT 1 FROM posts WHERE type = 'post' LIMIT 1"
-        ).fetchone()
-        has_projects = conn.execute(
-            "SELECT 1 FROM posts WHERE type = 'project' LIMIT 1"
-        ).fetchone()
-        has_about = conn.execute(
-            "SELECT 1 FROM posts WHERE type = 'page' AND slug = 'about'"
-        ).fetchone()
+    # Drawing and encoding the demo JPEGs is slow: keep Pillow and disk writes
+    # outside the SQLite write transaction and only insert rows inside it.
+    photo_sets = _render_demo_photos()
 
-        category_ids: dict[str, int] = {}
-        for name, (slug, description) in CATEGORIES.items():
-            row = conn.execute("SELECT id FROM categories WHERE slug = ?", (slug,)).fetchone()
-            if row:
-                category_ids[name] = int(row["id"])
-            else:
-                cur = conn.execute(
-                    "INSERT INTO categories(name, slug, description, created_at) VALUES (?, ?, ?, ?)",
-                    (name, slug, description, now_iso()),
-                )
-                category_ids[name] = int(cur.lastrowid)
-
-        tag_ids: dict[str, int] = {}
-        for name in TAGS:
-            row = conn.execute("SELECT id FROM tags WHERE slug = ?", (slugify(name),)).fetchone()
-            if row:
-                tag_ids[name] = int(row["id"])
-            else:
-                cur = conn.execute(
-                    "INSERT INTO tags(name, slug, description, created_at) VALUES (?, ?, '', ?)",
-                    (name, slugify(name), now_iso()),
-                )
-                tag_ids[name] = int(cur.lastrowid)
-
-        article_ids: list[int] = []
-        if not has_articles:
-            for entry in ARTICLES:
-                article_ids.append(
-                    _insert_post(
-                        conn,
-                        entry,
-                        category_ids.get(entry["category"]),
-                        [tag_ids[name] for name in entry["tags"]],
-                    )
-                )
-        has_comments = conn.execute("SELECT 1 FROM comments LIMIT 1").fetchone()
-        if article_ids and not has_comments:
-            _seed_comments(conn, article_ids[0])
-
-        author_id = _first_admin_id(conn)
-        if not has_projects:
-            for entry in PROJECTS:
-                _insert_post(conn, entry, None, [], post_type="project", author_id=author_id)
-        else:
-            # Projects existed from an earlier demo seed (before the video
-            # project was added). Only fill in the missing one, never duplicate.
-            has_video = conn.execute(
-                "SELECT 1 FROM posts WHERE type = 'project' "
-                "AND project_kind IN ('video', '影像') LIMIT 1"
-            ).fetchone()
-            if not has_video:
-                for entry in PROJECTS:
-                    if entry.get("kind") != "影像":
-                        continue
-                    exists = conn.execute(
-                        "SELECT 1 FROM posts WHERE slug = ?", (entry["slug"],)
-                    ).fetchone()
-                    if not exists:
-                        _insert_post(
-                            conn, entry, None, [], post_type="project", author_id=author_id
-                        )
-
-        if not has_about:
-            entry = {
-                "title": "关于 MZTLAB",
-                "slug": "about",
-                "excerpt": "影像、项目与文字。",
-                "content": ABOUT_PAGE,
-                "views": 0,
-            }
-            _insert_post(conn, entry, None, [], post_type="page")
-
-        _seed_galleries(conn, _first_admin_id(conn))
-
-        conn.execute(
-            """INSERT INTO settings(key, value, updated_at) VALUES ('demo_seed_version', ?, ?)
-               ON CONFLICT(key) DO UPDATE SET value = excluded.value,
-                                              updated_at = excluded.updated_at""",
-            (str(DEMO_SEED_VERSION), now_iso()),
-        )
-
-
-def _first_admin_id(conn: sqlite3.Connection) -> int | None:
-    row = conn.execute(
-        "SELECT id FROM users ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id LIMIT 1"
-    ).fetchone()
-    return int(row["id"]) if row else None
+    with db() as conn:
+        # Re-check inside the transaction: a concurrent process may have seeded
+        # first, and there is deliberately no version marker to coordinate on.
+        if _has_content(conn):
+            return
+        owner_id = _first_owner_id(conn)
+        if owner_id is None:
+            logger.info("demo seed deferred: no user account exists yet")
+            return
+        _seed_posts(conn, owner_id)
+        _seed_galleries(conn, owner_id, photo_sets)
 
 
 def ensure_bootstrap_admin() -> None:
     """Optionally create the first administrator from environment variables.
 
-    This runs independently of demo seeding, so a production deployment can
-    disable demo content and still bootstrap its account from .env / Docker.
+    Runs independently of demo seeding, so a production deployment can disable
+    demo content and still bootstrap its account from .env / Docker. Idempotent:
+    it does nothing once any account exists.
     """
     from .config import BOOTSTRAP_ADMIN_NAME, BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USER
-    from .security import hash_password, logger, password_policy_error
+    from .security import hash_password, password_policy_error
+    from .security import logger as security_logger
 
     if not (BOOTSTRAP_ADMIN_USER and BOOTSTRAP_ADMIN_PASSWORD):
         return
     problem = password_policy_error(BOOTSTRAP_ADMIN_PASSWORD, BOOTSTRAP_ADMIN_USER)
     if problem:
-        logger.warning("bootstrap administrator password is weak: %s", problem)
+        security_logger.warning("bootstrap administrator password is weak: %s", problem)
     now = now_iso()
     with db() as conn:
-        exists = conn.execute("SELECT 1 FROM users LIMIT 1").fetchone()
-        if exists:
+        if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             return
-        cur = conn.execute(
-            """INSERT INTO users(username, password_hash, display_name,
-                                 email, role, is_active, created_at, updated_at)
-               VALUES (?, ?, ?, '', 'admin', 1, ?, ?)""",
+        conn.execute(
+            """INSERT INTO users(username, password_hash, display_name, email,
+                                 bio, avatar, role, is_active, created_at, updated_at)
+               VALUES (?, ?, ?, '', '', '', 'admin', 1, ?, ?)""",
             (
                 BOOTSTRAP_ADMIN_USER.lower(),
                 hash_password(BOOTSTRAP_ADMIN_PASSWORD),
@@ -735,49 +800,4 @@ def ensure_bootstrap_admin() -> None:
                 now,
                 now,
             ),
-        )
-        user_id = int(cur.lastrowid)
-        conn.execute(
-            "UPDATE posts SET author_id = ? WHERE author_id IS NULL", (user_id,)
-        )
-        conn.execute(
-            "UPDATE galleries SET author_id = ? WHERE author_id IS NULL", (user_id,)
-        )
-        conn.execute(
-            "UPDATE media SET uploaded_by = ?, owner_id = ? "
-            "WHERE uploaded_by IS NULL AND owner_id IS NULL",
-            (user_id, user_id),
-        )
-
-
-def _seed_comments(conn: sqlite3.Connection, post_id: int) -> None:
-    comments = [
-        (
-            "林间",
-            "lin@example.com",
-            "这组照片的顺序很有意思，最后一张像是把前面的房间都关上了。",
-            "approved",
-            1,
-        ),
-        (
-            "Mori",
-            "mori@example.com",
-            "在搜索里偶然路过，已经订阅 RSS。期待看到更多影像笔记。",
-            "approved",
-            3,
-        ),
-        (
-            "小满",
-            "xiaoman@example.com",
-            "想问一下拍摄时用的自然光处理方式，是全程不补光吗？",
-            "pending",
-            5,
-        ),
-    ]
-    for name, email, content, status, days_ago in comments:
-        conn.execute(
-            """INSERT INTO comments(post_id, author_name, author_email, content,
-                                    status, ip, created_at)
-               VALUES (?, ?, ?, ?, ?, '', ?)""",
-            (post_id, name, email, content, status, _iso(days_ago)),
         )

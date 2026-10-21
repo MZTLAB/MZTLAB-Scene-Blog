@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import '../styles/admin.css';
+import { themeTokens } from '../lib/site';
 import type { SiteInfo } from '../types';
 
 interface Props {
@@ -9,39 +10,25 @@ interface Props {
 }
 
 const { site, mode = 'login' } = Astro.props;
-const settings = site.settings;
-const markSrc = settings.favicon || '/favicon.svg';
-const accent = /^#[0-9a-f]{6}$/i.test(settings.accent || '') ? settings.accent : '#e8481d';
-const colorMode = ['light', 'dark'].includes(String(settings.color_mode)) ? String(settings.color_mode) : 'light';
-const paletteAliases: Record<string, string> = {
-  paper: 'scene',
-  graphite: 'stone',
-  forest: 'sand',
-  ocean: 'stone',
-};
-const rawPalette = String(settings.theme || 'scene');
-const palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
-  ? rawPalette
-  : paletteAliases[rawPalette] || 'scene';
-const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
-  ? String(settings.font_pair)
-  : 'sans';
+const { site: siteSettings, appearance } = site.settings;
+const tokens = themeTokens(appearance, siteSettings);
+const markSrc = siteSettings.favicon || '/favicon.svg';
 ---
 <!doctype html>
 <html
   lang="zh-CN"
-  data-color-mode={colorMode}
-  data-palette={palette}
-  data-font={fontPair}
+  data-color-mode={tokens.colorMode}
+  data-palette={tokens.palette}
+  data-font={tokens.fontPair}
   data-theme="scene"
-  style={`--accent:${accent};--radius:${settings.radius || 2}px`}
+  style={`--accent:${tokens.accent};--radius:${tokens.radius}px`}
 >
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>{mode === 'setup' ? '初始化站点' : '登录'} · {settings.site_title}</title>
-    <link rel="icon" href={settings.favicon || '/favicon.svg'} />
+    <title>{mode === 'setup' ? '初始化站点' : '登录'} · {siteSettings.site_title}</title>
+    <link rel="icon" href={markSrc} />
     <script is:inline>
       (() => {
         const root = document.documentElement;
@@ -64,12 +51,12 @@ const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
         <a class="brand" href="/" style="color: inherit">
           <img class="brand-mark" src={markSrc} alt="" width="32" height="32" style="width:32px;height:32px" aria-hidden="true" />
           <span class="brand-text">
-            <span class="brand-title">{settings.site_title}</span>
-            <span class="brand-sub">{settings.site_subtitle || 'SCENE'}</span>
+            <span class="brand-title">{siteSettings.site_title}</span>
+            <span class="brand-sub">{siteSettings.site_subtitle || 'SCENE'}</span>
           </span>
         </a>
         <div class="auth-aside__quote">
-          <p>{settings.tagline || '影像与文字。'}</p>
+          <p>{siteSettings.tagline || '影像与文字。'}</p>
           <span>Photography / Writing</span>
         </div>
         <div class="auth-aside__foot">

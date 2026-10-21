@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import secrets
 import shutil
 import signal
 import subprocess
@@ -122,11 +121,10 @@ def main() -> int:
     env["BLOG_FRONTEND_URL"] = f"http://127.0.0.1:{frontend_port}"
     env.setdefault("HOST", "127.0.0.1")
     env["PORT"] = frontend_port
-    # The Astro proxy proves to FastAPI that X-Blog-Real-IP is trustworthy. A
-    # fresh random secret per run means a client can never forge its own IP to
-    # dodge login rate limits. Docker deployments set this in both containers.
-    if not env.get("BLOG_PROXY_SECRET"):
-        env["BLOG_PROXY_SECRET"] = secrets.token_urlsafe(32)
+    # The single ingress is the local Vite proxy in development and the
+    # operator nginx in production. Only that peer may set forwarding headers.
+    trusted_proxy = env.get("BLOG_TRUSTED_PROXY", "127.0.0.1")
+    env["BLOG_TRUSTED_PROXY"] = trusted_proxy
 
     if args.dev:
         print(
@@ -152,9 +150,11 @@ def main() -> int:
         backend_host,
         "--port",
         backend_port,
-        # Never let a client-supplied X-Forwarded-For rewrite request.client.
-        # The backend is an internal service reached through the Astro proxy.
-        "--no-proxy-headers",
+        # Trust forwarded headers only from the ingress peer; a client-supplied
+        # X-Forwarded-For from anywhere else is ignored.
+        "--proxy-headers",
+        "--forwarded-allow-ips",
+        trusted_proxy,
         "--no-server-header",
     ]
     if args.reload:

@@ -10,7 +10,7 @@ const { tag: slug } = Astro.params;
 const site: SiteInfo = await getSite();
 let tag = site.tags.find((item) => item.slug === slug);
 if (!tag) {
-  const taxonomy = await apiServer<{ tags: Term[] }>('/api/taxonomy').catch(() => ({ tags: [] }));
+  const taxonomy = await apiServer<{ tags: Term[] }>('/api/taxonomy');
   tag = taxonomy.tags.find((item) => item.slug === slug);
 }
 if (!tag) return Astro.rewrite('/404');
@@ -41,7 +41,7 @@ const siblings = site.tags.filter((item) => item.slug !== slug && (item.count ||
       data.items.length ? (
         <div class="story-grid">
           {data.items.map((post, index) => (
-            <StoryCard post={post} site={site} label={site.settings.site_title} eager={index === 0} />
+            <StoryCard post={post} site={site} label={site.settings.site.site_title} eager={index === 0} />
           ))}
         </div>
       ) : (

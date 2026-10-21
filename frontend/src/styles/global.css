@@ -2543,166 +2543,6 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
 }
 
 /* ==========================================================================
-   Comments
-   ========================================================================== */
-
-.comments {
-  max-width: 1040px;
-  margin-inline: auto;
-  padding: clamp(36px, 5vw, 64px) var(--gutter) 0;
-}
-
-.comments-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
-}
-
-.comments-head h2 {
-  font-size: clamp(1.3rem, 2vw, 1.6rem);
-}
-
-.comments-head span {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.comment-list {
-  display: grid;
-}
-
-.comment {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  gap: clamp(14px, 3vw, 30px);
-  padding-block: 20px;
-  border-bottom: 1px solid var(--line);
-}
-
-.comment__who {
-  display: grid;
-  gap: 4px;
-  align-content: start;
-}
-
-.comment__who strong {
-  font-size: 13.5px;
-  font-weight: 500;
-}
-
-.comment__who time {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  color: var(--ink-faint);
-}
-
-.comment__body {
-  color: var(--ink-soft);
-  font-size: 14.5px;
-  line-height: 1.7;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.comment-form {
-  display: grid;
-  gap: 14px;
-  margin-top: 28px;
-  padding: 22px;
-  border: 1px solid var(--line);
-  background: var(--bg-elevated);
-}
-
-.comment-form h3 {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.field label {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.field input,
-.field textarea {
-  width: 100%;
-  border: 1px solid var(--line);
-  background: var(--bg);
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  padding: 10px 12px;
-  border-radius: var(--radius);
-  transition: border-color 0.18s var(--ease);
-}
-
-.field input:focus,
-.field textarea:focus {
-  outline: none;
-  border-color: var(--ink);
-}
-
-.field textarea {
-  resize: vertical;
-  min-height: 110px;
-}
-
-.form-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.form-hint {
-  font-family: var(--font-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
-}
-
-.comment-status {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-
-.honeypot {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
-/* ==========================================================================
    Cover art (flat typographic plate)
    ========================================================================== */
 
@@ -3140,11 +2980,6 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
     gap: 10px;
   }
 
-  .comment {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-
   .cta-band {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -3235,10 +3070,6 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
     scroll-snap-align: start;
   }
 
-  .form-row {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .article-header h1 {
     font-size: clamp(1.8rem, 8.4vw, 2.5rem);
   }
@@ -3260,10 +3091,6 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
 
   .footer-bottom {
     justify-content: flex-start;
-  }
-
-  .comment-form {
-    padding: 16px;
   }
 
   .story-grid {

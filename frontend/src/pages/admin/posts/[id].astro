@@ -3,7 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import PostEditor from '../../../components/admin/PostEditor.astro';
 import Icon from '../../../components/Icon.astro';
 import { guardAdmin } from '../../../lib/auth';
-import { apiServer } from '../../../lib/api';
+import { ApiError, apiServer } from '../../../lib/api';
 import type { AdminPost } from '../../../types';
 
 const guard = await guardAdmin(Astro, 'content.write');
@@ -18,8 +18,9 @@ try {
   post = await apiServer<AdminPost>(`/api/admin/posts/${id}`, {
     cookie: Astro.request.headers.get('cookie') || '',
   });
-} catch {
-  return Astro.redirect('/admin/posts');
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) return Astro.redirect('/admin/posts');
+  throw error;
 }
 if (post.type !== 'post') {
   return Astro.redirect(post.type === 'page' ? `/admin/pages/${post.id}` : `/admin/projects/${post.id}`);

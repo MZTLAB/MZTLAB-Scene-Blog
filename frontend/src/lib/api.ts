@@ -18,6 +18,29 @@ function internalBase(): string {
   return env?.BLOG_API_INTERNAL_URL || 'http://127.0.0.1:8000';
 }
 
+/**
+ * Turn an error response body into the message shown by the UI.
+ *
+ * 3.0.0 error envelope: `{error: {code, message, field?}}`. The legacy
+ * `{detail}` and FastAPI validation-array shapes are still tolerated so an
+ * unexpected upstream response never surfaces as "[object Object]".
+ */
+function errorBodyToMessage(body: unknown, fallback: string): string {
+  if (typeof body === 'string') return body || fallback;
+  if (Array.isArray(body)) return detailToMessage(body, fallback);
+  if (body && typeof body === 'object') {
+    const error = (body as { error?: unknown }).error;
+    if (typeof error === 'string') return error || fallback;
+    if (error && typeof error === 'object') {
+      const message = (error as { message?: unknown }).message;
+      if (typeof message === 'string' && message.trim()) return message;
+    }
+    const detail = (body as { detail?: unknown }).detail;
+    if (detail !== undefined) return detailToMessage(detail, fallback);
+  }
+  return fallback;
+}
+
 function detailToMessage(detail: unknown, fallback: string): string {
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) {
@@ -61,11 +84,11 @@ export async function apiServer<T>(
     }
   }
   if (!response.ok) {
-    const message = detailToMessage(
-      (data as { detail?: unknown } | null)?.detail,
-      `请求失败（${response.status}）`,
+    throw new ApiError(
+      response.status,
+      errorBodyToMessage(data, `请求失败（${response.status}）`),
+      data,
     );
-    throw new ApiError(response.status, message, data);
   }
   return data as T;
 }
@@ -145,7 +168,7 @@ export async function api<T>(
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      detailToMessage((data as { detail?: unknown } | null)?.detail, `请求失败（${response.status}）`),
+      errorBodyToMessage(data, `请求失败（${response.status}）`),
       data,
     );
   }

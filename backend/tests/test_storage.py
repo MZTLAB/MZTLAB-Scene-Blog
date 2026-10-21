@@ -1,17 +1,21 @@
-"""Storage abstraction: local backend safety and key handling."""
+"""Storage abstraction: local backend safety, key handling, typed config."""
 
 from __future__ import annotations
 
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+from app import storage
+from app.settings import Settings
 from app.storage import (
     LocalStorage,
     MirrorStorage,
     StorageError,
     StorageMissing,
     content_type_for,
+    storage_config,
 )
 
 
@@ -182,6 +186,115 @@ class MirrorStorageTests(unittest.TestCase):
         self.assertTrue(self.primary.exists(key))
         self.assertTrue(self.backup.exists(key))
         self.assertIsNotNone(self.mirror.backup_path(key))
+
+
+class StorageConfigTests(unittest.TestCase):
+    """The typed settings API + environment-only credentials."""
+
+    def _settings(self, **overrides: object) -> Settings:
+        settings = Settings()
+        for key, value in overrides.items():
+            setattr(settings.advanced.storage, key, value)
+        return settings
+
+    def _config(
+        self,
+        settings: Settings | None = None,
+        *,
+        env: dict[str, str] | None = None,
+        backend_env: str = "",
+        public_base_url_env: str = "",
+        path_style_env: bool = False,
+        load_error: Exception | None = None,
+    ) -> storage.StorageConfig:
+        credentials = env or {
+            "storage_s3_access_key": "",
+            "storage_s3_secret_key": "",
+        }
+        patcher = mock.patch.object(storage, "load_settings_cached")
+        load = patcher.start()
+        if load_error is not None:
+            load.side_effect = load_error
+        else:
+            load.return_value = settings or Settings()
+        patches = [
+            mock.patch.object(storage, "S3_ENV", credentials),
+            mock.patch.object(storage, "S3_BACKEND_ENV", backend_env),
+            mock.patch.object(storage, "S3_PUBLIC_BASE_URL_ENV", public_base_url_env),
+            mock.patch.object(storage, "S3_PATH_STYLE_ENV", path_style_env),
+        ]
+        for extra in patches:
+            extra.start()
+        self.addCleanup(patcher.stop)
+        for extra in patches:
+            self.addCleanup(extra.stop)
+        return storage_config()
+
+    def test_defaults_to_local_without_credentials(self) -> None:
+        config = self._config()
+        self.assertEqual(config.backend, "local")
+        self.assertEqual(config.serve_mode, "auto")
+        self.assertEqual(config.access_key, "")
+        self.assertEqual(config.secret_key, "")
+        self.assertEqual(config.region, "auto")
+        self.assertEqual(config.prefix, "mztlab")
+        self.assertFalse(config.describe()["secret_configured"])
+
+    def test_settings_supply_coordinates_but_never_credentials(self) -> None:
+        config = self._config(
+            self._settings(
+                backend="s3",
+                serve_mode="direct",
+                public_base_url="https://cdn.example.com/",
+                s3_endpoint="https://r2.example.com/",
+                s3_bucket="bucket",
+                s3_region="auto",
+                s3_prefix="site",
+                s3_path_style=True,
+                backup_local=True,
+            )
+        )
+        self.assertEqual(config.backend, "s3")
+        self.assertEqual(config.serve_mode, "direct")
+        self.assertEqual(config.public_base_url, "https://cdn.example.com")
+        self.assertEqual(config.endpoint, "https://r2.example.com")
+        self.assertEqual(config.bucket, "bucket")
+        self.assertEqual(config.prefix, "site")
+        self.assertTrue(config.path_style)
+        self.assertTrue(config.backup_local)
+        self.assertTrue(config.direct_enabled)
+        # Secrets have no representation in the typed settings document.
+        self.assertEqual(config.access_key, "")
+        self.assertEqual(config.secret_key, "")
+        self.assertNotIn("access_key", config.describe())
+        self.assertNotIn("secret_key", config.describe())
+
+    def test_credentials_come_from_the_environment(self) -> None:
+        config = self._config(
+            env={
+                "storage_s3_access_key": "AK",
+                "storage_s3_secret_key": "SK",
+            }
+        )
+        self.assertEqual(config.access_key, "AK")
+        self.assertEqual(config.secret_key, "SK")
+        self.assertTrue(config.describe()["secret_configured"])
+
+    def test_environment_overrides_the_stored_values(self) -> None:
+        config = self._config(
+            self._settings(backend="local", public_base_url="https://stored.example"),
+            backend_env="s3",
+            public_base_url_env="https://env.example",
+            path_style_env=True,
+        )
+        self.assertEqual(config.backend, "s3")
+        self.assertEqual(config.public_base_url, "https://env.example")
+        self.assertTrue(config.path_style)
+
+    def test_unreachable_settings_fall_back_to_defaults(self) -> None:
+        config = self._config(load_error=RuntimeError("database not ready"))
+        self.assertEqual(config.backend, "local")
+        self.assertEqual(config.bucket, "")
 
 
 if __name__ == "__main__":

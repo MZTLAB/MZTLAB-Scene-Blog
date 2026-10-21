@@ -1,25 +1,25 @@
 services:
+  # Single-layer ingress: an operator-maintained nginx (see docs/EDGE.md) routes
+  # `/api` and `/media` to `backend` and everything else to `frontend`. The two
+  # application services only publish on the host loopback for that ingress.
   backend:
     build: ./backend
     restart: unless-stopped
     environment:
       BLOG_DATA_DIR: /app/data
       BLOG_FRONTEND_URL: http://127.0.0.1:4321
-      BLOG_SEED_DEMO: "true"
+      # 3.0.0 initialises an empty database only; set to "true" for demo data.
+      BLOG_SEED_DEMO: "false"
       BLOG_SESSION_DAYS: "7"
-      # Shared with the frontend service; only a request carrying this secret
-      # may set the trusted client-IP header. Generate one with
-      # `python -c "import secrets;print(secrets.token_urlsafe(32))"` and put it
-      # in the shell environment or a .env file next to this compose file.
-      BLOG_PROXY_SECRET: ${BLOG_PROXY_SECRET:?set BLOG_PROXY_SECRET to a random shared secret}
-      # Set to "true" after putting the site behind HTTPS.
-      BLOG_COOKIE_SECURE: "false"
+      # The API trusts forwarded headers from the ingress only. Set this to the
+      # address nginx connects from (loopback in a host-installed setup).
+      BLOG_TRUSTED_PROXY: ${BLOG_TRUSTED_PROXY:-127.0.0.1}
       # Optional first-run account. Leave empty to use the /admin/setup page.
       BLOG_ADMIN_USER: ""
       BLOG_ADMIN_PASSWORD: ""
       BLOG_ADMIN_NAME: "MZTLAB"
-    # No `ports:` mapping: the API must only be reachable from the frontend
-    # container over the private compose network.
+    ports:
+      - "127.0.0.1:8000:8000"
     volumes:
       - blog_data:/app/data
     healthcheck:
@@ -41,12 +41,13 @@ services:
       backend:
         condition: service_healthy
     environment:
+      # Server-side data fetching (SSR) talks to the API over the private
+      # compose network. The browser never reaches this address.
       BLOG_API_INTERNAL_URL: http://backend:8000
-      BLOG_PROXY_SECRET: ${BLOG_PROXY_SECRET:?set BLOG_PROXY_SECRET to a random shared secret}
       HOST: 0.0.0.0
       PORT: 4321
     ports:
-      - "4321:4321"
+      - "127.0.0.1:4321:4321"
 
 volumes:
   blog_data:

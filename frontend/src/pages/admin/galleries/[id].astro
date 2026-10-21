@@ -3,7 +3,7 @@ import AdminLayout from '../../../layouts/AdminLayout.astro';
 import Icon from '../../../components/Icon.astro';
 import ImageQualityDialog from '../../../components/admin/ImageQualityDialog.astro';
 import { guardAdmin } from '../../../lib/auth';
-import { apiServer } from '../../../lib/api';
+import { ApiError, apiServer } from '../../../lib/api';
 import type { Gallery } from '../../../types';
 
 const guard = await guardAdmin(Astro, 'gallery.manage');
@@ -18,8 +18,9 @@ try {
   gallery = await apiServer<Gallery>(`/api/admin/galleries/${id}`, {
     cookie: Astro.request.headers.get('cookie') || '',
   });
-} catch {
-  return Astro.redirect('/admin/galleries');
+} catch (error) {
+  if (error instanceof ApiError && error.status === 404) return Astro.redirect('/admin/galleries');
+  throw error;
 }
 ---
 <AdminLayout user={user} title="编辑相册" subtitle="Photography / Gallery" active="photography" showCompose={false}>
@@ -123,7 +124,6 @@ try {
             <div class="member-card__meta" style="border-top:0;padding-top:0">
               <div><span>照片</span><span data-overview-photos>—</span></div>
               <div><span>已发布</span><span data-overview-published>—</span></div>
-              <div><span>浏览</span><span data-overview-views>—</span></div>
               <div><span>创建</span><span>{gallery.created_at.slice(0, 10)}</span></div>
               <div><span>更新</span><span data-overview-updated>{gallery.updated_at.slice(0, 10)}</span></div>
             </div>

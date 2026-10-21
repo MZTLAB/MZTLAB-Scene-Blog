@@ -1,7 +1,8 @@
 """Request models.
 
-Pydantic gives us helpful 422 errors without hand-writing validation. Limits
-are deliberately generous for writing, strict for things that reach HTML.
+Pydantic gives us helpful 422 errors without hand-writing validation. Content
+requests are split per resource (posts / projects / pages) and every update
+model is a true PATCH: only fields present in the request are written.
 """
 
 from __future__ import annotations
@@ -19,9 +20,7 @@ USERNAME_RE = re.compile(r"^[a-zA-Z0-9_.-]{3,32}$")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 HEX_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 SLUG_RE = re.compile(r"^[\w\u3400-\u9fff-]+$", re.UNICODE)
-
-ROLE_VALUES = ("admin", "editor", "author")
-RoleLiteral = Literal["admin", "editor", "author"]
+PROJECT_LINK_RE = re.compile(r"^(https?://|/)")
 
 
 def _check_password(password: str, username: str | None = None) -> str:
@@ -33,6 +32,12 @@ def _check_password(password: str, username: str | None = None) -> str:
 
 class StrippedModel(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="ignore")
+
+
+class PatchModel(StrippedModel):
+    """Base for partial updates: omitted = keep, explicit null = clear."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, extra="ignore", populate_by_name=True)
 
 
 class SetupIn(StrippedModel):
@@ -60,7 +65,30 @@ class LoginIn(StrippedModel):
     password: str = Field(min_length=1, max_length=128)
 
 
-class PostIn(StrippedModel):
+class PreviewIn(StrippedModel):
+    content_md: str = Field(default="", max_length=500_000)
+
+
+def _clean_slug(value: str) -> str:
+    if not value:
+        return ""
+    if not SLUG_RE.match(value):
+        raise ValueError("别名只能包含文字、数字、下划线或短横线")
+    return value.strip("-").lower().strip("-")
+
+
+def _clean_terms(values: list[str]) -> list[str]:
+    seen: list[str] = []
+    for value in values:
+        value = re.sub(r"\s+", " ", value).strip()
+        if value and value not in seen and len(value) <= 40:
+            seen.append(value)
+    return seen[:20]
+
+
+class _ContentFields(StrippedModel):
+    """Shared fields for the three content resources."""
+
     title: str = Field(min_length=1, max_length=200)
     slug: str = Field(default="", max_length=100)
     excerpt: str = Field(default="", max_length=600)
@@ -68,32 +96,41 @@ class PostIn(StrippedModel):
     cover_image: str = Field(default="", max_length=500)
     status: Literal["draft", "published", "scheduled"] = "draft"
     featured: bool = False
-    allow_comments: bool = True
     published_at: str | None = None
-    # Transfer ownership to another active member. Only callers with
-    # `content.others` may change it; the route validates the target.
-    author_id: int | None = Field(default=None, ge=1)
+    # Ownership transfer; only callers with `content.others` may change it.
+    owner_id: int | None = Field(default=None, ge=1)
     seo_title: str = Field(default="", max_length=200)
     seo_description: str = Field(default="", max_length=400)
+
+    @field_validator("slug")
+    @classmethod
+    def slug_shape(cls, value: str) -> str:
+        return _clean_slug(value)
+
+    @model_validator(mode="after")
+    def check_schedule(self) -> "_ContentFields":
+        if self.status == "scheduled" and not self.published_at:
+            raise ValueError("定时文章需要发布时间")
+        return self
+
+
+class PostIn(_ContentFields):
     tags: list[str] = Field(default_factory=list, max_length=20)
     categories: list[str] = Field(default_factory=list, max_length=6)
-    # Projects reuse the posts table so code work sits next to writing and
-    # photography without a second CRUD stack.
+
+    @field_validator("tags", "categories")
+    @classmethod
+    def clean_terms(cls, values: list[str]) -> list[str]:
+        return _clean_terms(values)
+
+
+class ProjectIn(_ContentFields):
     project_year: str = Field(default="", max_length=20)
     project_role: str = Field(default="", max_length=100)
     project_client: str = Field(default="", max_length=100)
     # A free-form label (代码 / 影像 / 设计 …); no enum to maintain.
     project_kind: str = Field(default="", max_length=40)
     project_url: str = Field(default="", max_length=300)
-
-    @field_validator("slug")
-    @classmethod
-    def slug_shape(cls, value: str) -> str:
-        if not value:
-            return ""
-        if not SLUG_RE.match(value):
-            raise ValueError("别名只能包含文字、数字、下划线或短横线")
-        return value.strip("-").lower().strip("-")
 
     @field_validator("project_kind")
     @classmethod
@@ -104,55 +141,103 @@ class PostIn(StrippedModel):
     @field_validator("project_url")
     @classmethod
     def project_link(cls, value: str) -> str:
-        if value and not (value.startswith("/") or re.match(r"^https?://", value)):
+        if value and not PROJECT_LINK_RE.match(value):
             raise ValueError("项目链接需要以 http://、https:// 或 / 开头")
         return value
 
+
+class PageIn(_ContentFields):
+    pass
+
+
+class PostPatch(PatchModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    slug: str | None = Field(default=None, max_length=100)
+    excerpt: str | None = Field(default=None, max_length=600)
+    content_md: str | None = Field(default=None, max_length=500_000)
+    cover_image: str | None = Field(default=None, max_length=500)
+    status: Literal["draft", "published", "scheduled"] | None = None
+    featured: bool | None = None
+    published_at: str | None = None
+    owner_id: int | None = Field(default=None, ge=1)
+    seo_title: str | None = Field(default=None, max_length=200)
+    seo_description: str | None = Field(default=None, max_length=400)
+    tags: list[str] | None = Field(default=None, max_length=20)
+    categories: list[str] | None = Field(default=None, max_length=6)
+
+    @field_validator("slug")
+    @classmethod
+    def slug_shape(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _clean_slug(value)
+
     @field_validator("tags", "categories")
     @classmethod
-    def clean_terms(cls, values: list[str]) -> list[str]:
-        seen: list[str] = []
-        for value in values:
-            value = re.sub(r"\s+", " ", value).strip()
-            if value and value not in seen and len(value) <= 40:
-                seen.append(value)
-        return seen[:20]
-
-    @model_validator(mode="after")
-    def check_schedule(self) -> "PostIn":
-        if self.status == "scheduled" and not self.published_at:
-            raise ValueError("定时文章需要发布时间")
-        return self
+    def clean_terms(cls, values: list[str] | None) -> list[str] | None:
+        return None if values is None else _clean_terms(values)
 
 
-class PreviewIn(StrippedModel):
-    content_md: str = Field(default="", max_length=500_000)
+class ProjectPatch(PatchModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    slug: str | None = Field(default=None, max_length=100)
+    excerpt: str | None = Field(default=None, max_length=600)
+    content_md: str | None = Field(default=None, max_length=500_000)
+    cover_image: str | None = Field(default=None, max_length=500)
+    status: Literal["draft", "published", "scheduled"] | None = None
+    featured: bool | None = None
+    published_at: str | None = None
+    owner_id: int | None = Field(default=None, ge=1)
+    seo_title: str | None = Field(default=None, max_length=200)
+    seo_description: str | None = Field(default=None, max_length=400)
+    project_year: str | None = Field(default=None, max_length=20)
+    project_role: str | None = Field(default=None, max_length=100)
+    project_client: str | None = Field(default=None, max_length=100)
+    project_kind: str | None = Field(default=None, max_length=40)
+    project_url: str | None = Field(default=None, max_length=300)
 
-
-class CommentIn(StrippedModel):
-    author_name: str = Field(min_length=1, max_length=40)
-    author_email: str = Field(default="", max_length=120)
-    author_url: str = Field(default="", max_length=300)
-    content: str = Field(min_length=2, max_length=3000)
-    website: str = Field(default="", max_length=200)  # honeypot
-
-    @field_validator("author_email")
+    @field_validator("slug")
     @classmethod
-    def valid_email(cls, value: str) -> str:
-        if value and not EMAIL_RE.match(value):
-            raise ValueError("邮箱格式不正确")
+    def slug_shape(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _clean_slug(value)
+
+    @field_validator("project_kind")
+    @classmethod
+    def clean_project_kind(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = "".join(character for character in value if character.isprintable())
+        return re.sub(r"\s+", " ", value).strip()[:40]
+
+    @field_validator("project_url")
+    @classmethod
+    def project_link(cls, value: str | None) -> str | None:
+        if value and not PROJECT_LINK_RE.match(value):
+            raise ValueError("项目链接需要以 http://、https:// 或 / 开头")
         return value
 
-    @field_validator("author_url")
+
+class PagePatch(PatchModel):
+    title: str | None = Field(default=None, min_length=1, max_length=200)
+    slug: str | None = Field(default=None, max_length=100)
+    excerpt: str | None = Field(default=None, max_length=600)
+    content_md: str | None = Field(default=None, max_length=500_000)
+    cover_image: str | None = Field(default=None, max_length=500)
+    status: Literal["draft", "published", "scheduled"] | None = None
+    featured: bool | None = None
+    published_at: str | None = None
+    owner_id: int | None = Field(default=None, ge=1)
+    seo_title: str | None = Field(default=None, max_length=200)
+    seo_description: str | None = Field(default=None, max_length=400)
+
+    @field_validator("slug")
     @classmethod
-    def valid_url(cls, value: str) -> str:
-        if value and not re.match(r"^https?://", value):
-            raise ValueError("网址需要以 http:// 或 https:// 开头")
-        return value
-
-
-class CommentStatusIn(StrippedModel):
-    status: Literal["approved", "pending", "spam"]
+    def slug_shape(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _clean_slug(value)
 
 
 class TaxonomyIn(StrippedModel):
@@ -168,10 +253,12 @@ class TaxonomyIn(StrippedModel):
         return value.strip("-").lower()
 
 
-class MediaAltIn(StrippedModel):
-    alt: str = Field(default="", max_length=200)
-    # AVIF quality follows the per-scene settings unless the manual flag is
-    # switched off; 0 is no longer a sentinel value.
+class MediaAltIn(PatchModel):
+    """PATCH /api/admin/media/{id}: omitted fields keep their value."""
+
+    alt: str | None = Field(default=None, max_length=200)
+    # Per-image AVIF quality is removed in Phase 3 (BC-34); until then it stays
+    # an optional override on the media row only.
     avif_quality_auto: bool | None = None
     avif_quality: int | None = Field(default=None, ge=1, le=100)
 
@@ -240,7 +327,7 @@ class UserCreateIn(StrippedModel):
     display_name: str = Field(min_length=1, max_length=50)
     email: str = Field(default="", max_length=120)
     bio: str = Field(default="", max_length=500)
-    role: RoleLiteral = "author"
+    role: Literal["admin", "editor", "author"] = "author"
 
     @field_validator("username")
     @classmethod
@@ -266,7 +353,7 @@ class UserUpdateIn(StrippedModel):
     display_name: str = Field(min_length=1, max_length=50)
     email: str = Field(default="", max_length=120)
     bio: str = Field(default="", max_length=500)
-    role: RoleLiteral
+    role: Literal["admin", "editor", "author"]
     is_active: bool = True
     password: str = Field(default="", max_length=128)
 
@@ -285,33 +372,6 @@ class UserUpdateIn(StrippedModel):
         return value
 
 
-class AppearanceIn(StrippedModel):
-    """Validated subset used by 外观 (other settings go through SettingsIn)."""
-
-    theme: Literal["scene", "stone", "sand", "night"]
-    color_mode: Literal["light", "dark", "system"]
-    accent: str
-    font_pair: Literal["sans", "serif", "mono"]
-    layout_width: int = Field(ge=720, le=1600)
-    radius: int = Field(ge=0, le=40)
-    post_layout: Literal["grid", "list"]
-    hero_style: Literal["split", "minimal", "image"]
-    hero_show: bool
-    hero_eyebrow: str = Field(default="", max_length=100)
-    hero_title: str = Field(default="", max_length=120)
-    hero_subtitle: str = Field(default="", max_length=400)
-    hero_image: str = Field(default="", max_length=500)
-    gallery_columns: int = Field(default=3, ge=2, le=4)
-    custom_css: str = Field(default="", max_length=60_000)
-
-    @field_validator("accent")
-    @classmethod
-    def valid_hex(cls, value: str) -> str:
-        if not HEX_RE.match(value):
-            raise ValueError("强调色需要使用 #RRGGBB 格式")
-        return value.lower()
-
-
 class GalleryIn(StrippedModel):
     title: str = Field(min_length=1, max_length=120)
     slug: str = Field(default="", max_length=100)
@@ -323,6 +383,24 @@ class GalleryIn(StrippedModel):
     @field_validator("slug")
     @classmethod
     def slug_shape(cls, value: str) -> str:
+        if value and not SLUG_RE.match(value):
+            raise ValueError("别名只能包含文字、数字、下划线或短横线")
+        return value.strip("-").lower()
+
+
+class GalleryPatch(PatchModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    slug: str | None = Field(default=None, max_length=100)
+    description: str | None = Field(default=None, max_length=1000)
+    status: Literal["draft", "published"] | None = None
+    featured: bool | None = None
+    cover_photo_id: int | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def slug_shape(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         if value and not SLUG_RE.match(value):
             raise ValueError("别名只能包含文字、数字、下划线或短横线")
         return value.strip("-").lower()
@@ -355,19 +433,20 @@ class PhotoIn(StrippedModel):
         return value
 
 
-class PhotoUpdateIn(StrippedModel):
+class PhotoUpdateIn(PatchModel):
+    """PATCH: omitted fields keep their value; explicit null clears."""
+
     gallery_id: int | None = None
-    title: str = Field(default="", max_length=140)
-    caption: str = Field(default="", max_length=600)
-    location: str = Field(default="", max_length=120)
-    camera: str = Field(default="", max_length=120)
-    lens: str = Field(default="", max_length=120)
-    taken_at: str = Field(default="", max_length=10)
+    title: str | None = Field(default=None, max_length=140)
+    caption: str | None = Field(default=None, max_length=600)
+    location: str | None = Field(default=None, max_length=120)
+    camera: str | None = Field(default=None, max_length=120)
+    lens: str | None = Field(default=None, max_length=120)
+    taken_at: str | None = Field(default=None, max_length=10)
     exif_fields: list[str] | None = Field(default=None, max_length=8)
-    featured: bool = False
-    status: Literal["draft", "published"] = "published"
+    featured: bool | None = None
+    status: Literal["draft", "published"] | None = None
     sort_order: int | None = None
-    # Omitted keeps the current value so partial toggles never reset it.
     allow_download: bool | None = None
 
     @field_validator("exif_fields")
@@ -377,7 +456,7 @@ class PhotoUpdateIn(StrippedModel):
 
     @field_validator("taken_at")
     @classmethod
-    def valid_date(cls, value: str) -> str:
+    def valid_date(cls, value: str | None) -> str | None:
         if value and not re.match(r"^\d{4}-\d{2}(-\d{2})?$", value):
             raise ValueError("拍摄日期格式为 YYYY-MM 或 YYYY-MM-DD")
         return value
@@ -391,3 +470,11 @@ class PhotoBatchIn(StrippedModel):
 
 class ReorderIn(StrippedModel):
     ids: list[int] = Field(min_length=1, max_length=500)
+
+
+class JobCreateIn(StrippedModel):
+    """Placeholder job requests whose executor arrives in later phases."""
+
+    media_id: int | None = Field(default=None, ge=1)
+    gallery_id: int | None = Field(default=None, ge=1)
+    force: bool = False

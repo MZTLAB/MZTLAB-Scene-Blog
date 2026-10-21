@@ -54,12 +54,10 @@ if (root) {
     }
     const overviewPhotos = root.querySelector<HTMLElement>('[data-overview-photos]');
     const overviewPublished = root.querySelector<HTMLElement>('[data-overview-published]');
-    const overviewViews = root.querySelector<HTMLElement>('[data-overview-views]');
     const overviewUpdated = root.querySelector<HTMLElement>('[data-overview-updated]');
     if (overviewPhotos) overviewPhotos.textContent = number(photos.length);
     if (overviewPublished)
       overviewPublished.textContent = number(photos.filter((photo) => photo.status === 'published').length);
-    if (overviewViews) overviewViews.textContent = number(value.view_count);
     if (overviewUpdated) overviewUpdated.textContent = value.updated_at.slice(0, 10);
     renderPhotos();
   };
@@ -143,17 +141,11 @@ if (root) {
           (row.querySelector<HTMLInputElement>(`[data-photo-field="${name}"]`)?.value || '').trim();
         try {
           await api<Photo>(`/api/admin/photos/${photoId}`, {
-            method: 'PUT',
+            method: 'PATCH',
             body: {
-              gallery_id: id,
               title: value('title'),
               caption: value('caption'),
               location: value('location'),
-              camera: photo.camera,
-              lens: photo.lens,
-              taken_at: photo.taken_at,
-              featured: photo.featured,
-              status: photo.status,
             },
           });
           toast('照片信息已保存', 'success');
@@ -225,20 +217,8 @@ if (root) {
     if (!photo) return;
     try {
       await api(`/api/admin/photos/${photoId}`, {
-        method: 'PUT',
-        body: {
-          gallery_id: id,
-          title: photo.title,
-          caption: photo.caption,
-          location: photo.location,
-          camera: photo.camera,
-          lens: photo.lens,
-          taken_at: photo.taken_at,
-          featured: photo.featured,
-          status: photo.status,
-          allow_download: photo.allow_download,
-          ...patch,
-        },
+        method: 'PATCH',
+        body: patch,
       });
       if (reloadAfter) await reload();
       else Object.assign(photo, patch);
@@ -272,7 +252,7 @@ if (root) {
     try {
       const cover = coverSelect?.value;
       const updated = await api<Gallery>(`/api/admin/galleries/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: {
           title: (field<HTMLInputElement>('title') as HTMLInputElement).value.trim(),
           slug: (field<HTMLInputElement>('slug') as HTMLInputElement).value.trim(),

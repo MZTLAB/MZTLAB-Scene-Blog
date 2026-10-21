@@ -20,7 +20,7 @@ try {
 }
 
 const photos = gallery.photos || [];
-const columns = Math.min(4, Math.max(2, Number(site.settings.gallery_columns) || 3));
+const columns = Math.min(4, Math.max(2, Number(site.settings.site.gallery_columns) || 3));
 const first = photos[0];
 const locations = Array.from(new Set(photos.map((photo) => photo.location).filter(Boolean)));
 const cameras = Array.from(
@@ -62,7 +62,7 @@ const range = dates.length
   : photos.length
     ? '—'
     : formatMonth(gallery.created_at);
-const description = gallery.description || site.settings.description;
+const description = gallery.description || site.settings.site.description;
 ---
 <BaseLayout
   site={site}
@@ -79,15 +79,12 @@ const description = gallery.description || site.settings.description;
       {gallery.description && <p>{gallery.description}</p>}
     </div>
     <div class="gallery-facts">
-      <div class="gallery-fact"><span>AUTHOR</span><span>{gallery.author?.name || site.settings.site_title}</span></div>
+      <div class="gallery-fact"><span>AUTHOR</span><span>{gallery.author?.name || site.settings.site.site_title}</span></div>
       <div class="gallery-fact"><span>PERIOD</span><span>{range || '—'}</span></div>
       <div class="gallery-fact"><span>LOCATION</span><span>{locations.join(' / ') || '—'}</span></div>
       <div class="gallery-fact"><span>CAMERA</span><span>{cameras.join(' / ') || '—'}</span></div>
       <div class="gallery-fact"><span>OPTICS</span><span>{optics.join(' / ') || '—'}{apertures.length ? ` · ${apertures.join(' / ')}` : ''}</span></div>
       <div class="gallery-fact"><span>ISO</span><span>{iso.join(' / ') || '—'}</span></div>
-      <div class="gallery-fact" data-gallery-views>
-        <span>VIEWS</span><span>{gallery.view_count}</span>
-      </div>
     </div>
   </section>
 
@@ -161,7 +158,7 @@ const description = gallery.description || site.settings.description;
         </div>
         <div class="gallery-grid">
           {gallery.related.map((item, index) => (
-            <GalleryCard gallery={item} label={site.settings.site_title} index={index + 1} />
+            <GalleryCard gallery={item} label={site.settings.site.site_title} index={index + 1} />
           ))}
         </div>
       </section>
@@ -193,28 +190,6 @@ const description = gallery.description || site.settings.description;
       if (saved === 'grid' || saved === 'viewer') applyMode(saved);
     } catch {
       // Keep the server-rendered default (viewer).
-    }
-  </script>
-
-  <script>
-    const views = document.querySelector<HTMLElement>('[data-gallery-views] span:last-child');
-    const host = document.querySelector<HTMLElement>('[data-gallery-id]');
-    const galleryId = Number(host?.dataset.galleryId || 0);
-    const key = `scene-gallery-viewed-${galleryId}`;
-    let seen = false;
-    try {
-      seen = Boolean(sessionStorage.getItem(key));
-    } catch {
-      seen = true;
-    }
-    if (galleryId && !seen) {
-      fetch(`/api/galleries/${galleryId}/view`, { method: 'POST' })
-        .then((response) => (response.ok ? response.json() : null))
-        .then((data) => {
-          if (data?.view_count && views) views.textContent = String(data.view_count);
-          sessionStorage.setItem(key, '1');
-        })
-        .catch(() => {});
     }
   </script>
 </BaseLayout>

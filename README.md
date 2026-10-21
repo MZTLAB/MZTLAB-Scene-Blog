@@ -1,5 +1,7 @@
 # MZTLAB · Scene
 
+> 适用版本：3.0.0-beta1（重构中；本文的 2.x 内容将在 Phase 5 归档到 `docs/archive/2.x/` 后整体重写）
+
 影像、项目与文字。Astro 7 负责页面，FastAPI + SQLite 负责内容、认证与权限。
 
 - **Scene 主题**：场景式作品集，照片、项目与文字三列等宽；全站等宽字体、轻量元数据。

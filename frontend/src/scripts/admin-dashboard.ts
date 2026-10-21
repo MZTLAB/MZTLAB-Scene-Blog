@@ -20,10 +20,9 @@ if (root) {
         number(stats.projects?.all || 0),
         `${stats.projects?.published || 0} 个已发布 · ${stats.projects?.draft || 0} 个草稿`,
       );
-      setStat('comments', number(stats.comments.pending), `${stats.comments.all} 条留言总数`);
+      setStat('pages', number(stats.pages), '独立页面');
       renderRecent(stats);
       renderGalleries(stats);
-      renderPending(stats);
       const version = root.querySelector('[data-version]');
       if (version) version.textContent = `v${stats.system.version}`;
     })
@@ -54,7 +53,7 @@ function renderRecent(stats: Stats): void {
   }
   container.innerHTML = `
     <table class="admin-table">
-      <thead><tr><th>标题</th><th>状态</th><th>更新</th><th style="text-align:right">浏览</th></tr></thead>
+      <thead><tr><th>标题</th><th>状态</th><th>更新</th></tr></thead>
       <tbody>
         ${stats.recent_posts
           .map(
@@ -69,7 +68,6 @@ function renderRecent(stats: Stats): void {
               </td>
               <td>${statusBadge(post.raw_status || post.status)}</td>
               <td><span style="color: var(--ink-faint); font-size: 10px">${escapeHtml(timeAgo(post.updated_at))}</span></td>
-              <td style="text-align:right"><span style="font-family: var(--font-mono); font-size: 9px">${number(post.view_count)}</span></td>
             </tr>`,
           )
           .join('')}
@@ -99,56 +97,4 @@ function renderGalleries(stats: Stats): void {
       </a>`,
     )
     .join('');
-}
-
-function renderPending(stats: Stats): void {
-  const container = root?.querySelector<HTMLElement>('[data-pending-comments]');
-  if (!container) return;
-  if (!stats.pending_comments.length) {
-    container.innerHTML = '<div class="admin-empty"><p>没有待审核的留言。</p></div>';
-    return;
-  }
-  container.innerHTML = stats.pending_comments
-    .map(
-      (comment) => `<div class="comment-admin-item" data-comment-row="${comment.id}">
-        <span class="avatar">${escapeHtml((comment.author_name || '客').slice(0, 1))}</span>
-        <div class="comment-admin-item__body">
-          <div class="comment-admin-item__meta">
-            <strong>${escapeHtml(comment.author_name)}</strong>
-            <span>${escapeHtml(timeAgo(comment.created_at))}</span>
-          </div>
-          <p>${escapeHtml(comment.content)}</p>
-        </div>
-        <div class="comment-admin-item__actions">
-          <button class="a-btn a-btn--sm" type="button" data-approve-comment="${comment.id}">通过</button>
-        </div>
-      </div>`,
-    )
-    .join('');
-
-  container.querySelectorAll<HTMLButtonElement>('[data-approve-comment]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      try {
-        await api(`/api/admin/comments/${button.dataset.approveComment}`, {
-          method: 'PUT',
-          body: { status: 'approved' },
-        });
-        button.closest('[data-comment-row]')?.remove();
-        toast('留言已通过', 'success');
-        if (!container.querySelector('[data-comment-row]')) {
-          container.innerHTML = '<div class="admin-empty"><p>没有待审核的留言。</p></div>';
-        }
-        const badge = document.querySelector<HTMLElement>('[data-pending-count]');
-        if (badge) {
-          const next = Math.max(0, Number(badge.textContent || 0) - 1);
-          badge.textContent = String(next);
-          badge.hidden = next === 0;
-        }
-      } catch (error) {
-        button.disabled = false;
-        toast(errorMessage(error), 'error');
-      }
-    });
-  });
 }

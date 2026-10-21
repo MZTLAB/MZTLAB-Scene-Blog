@@ -3,9 +3,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import StoryCard from '../components/StoryCard.astro';
 import { apiServer, getSite } from '../lib/api';
+import { copyReader } from '../lib/site';
 import type { PostSummary, SiteInfo } from '../types';
 
 const site: SiteInfo = await getSite();
+const { site: siteSettings, appearance } = site.settings;
+const copy = copyReader(site.settings);
 const data = await apiServer<{
   items: PostSummary[];
   total: number;
@@ -15,18 +18,13 @@ const groups = data.years.map((year) => ({
   ...year,
   posts: data.items.filter((post) => (post.published_at || '').startsWith(year.year)),
 }));
-const settings = site.settings;
-const copy = (key: keyof typeof settings, fallback: string) => {
-  const value = settings[key];
-  return typeof value === 'string' && value.trim() ? value : fallback;
-};
-const layout = settings.post_layout === 'list' ? 'list' : 'grid';
+const layout = appearance.post_layout === 'list' ? 'list' : 'grid';
 ---
-<BaseLayout site={site} title="文章归档" description={`${settings.site_title} 的全部文章归档。`}>
+<BaseLayout site={site} title="文章归档" description={`${siteSettings.site_title} 的全部文章归档。`}>
   <section class="container page-hero">
-    <span class="eyebrow">{copy('copy_texts_eyebrow', '// TEXT_ARCHIVE')}</span>
-    <h1>{copy('copy_texts_title', '文字')}</h1>
-    <p>{copy('copy_texts_lead', '笔墨之痕，以篇章留存。')}</p>
+    <span class="eyebrow">{copy('texts_eyebrow', '// TEXT_ARCHIVE')}</span>
+    <h1>{copy('texts_title', '文字')}</h1>
+    <p>{copy('texts_lead', '笔墨之痕，以篇章留存。')}</p>
     <div class="page-hero__meta">
       <span>{String(data.total).padStart(2, '0')} TEXTS</span>
       <span>/</span>
@@ -34,8 +32,8 @@ const layout = settings.post_layout === 'list' ? 'list' : 'grid';
     </div>
     <form class="search-form" action="/search" method="get">
       <Icon name="search" size={15} />
-      <input name="q" type="search" placeholder={copy('copy_search_placeholder', '输入关键词')} aria-label="搜索文章" />
-      <button class="btn btn--small" type="submit">{copy('copy_cta_search', '搜索')}</button>
+      <input name="q" type="search" placeholder={copy('search_placeholder', '输入关键词')} aria-label="搜索文章" />
+      <button class="btn btn--small" type="submit">{copy('cta_search', '搜索')}</button>
     </form>
   </section>
 
@@ -71,7 +69,7 @@ const layout = settings.post_layout === 'list' ? 'list' : 'grid';
                 <StoryCard
                   post={post}
                   site={site}
-                  label={settings.site_title}
+                  label={siteSettings.site_title}
                   eager={group.year === groups[0]?.year && index < 3}
                 />
               ))}
@@ -81,10 +79,10 @@ const layout = settings.post_layout === 'list' ? 'list' : 'grid';
       ) : (
         <div class="empty-state">
           <span class="empty-mark">[ ]</span>
-          <h2>{copy('copy_texts_empty_title', '还没有文章')}</h2>
-          <p>{copy('copy_texts_empty_text', '写下一篇文章，让时间有迹可循。')}</p>
+          <h2>{copy('texts_empty_title', '还没有文章')}</h2>
+          <p>{copy('texts_empty_text', '写下一篇文章，让时间有迹可循。')}</p>
           <a class="btn" href="/admin/posts/new" style="margin-top: 18px">
-            {copy('copy_texts_empty_cta', '写文章')} <Icon name="arrowRight" size={14} />
+            {copy('texts_empty_cta', '写文章')} <Icon name="arrowRight" size={14} />
           </a>
         </div>
       )

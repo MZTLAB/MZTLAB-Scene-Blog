@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hmac
 import ipaddress
 import sqlite3
 from typing import Any, Callable
@@ -10,15 +9,8 @@ from typing import Any, Callable
 from fastapi import HTTPException, Request, Response, status
 
 from .avatars import clean_avatar_url
-from .config import (
-    COOKIE_SECURE,
-    PROXY_SECRET,
-    PROXY_SECRET_HEADER,
-    REAL_IP_HEADER,
-    SESSION_COOKIE,
-    SESSION_DAYS,
-)
-from .db import db, now_iso, setting_flag
+from .config import COOKIE_SECURE, SESSION_COOKIE, SESSION_DAYS
+from .db import db, now_iso
 from .permissions import (
     ROLE_LABELS,
     can,
@@ -27,6 +19,7 @@ from .permissions import (
     normalize_role,
 )
 from .security import new_session_token, session_expiry, token_fingerprint
+from .settings import load_settings_cached
 
 
 def _valid_ip(value: str) -> str | None:
@@ -37,36 +30,26 @@ def _valid_ip(value: str) -> str | None:
 
 
 def client_ip(request: Request) -> str:
-    """Resolve the browser address, trusting only our own proxy.
+    """Resolve the browser address from uvicorn's trusted-proxy rewriting.
 
-    The audit report showed that a forged forwarding header let a client change
-    its rate-limit bucket. The Astro proxy therefore has to prove itself with a
-    shared secret before `X-Blog-Real-IP` is accepted; otherwise we use the
-    actual TCP peer. With `uvicorn --no-proxy-headers` that peer cannot be
-    rewritten by a client-supplied `X-Forwarded-For` either.
+    The backend is started with `--proxy-headers --forwarded-allow-ips=<ingress>`,
+    so uvicorn itself ignores a client-supplied `X-Forwarded-For` and only
+    rewrites `request.client` for a trusted peer (the operator nginx, or the
+    local dev proxy). There is no app-level secret to leak or forge.
     """
     peer = request.client.host if request.client else "unknown"
-    if PROXY_SECRET:
-        supplied = request.headers.get(PROXY_SECRET_HEADER, "")
-        forwarded = request.headers.get(REAL_IP_HEADER, "").strip()
-        if (
-            forwarded
-            and len(forwarded) <= 64
-            and hmac.compare_digest(supplied, PROXY_SECRET)
-        ):
-            return _valid_ip(forwarded) or peer
-    return peer
+    return _valid_ip(peer) or peer
 
 
 def user_public(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
     """Shape a user row for the session, including effective permissions.
 
     The permission list is computed per request so toggling
-    `editor_manage_others` in 设置 applies to the next request without forcing
-    everyone to sign in again.
+    `site.editor_manage_others` in 设置 applies to the next request without
+    forcing everyone to sign in again.
     """
     role = normalize_role(row["role"])
-    manage_others = setting_flag(conn, "editor_manage_others", True)
+    manage_others = load_settings_cached().site.editor_manage_others
     permissions = effective_permissions(role, manage_others=manage_others)
     return {
         "id": row["id"],
@@ -86,6 +69,13 @@ def user_public(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
 
 
 def get_session_user(request: Request) -> dict[str, Any] | None:
+    """Resolve the session cookie to a user without writing to the database.
+
+    Reads never update `sessions` in 3.0.0: the previous "touch user_agent on
+    every request" turned every admin GET into a write transaction competing
+    for SQLite's single write lock. `user_agent`/`ip` are recorded at login
+    only; expired rows are purged at startup and on login.
+    """
     token = request.cookies.get(SESSION_COOKIE)
     if not token:
         return None
@@ -97,13 +87,7 @@ def get_session_user(request: Request) -> dict[str, Any] | None:
             (token_fingerprint(token), now_iso()),
         ).fetchone()
         if not row:
-            conn.execute("DELETE FROM sessions WHERE token_hash = ?", (token_fingerprint(token),))
             return None
-        # Keep the session tidy.
-        conn.execute(
-            "UPDATE sessions SET user_agent = ? WHERE id = ?",
-            (request.headers.get("user-agent", "")[:300], row["session_id"]),
-        )
         return user_public(conn, row)
 
 

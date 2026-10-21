@@ -1,9 +1,10 @@
 """Storage abstraction: local disk (default) or S3-compatible object storage.
 
-Cloudflare R2 is the reference S3 target: it is configured from the admin panel
-(设置 → 图片与存储) and stored in the settings table, with environment
-variables as a fallback for containerised deployments. Secrets never leave the
-process; see `routes/admin.py` for the masking of the admin settings response.
+Cloudflare R2 is the reference S3 target. Non-secret coordinates live in the
+settings document (`advanced.storage`, edited from 设置 → 图片与存储); the access
+key / secret key are read from the environment only (`S3_ENV`) and never touch
+the database or any API response. Environment overrides win over the stored
+value for the backend, the public base URL and path style.
 
 The rest of the application only ever deals with relative keys:
 
@@ -21,7 +22,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterator, Protocol
 
-from .config import IMAGE_CACHE_DIR, S3_ENV_FALLBACK, S3_PATH_STYLE_ENV, UPLOAD_DIR
+from .config import (
+    IMAGE_CACHE_DIR,
+    S3_BACKEND_ENV,
+    S3_ENV,
+    S3_PATH_STYLE_ENV,
+    S3_PUBLIC_BASE_URL_ENV,
+    UPLOAD_DIR,
+)
+from .settings import load_settings_cached
+from .settings.models import StorageSettings
 
 logger = logging.getLogger("mztlab.storage")
 
@@ -95,9 +105,17 @@ class StorageConfig:
 
     def signature(self) -> tuple[Any, ...]:
         return (
-            self.backend, self.serve_mode, self.public_base_url, self.endpoint,
-            self.bucket, self.region, self.access_key, self.secret_key,
-            self.prefix, self.path_style, self.backup_local,
+            self.backend,
+            self.serve_mode,
+            self.public_base_url,
+            self.endpoint,
+            self.bucket,
+            self.region,
+            self.access_key,
+            self.secret_key,
+            self.prefix,
+            self.path_style,
+            self.backup_local,
         )
 
     def describe(self) -> dict[str, Any]:
@@ -400,9 +418,7 @@ class S3Storage:
 
     def size(self, key: str) -> int:
         try:
-            response = self.client.head_object(
-                Bucket=self.config.bucket, Key=self._key(key)
-            )
+            response = self.client.head_object(Bucket=self.config.bucket, Key=self._key(key))
             return int(response.get("ContentLength", -1))
         except Exception as error:
             if _is_missing(error):
@@ -526,45 +542,42 @@ class MirrorStorage:
         return self.backup.local_path(key)
 
 
-
-def _pick(settings: dict[str, Any], key: str) -> str:
-    value = settings.get(key)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return (S3_ENV_FALLBACK.get(key) or "").strip()
+def _storage_settings() -> StorageSettings:
+    """The stored storage coordinates, or defaults when the DB is not ready."""
+    try:
+        return load_settings_cached().advanced.storage
+    except Exception:  # database not ready (first import / tests)
+        return StorageSettings()
 
 
 def storage_config() -> StorageConfig:
-    try:
-        from .db import load_settings_cached
+    """Build the runtime config from typed settings + environment overrides.
 
-        settings: dict[str, Any] = load_settings_cached()
-    except Exception:  # database not ready (first import / tests)
-        settings = {}
-    backend = (
-        (S3_ENV_FALLBACK.get("storage_backend") or "").strip().lower()
-        or _pick(settings, "storage_backend").lower()
-        or "local"
-    )
+    Credentials are environment-only: they are never read from the settings
+    table, so a compromised database cannot leak the bucket keys.
+    """
+    configured = _storage_settings()
+    backend = (S3_BACKEND_ENV or configured.backend or "local").strip().lower()
     if backend not in {"local", "s3"}:
         backend = "local"
-    serve_mode = str(settings.get("storage_serve_mode") or "auto").lower()
+    serve_mode = str(configured.serve_mode or "auto").lower()
     if serve_mode not in {"auto", "proxy", "direct"}:
         serve_mode = "auto"
-    path_style = settings.get("storage_s3_path_style")
-    path_style = S3_PATH_STYLE_ENV if path_style is None else bool(path_style)
+    public_base_url = (S3_PUBLIC_BASE_URL_ENV or configured.public_base_url).strip()
     return StorageConfig(
         backend=backend,
         serve_mode=serve_mode,
-        public_base_url=_pick(settings, "storage_public_base_url"),
-        endpoint=_pick(settings, "storage_s3_endpoint"),
-        bucket=_pick(settings, "storage_s3_bucket"),
-        region=_pick(settings, "storage_s3_region") or "auto",
-        access_key=_pick(settings, "storage_s3_access_key"),
-        secret_key=_pick(settings, "storage_s3_secret_key"),
-        prefix=_pick(settings, "storage_s3_prefix") or "mztlab",
-        path_style=path_style,
-        backup_local=bool(settings.get("storage_backup_local", False)),
+        public_base_url=public_base_url.rstrip("/"),
+        endpoint=configured.s3_endpoint.strip().rstrip("/"),
+        bucket=configured.s3_bucket.strip(),
+        region=(configured.s3_region or "auto").strip() or "auto",
+        access_key=(S3_ENV.get("storage_s3_access_key") or "").strip(),
+        secret_key=(S3_ENV.get("storage_s3_secret_key") or "").strip(),
+        prefix=(configured.s3_prefix or "mztlab").strip() or "mztlab",
+        # A truthy environment flag is a deployment-level override; when it is
+        # unset the admin-saved value applies.
+        path_style=bool(S3_PATH_STYLE_ENV) or bool(configured.s3_path_style),
+        backup_local=bool(configured.backup_local),
     )
 
 
@@ -583,9 +596,7 @@ def get_storage() -> Storage:
         if config.is_s3:
             primary: Storage = S3Storage(config)
             storage: Storage = (
-                MirrorStorage(primary, LocalStorage())
-                if config.backup_local
-                else primary
+                MirrorStorage(primary, LocalStorage()) if config.backup_local else primary
             )
         else:
             storage = LocalStorage()

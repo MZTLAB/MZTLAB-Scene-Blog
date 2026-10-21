@@ -119,9 +119,8 @@ export function initQualityDialog(
       // `alt` is required by the endpoint; send the current value so a quality
       // edit never clears the alternative text.
       await api(`/api/admin/media/${mediaId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         body: {
-          alt: current.alt,
           avif_quality_auto: autoMode,
           avif_quality: quality,
         },

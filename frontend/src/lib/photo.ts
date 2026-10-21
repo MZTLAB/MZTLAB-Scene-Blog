@@ -25,7 +25,10 @@ export const PHOTO_EXIF_LABELS: Record<PhotoExifField, string> = {
 };
 
 export function visibleExifFields(photo: Photo): Set<PhotoExifField> {
-  return new Set(photo.exif_fields || PHOTO_EXIF_FIELDS);
+  const stored = photo.exif_fields ?? [];
+  if (!stored.length) return new Set(PHOTO_EXIF_FIELDS);
+  const allowed = new Set<string>(PHOTO_EXIF_FIELDS);
+  return new Set(stored.filter((field): field is PhotoExifField => allowed.has(field)));
 }
 
 export function exifFieldVisible(photo: Photo, field: PhotoExifField): boolean {

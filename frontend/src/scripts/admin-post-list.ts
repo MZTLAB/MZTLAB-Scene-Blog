@@ -1,6 +1,6 @@
 import { api, qs } from '../lib/api';
 import { debounce, errorMessage, escapeHtml, statusBadge, toast } from '../lib/admin-client';
-import { formatDate, number } from '../lib/format';
+import { formatDate } from '../lib/format';
 import type { Paginated, PostSummary } from '../types';
 
 interface ListResponse extends Paginated<PostSummary> {
@@ -14,6 +14,7 @@ if (root) {
   const isPage = type === 'page';
   const isProject = type === 'project';
   const base = isPage ? '/admin/pages' : isProject ? '/admin/projects' : '/admin/posts';
+  const apiBase = isPage ? '/api/admin/pages' : isProject ? '/api/admin/projects' : '/api/admin/posts';
   const itemWord = isPage ? '页面' : isProject ? '项目' : '文章';
   const emptyWord = isPage ? '还没有独立页面。' : isProject ? '还没有项目，去创建第一个吧。' : '还没有文章，去写第一篇吧。';
   const tableHost = root.querySelector<HTMLElement>('[data-table]');
@@ -55,7 +56,7 @@ if (root) {
     renderLoading();
     try {
       const data = await api<ListResponse>(
-        `/api/admin/posts${qs({ type, status: state.status, q: state.q, page: state.page, per_page: 20 })}`,
+        `${apiBase}${qs({ status: state.status, q: state.q, page: state.page, per_page: 20 })}`,
       );
       updateCounts(data.counts);
       if (!data.items.length) {
@@ -73,7 +74,6 @@ if (root) {
                 <th>作者</th>
                 <th>状态</th>
                 <th>${isPage ? '更新时间' : '发布时间'}</th>
-                <th>阅读</th>
                 <th style="text-align:right">操作</th>
               </tr>
             </thead>
@@ -94,7 +94,6 @@ if (root) {
                     <td><span style="color:var(--ink-faint);font-size:10px">${escapeHtml(
                       formatDate(isPage ? post.updated_at : post.published_at || post.updated_at, 'short'),
                     )}</span></td>
-                    <td><span style="font-family:var(--font-mono);font-size:9px">${number(post.view_count)}</span></td>
                     <td>
                       <div class="table-actions">
                         ${publicLink(post)}
@@ -122,7 +121,7 @@ if (root) {
   const remove = async (id: number, title: string) => {
     if (!window.confirm(`确定删除「${title}」吗？此操作不可撤销。`)) return;
     try {
-      await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
+      await api(`${apiBase}/${id}`, { method: 'DELETE' });
       toast('已删除', 'success');
       await load();
     } catch (error) {

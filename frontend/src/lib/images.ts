@@ -11,16 +11,8 @@
  * been generated. The fallback `<img>` always uses the proxy so legacy
  * browsers and not-yet-generated variants still work.
  */
-export interface ImageInfo {
-  width: number;
-  height: number;
-  s: number;
-  l: number;
-  f: number;
-  formats: string[];
-  base: string;
-  direct: string | null;
-}
+export type { ImageInfo } from '../types';
+import type { ImageInfo } from '../types';
 
 export type Scene = 'thumb' | 'tile' | 'card' | 'hero' | 'viewer' | 'prose' | 'full';
 

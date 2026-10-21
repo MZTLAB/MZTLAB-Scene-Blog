@@ -19,7 +19,7 @@ load_dotenv(ROOT_DIR / ".env")
 load_dotenv(BASE_DIR / ".env", override=True)
 
 APP_NAME = "MZTLAB"
-VERSION = "2.3.0"
+VERSION = "3.0.0-beta1"
 
 # Largest integer SQLite can bind (signed 64-bit). Request parameters are
 # capped to this so oversized ids return 422 instead of an unhandled 500.
@@ -48,20 +48,17 @@ IMAGE_ENCODE_WORKERS = max(1, min(8, int(os.getenv("BLOG_IMAGE_ENCODE_WORKERS", 
 # 0 means "no cap beyond the original image width".
 IMAGE_MAX_WIDTH_HARD_LIMIT = 8192
 
-# Object storage. The admin panel writes these values into the settings table;
-# environment variables are only a fallback (useful for Docker secrets). The
-# secret key never leaves the process: it is never part of /api/site and the
-# admin API only reports whether one is configured.
-S3_ENV_FALLBACK = {
-    "storage_backend": os.getenv("BLOG_STORAGE_BACKEND", ""),
-    "storage_s3_endpoint": os.getenv("BLOG_S3_ENDPOINT", ""),
-    "storage_s3_bucket": os.getenv("BLOG_S3_BUCKET", ""),
-    "storage_s3_region": os.getenv("BLOG_S3_REGION", ""),
+# Object storage. Non-secret coordinates live in the settings documents; the
+# credentials are read from the environment only (12-factor) and are never
+# stored in the database or returned by any API response.
+S3_ENV = {
     "storage_s3_access_key": os.getenv("BLOG_S3_ACCESS_KEY", ""),
     "storage_s3_secret_key": os.getenv("BLOG_S3_SECRET_KEY", ""),
-    "storage_s3_prefix": os.getenv("BLOG_S3_PREFIX", ""),
-    "storage_public_base_url": os.getenv("BLOG_S3_PUBLIC_BASE_URL", ""),
 }
+# Deployment-level overrides for the object storage backend. Empty means "use
+# the value saved in the admin settings".
+S3_BACKEND_ENV = os.getenv("BLOG_STORAGE_BACKEND", "").strip()
+S3_PUBLIC_BASE_URL_ENV = os.getenv("BLOG_S3_PUBLIC_BASE_URL", "").strip()
 S3_PATH_STYLE_ENV = _flag("BLOG_S3_PATH_STYLE", False)
 
 FRONTEND_URL = os.getenv("BLOG_FRONTEND_URL", "http://127.0.0.1:4321").rstrip("/")
@@ -78,14 +75,16 @@ _public_url = (SITE_URL or FRONTEND_URL).lower()
 _https_deployment = _public_url.startswith("https://")
 COOKIE_SECURE = _flag("BLOG_COOKIE_SECURE", _https_deployment)
 
-# Shared secret between the Astro proxy and FastAPI. When set, the backend only
-# trusts `X-Blog-Real-IP` from a request that carries this header, so a client
-# cannot forge its source address to bypass login rate limits. scripts/run.py
-# generates it automatically for local runs; Docker deployments set it in the
-# environment of both containers.
-PROXY_SECRET = os.getenv("BLOG_PROXY_SECRET", "").strip()
-PROXY_SECRET_HEADER = "x-blog-proxy-secret"
-REAL_IP_HEADER = "x-blog-real-ip"
+# Address of the single ingress (operator nginx, or the local dev proxy). Only
+# this peer may supply the forwarding headers that uvicorn uses to rewrite
+# request.client: the backend is started with `--proxy-headers
+# --forwarded-allow-ips=<this value>` so a forged X-Forwarded-For from a client
+# is ignored. Multiple addresses are comma separated.
+TRUSTED_PROXY = os.getenv("BLOG_TRUSTED_PROXY", "127.0.0.1").strip() or "127.0.0.1"
+
+# The app-level rate limiter lives in process memory, so more than one worker
+# would silently multiply every quota. 3.0.0 refuses to start with >1 worker.
+WEB_CONCURRENCY = max(1, int(os.getenv("WEB_CONCURRENCY", "1")))
 
 # Swagger/OpenAPI are useful while developing but hand attackers a full map of
 # the API. Off by default; enable explicitly in development if needed.
@@ -97,7 +96,7 @@ BOOTSTRAP_ADMIN_USER = os.getenv("BLOG_ADMIN_USER", "").strip()
 BOOTSTRAP_ADMIN_PASSWORD = os.getenv("BLOG_ADMIN_PASSWORD", "")
 BOOTSTRAP_ADMIN_NAME = os.getenv("BLOG_ADMIN_NAME", "MZTLAB").strip() or "MZTLAB"
 
-SEED_DEMO = _flag("BLOG_SEED_DEMO", True)
+SEED_DEMO = _flag("BLOG_SEED_DEMO", False)
 MAX_UPLOAD_BYTES = int(os.getenv("BLOG_MAX_UPLOAD_MB", "12")) * 1024 * 1024
 # Administrators ignore the configured upload policy; this technical ceiling
 # keeps a single upload from exhausting memory/disk. Raise it deliberately.

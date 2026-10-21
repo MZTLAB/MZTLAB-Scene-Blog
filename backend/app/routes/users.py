@@ -13,8 +13,14 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..api.models import (
+    AdminUserListResponse,
+    AdminUserMutationResponse,
+    UserDeleteResponse,
+    UsersMetaResponse,
+)
 from ..avatars import clean_avatar_url
-from ..db import db, now_iso, setting_flag
+from ..db import db, now_iso
 from ..deps import require_permission, require_staff, revoke_user_sessions
 from ..permissions import (
     ROLE_LABELS,
@@ -26,6 +32,7 @@ from ..permissions import (
 )
 from ..schemas import UserCreateIn, UserUpdateIn
 from ..security import hash_password, password_policy_error
+from ..settings import load_settings_cached
 
 router = APIRouter(prefix="/admin", tags=["users"], dependencies=[Depends(require_staff)])
 
@@ -66,7 +73,7 @@ def _serialize(
     }
 
 
-@router.get("/users/meta")
+@router.get("/users/meta", response_model=UsersMetaResponse)
 def users_meta(user: dict = Depends(require_permission("users.manage"))) -> dict[str, Any]:
     return {
         "roles": role_meta(),
@@ -75,7 +82,7 @@ def users_meta(user: dict = Depends(require_permission("users.manage"))) -> dict
     }
 
 
-@router.get("/users")
+@router.get("/users", response_model=AdminUserListResponse)
 def list_users(
     q: str | None = Query(None, max_length=80),
     role: str | None = Query(None, max_length=20),
@@ -101,26 +108,25 @@ def list_users(
             )
         )
         content_counts = {
-            row["author_id"]: int(row["n"])
+            row["owner_id"]: int(row["n"])
             for row in conn.execute(
-                "SELECT author_id, COUNT(*) AS n FROM posts WHERE author_id IS NOT NULL GROUP BY author_id"
+                "SELECT owner_id, COUNT(*) AS n FROM posts WHERE owner_id IS NOT NULL GROUP BY owner_id"
             )
         }
         gallery_counts = {
-            row["author_id"]: int(row["n"])
+            row["owner_id"]: int(row["n"])
             for row in conn.execute(
-                "SELECT author_id, COUNT(*) AS n FROM galleries WHERE author_id IS NOT NULL GROUP BY author_id"
+                "SELECT owner_id, COUNT(*) AS n FROM galleries WHERE owner_id IS NOT NULL GROUP BY owner_id"
             )
         }
         media_counts = {
             row[0]: int(row[1])
             for row in conn.execute(
-                "SELECT COALESCE(owner_id, uploaded_by), COUNT(*) "
-                "FROM media WHERE COALESCE(owner_id, uploaded_by) IS NOT NULL "
-                "GROUP BY COALESCE(owner_id, uploaded_by)"
+                "SELECT owner_id, COUNT(*) FROM media "
+                "WHERE owner_id IS NOT NULL GROUP BY owner_id"
             )
         }
-        manage_others = setting_flag(conn, "editor_manage_others", True)
+        manage_others = load_settings_cached().site.editor_manage_others
     items = [
         _serialize(
             row,
@@ -142,7 +148,7 @@ def list_users(
     return {"items": items, "total": len(items), "counts": counts}
 
 
-@router.post("/users", status_code=201)
+@router.post("/users", status_code=201, response_model=AdminUserMutationResponse)
 def create_user(
     payload: UserCreateIn,
     actor: dict = Depends(require_permission("users.manage")),
@@ -170,11 +176,11 @@ def create_user(
             ),
         )
         row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
-        manage_others = setting_flag(conn, "editor_manage_others", True)
+        manage_others = load_settings_cached().site.editor_manage_others
     return {"ok": True, "user": _serialize(row, manage_others=manage_others)}
 
 
-@router.put("/users/{user_id}")
+@router.put("/users/{user_id}", response_model=AdminUserMutationResponse)
 def update_user(
     user_id: int,
     payload: UserUpdateIn,
@@ -222,11 +228,11 @@ def update_user(
         if password_changed or not payload.is_active or role != row["role"]:
             revoke_user_sessions(conn, user_id)
         updated = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        manage_others = setting_flag(conn, "editor_manage_others", True)
+        manage_others = load_settings_cached().site.editor_manage_others
     return {"ok": True, "user": _serialize(updated, manage_others=manage_others)}
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/users/{user_id}", response_model=UserDeleteResponse)
 def delete_user(
     user_id: int,
     actor: dict = Depends(require_permission("users.manage")),
@@ -239,6 +245,17 @@ def delete_user(
             raise HTTPException(status_code=404, detail="用户不存在")
         if row["role"] == "admin" and _active_admin_count(conn, excluding=user_id) == 0:
             raise HTTPException(status_code=409, detail="至少需要保留一名启用中的管理员")
+        # owner_id is ON DELETE RESTRICT: content must be transferred or removed
+        # first, otherwise raw SQLite would surface a 500.
+        owned = sum(
+            int(conn.execute(f"SELECT COUNT(*) FROM {table} WHERE owner_id = ?", (user_id,)).fetchone()[0])
+            for table in ("posts", "galleries", "media")
+        )
+        if owned:
+            raise HTTPException(
+                status_code=409,
+                detail="该成员仍有内容，请先转移所有权或删除其内容",
+            )
         conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
     return {"ok": True, "deleted": user_id, "username": row["username"]}
 

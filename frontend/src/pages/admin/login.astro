@@ -3,19 +3,13 @@ import AuthLayout from '../../layouts/AuthLayout.astro';
 import Icon from '../../components/Icon.astro';
 import { getAuthStatus } from '../../lib/auth';
 import { getSite } from '../../lib/api';
-import { fallbackSite } from '../../config';
 import type { SiteInfo } from '../../types';
 
 const status = await getAuthStatus(Astro);
 if (status.needs_setup) return Astro.redirect('/admin/setup');
 if (status.authenticated) return Astro.redirect('/admin');
 
-let site: SiteInfo = fallbackSite as unknown as SiteInfo;
-try {
-  site = await getSite();
-} catch {
-  // fallback tokens
-}
+const site: SiteInfo = await getSite();
 const requested = Astro.url.searchParams.get('next') || '/admin';
 const next = requested.startsWith('/admin') ? requested : '/admin';
 ---
@@ -57,7 +51,7 @@ const next = requested.startsWith('/admin') ? requested : '/admin';
         body: JSON.stringify(payload),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.detail || '登录失败');
+      if (!response.ok) throw new Error(data.error?.message || '登录失败');
       window.location.href = form.dataset.next || data.redirect || '/admin';
     } catch (error) {
       if (errorBox) errorBox.textContent = error instanceof Error ? error.message : '登录失败';

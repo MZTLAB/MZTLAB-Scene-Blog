@@ -1,0 +1,80 @@
+# Optional local quality gates.
+#
+# pre-commit is NOT required to build or run the project. To opt in:
+#   python -m pip install pre-commit
+#   pre-commit install
+#
+# Python hooks reuse the project virtualenv so ruff/mypy run with the exact
+# versions pinned in backend/requirements-dev.txt. The paths below are the
+# Windows layout of that venv; on POSIX replace
+# `backend/.venv/Scripts/python.exe` with `backend/.venv/bin/python`.
+#
+# The ruff-format and prettier hooks deliberately skip the 2.x files that are
+# still being rewritten (progressive ratchet). Remove an exclusion once its file
+# has been reformatted and rewritten in 3.0.0.
+default_stages: [pre-commit]
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (backend)
+        entry: backend/.venv/Scripts/python.exe -m ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        files: ^backend/
+
+      - id: ruff-format
+        name: ruff format (backend)
+        entry: backend/.venv/Scripts/python.exe -m ruff format
+        language: system
+        types_or: [python, pyi]
+        files: ^backend/(app|tests)/
+        # Legacy 2.x modules are not ruff-formatted yet; exclude them until
+        # they are rewritten in 3.0.0 (matches the ratchet in backend/pyproject.toml).
+        exclude: |
+          (?x)^backend/app/(
+            content|db|deps|exif|images|main|permissions|photo_exif|posts|schemas|security|seed|storage|storage_sync
+          )\.py$|^backend/app/routes/(
+            admin|gallery_admin|media|public|users
+          )\.py$
+
+      - id: mypy
+        name: mypy (backend app)
+        entry: backend/.venv/Scripts/python.exe -m mypy --config-file backend/pyproject.toml backend/app
+        language: system
+        pass_filenames: false
+        files: ^backend/app/
+
+      - id: eslint
+        name: eslint (frontend)
+        entry: npm --prefix frontend run lint
+        language: system
+        pass_filenames: false
+        files: ^frontend/.*\.(js|mjs|cjs|ts|tsx|astro)$
+
+      - id: prettier
+        name: prettier (frontend, staged files)
+        # Explicit plugin/options because pre-commit always runs from the repo
+        # root, while frontend/.prettierrc.json resolves its plugin relative to
+        # frontend/. Keep these options in sync with frontend/.prettierrc.json.
+        entry: >-
+          node frontend/node_modules/prettier/bin/prettier.cjs
+          --no-config
+          --plugin frontend/node_modules/prettier-plugin-astro/dist/index.js
+          --single-quote
+          --print-width 100
+          --trailing-comma all
+          --write
+        language: system
+        files: ^frontend/.*\.(js|mjs|cjs|ts|tsx|astro|json|css|md)$

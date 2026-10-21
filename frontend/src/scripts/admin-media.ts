@@ -266,7 +266,7 @@ if (root) {
         'change',
         debounce(async () => {
           try {
-            await api(`/api/admin/media/${field.dataset.alt}`, { method: 'PUT', body: { alt: field.value } });
+            await api(`/api/admin/media/${field.dataset.alt}`, { method: 'PATCH', body: { alt: field.value } });
             toast('替代文字已保存', 'success');
           } catch (error) {
             toast(errorMessage(error), 'error');

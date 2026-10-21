@@ -52,8 +52,16 @@ const blockSensitiveDevFiles = {
   },
 };
 
-// The Astro server is the single public entry point. It renders pages and
-// proxies /api and /media to FastAPI (see src/pages/api and src/pages/media).
+// Provisioning is single-layer: in production the operator-maintained nginx
+// routes /api and /media to FastAPI and everything else to this Astro process
+// (see docs/EDGE.md). Astro itself no longer proxies API/media traffic.
+//
+// Local development is the one exception: the Vite dev server forwards /api and
+// /media to FastAPI so the browser keeps one same-origin address. The proxy is
+// dev-only (`apply: 'serve'` semantics of vite.server) and `xfwd: false` keeps
+// client-supplied forwarding headers out of the request.
+const apiInternalUrl = process.env.BLOG_API_INTERNAL_URL || 'http://127.0.0.1:8000';
+
 export default defineConfig({
   output: 'server',
   adapter: node({ mode: 'standalone' }),
@@ -75,6 +83,10 @@ export default defineConfig({
         strict: true,
         // Never serve dotfiles or private keys from the dev server.
         deny: ['.env', '.env.*', '*.pem', '**/.git/**'],
+      },
+      proxy: {
+        '/api': { target: apiInternalUrl, changeOrigin: false, xfwd: false },
+        '/media': { target: apiInternalUrl, changeOrigin: false, xfwd: false },
       },
     },
     plugins: [cjsBridgePlugin, blockSensitiveDevFiles],

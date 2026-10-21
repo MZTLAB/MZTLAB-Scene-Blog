@@ -1,9 +1,8 @@
 """Gallery + photo queries and JSON shaping.
 
 A gallery ("相册") is a curated set of photos. Photos always reference a row in
-`media`, keeping the validated file metadata, and carry their own caption /
-location / date so the photography side of the site has a real content model
-instead of reusing Markdown posts.
+`media` and keep a filename snapshot; ownership is inherited from the gallery
+(`galleries.owner_id`), so photos carry no `owner_id` of their own.
 """
 
 from __future__ import annotations
@@ -13,10 +12,11 @@ from typing import Any
 
 from .avatars import clean_avatar_url
 from .content import quote_slug
-from .db import load_settings_cached, now_iso
+from .db import now_iso
 from .exif import parse_stored
 from .images import image_payload
 from .photo_exif import parse_stored_exif_fields
+from .settings import Settings, load_settings_cached
 
 GALLERY_PUBLIC_CONDITION = "g.status = 'published'"
 # Photographs are only public as part of a published album. Loose photos and
@@ -28,7 +28,7 @@ PHOTO_PUBLIC_CONDITION = (
 _BASE_GALLERY = """
     SELECT g.*, u.display_name AS author_name, u.username AS author_username,
            u.avatar AS author_avatar
-    FROM galleries g LEFT JOIN users u ON u.id = g.author_id
+    FROM galleries g LEFT JOIN users u ON u.id = g.owner_id
 """
 
 _PHOTO_COLUMNS = """
@@ -57,12 +57,12 @@ def media_url(filename: str) -> str:
 
 def photo_dict(
     row: sqlite3.Row | dict[str, Any],
-    settings: dict[str, Any] | None = None,
+    settings: Settings | None = None,
 ) -> dict[str, Any]:
     data = dict(row)
     width = int(data.get("width") or 0)
     height = int(data.get("height") or 0)
-    settings = settings or load_settings_cached()
+    resolved = settings or load_settings_cached()
     gallery = None
     if data.get("gallery_id") and data.get("gallery_slug"):
         gallery = {
@@ -149,7 +149,7 @@ def photo_dict(
         "focal_length_35mm": technical["focal_length_35mm"],
         "exif_fields": visible_fields,
         "exif": public_exif,
-        "image": image_payload(media_row, settings),
+        "image": image_payload(media_row, resolved),
         "allow_download": allow_download,
         "download_name": download_name,
         "download_url": f"{media_url(filename)}?download=1" if allow_download else "",
@@ -169,10 +169,10 @@ def gallery_dict(
     *,
     detail: bool = False,
     admin: bool = False,
-    settings: dict[str, Any] | None = None,
+    settings: Settings | None = None,
 ) -> dict[str, Any]:
     data = dict(row)
-    settings = settings or load_settings_cached()
+    resolved = settings or load_settings_cached()
     photos = list(
         conn.execute(
             f"SELECT {_PHOTO_COLUMNS}{_PHOTO_JOINS}"
@@ -182,7 +182,7 @@ def gallery_dict(
             (data["id"],),
         )
     )
-    photo_items = [photo_dict(item, settings) for item in photos]
+    photo_items = [photo_dict(item, resolved) for item in photos]
     cover = None
     cover_id = data.get("cover_photo_id")
     if cover_id:
@@ -203,17 +203,19 @@ def gallery_dict(
         "featured": bool(data["featured"]),
         "cover": cover,
         "photo_count": len(photo_items),
-        "view_count": data["view_count"],
         "created_at": data["created_at"],
         "updated_at": data["updated_at"],
         "author": {
             "name": data.get("author_name") or "MZTLAB",
+            "username": data.get("author_username") or "",
             "avatar": clean_avatar_url(data.get("author_avatar") or ""),
         },
     }
     if admin:
-        item["author_id"] = data.get("author_id")
+        item["owner_id"] = data.get("owner_id")
         item["cover_photo_id"] = cover_id
+    else:
+        item["author"].pop("username", None)
     if detail:
         item["photos"] = photo_items
     return item
@@ -227,7 +229,7 @@ def fetch_galleries(
     page: int = 1,
     per_page: int = 24,
     q: str | None = None,
-    author_id: int | None = None,
+    owner_id: int | None = None,
     status: str | None = None,
 ) -> tuple[list[sqlite3.Row], int]:
     page = max(1, page)
@@ -242,9 +244,9 @@ def fetch_galleries(
     if featured is not None:
         where.append("g.featured = ?")
         args.append(1 if featured else 0)
-    if author_id is not None:
-        where.append("g.author_id = ?")
-        args.append(author_id)
+    if owner_id is not None:
+        where.append("g.owner_id = ?")
+        args.append(owner_id)
     if q:
         # Galleries are searchable by their own copy and by the metadata of the
         # published photos inside them (title, caption, place, camera, date).
@@ -297,10 +299,7 @@ def get_gallery(
 def gallery_photo_rows(
     conn: sqlite3.Connection, gallery_id: int, *, public: bool = True
 ) -> list[sqlite3.Row]:
-    sql = (
-        f"SELECT {_PHOTO_COLUMNS}{_PHOTO_JOINS}"
-        "WHERE ph.gallery_id = ?"
-    )
+    sql = f"SELECT {_PHOTO_COLUMNS}{_PHOTO_JOINS}WHERE ph.gallery_id = ?"
     if public:
         sql += " AND ph.status = 'published'"
     sql += " ORDER BY ph.sort_order ASC, ph.id ASC"
@@ -318,7 +317,7 @@ def fetch_photos(
     per_page: int = 24,
     q: str | None = None,
     order: str = "recent",
-    author_id: int | None = None,
+    owner_id: int | None = None,
 ) -> tuple[list[sqlite3.Row], int]:
     page = max(1, page)
     per_page = max(1, min(per_page, 120))
@@ -335,9 +334,9 @@ def fetch_photos(
     if featured is not None:
         where.append("ph.featured = ?")
         args.append(1 if featured else 0)
-    if author_id is not None:
-        where.append("g.author_id = ?")
-        args.append(author_id)
+    if owner_id is not None:
+        where.append("g.owner_id = ?")
+        args.append(owner_id)
     if q:
         where.append(
             "(ph.title LIKE ? OR ph.caption LIKE ? OR ph.location LIKE ? OR g.title LIKE ? "

@@ -1,8 +1,11 @@
 import { defineMiddleware } from 'astro:middleware';
-import type { APIContext } from 'astro';
 
 /**
- * Security headers for every HTML/API/media response served by Astro.
+ * Security headers for HTML responses served by Astro.
+ *
+ * 3.0.0 splits ownership by response class: Astro owns page headers (this
+ * file), FastAPI owns /api and /media headers (app/main.py, media_serve.py),
+ * and the operator nginx owns TLS/HSTS. Nothing is defined twice.
  *
  * Astro's dev server is only used locally (it exposes source files); the
  * Content-Security-Policy is therefore only emitted for production builds,
@@ -34,12 +37,6 @@ const CONTENT_SECURITY_POLICY = [
   "manifest-src 'self'",
 ].join('; ');
 
-function isHttps(context: APIContext): boolean {
-  const forwarded = context.request.headers.get('x-forwarded-proto');
-  if (forwarded) return forwarded.split(',')[0].trim().toLowerCase() === 'https';
-  return context.url.protocol === 'https:';
-}
-
 export const onRequest = defineMiddleware(async (context, next) => {
   const response = await next();
 
@@ -51,8 +48,9 @@ export const onRequest = defineMiddleware(async (context, next) => {
     // admin-uploaded HTML/SVG files served as downloads); keep that one.
     response.headers.set('Content-Security-Policy', CONTENT_SECURITY_POLICY);
   }
-  if (isHttps(context)) {
-    response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-  }
+  // The ingress may generate X-Request-ID (forwarded via the request header);
+  // when it does not, generate one so page and API logs can be correlated.
+  const supplied = context.request.headers.get('x-request-id')?.trim().slice(0, 128);
+  response.headers.set('X-Request-ID', supplied || crypto.randomUUID().replaceAll('-', ''));
   return response;
 });

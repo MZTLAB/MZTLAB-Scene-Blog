@@ -1,8 +1,8 @@
 """Force-sync local media files to the configured object storage.
 
 This is the "upload everything that is on disk" counterpart to the normal
-write-through path: useful after switching `storage_backend` from `local` to
-`s3`, restoring a bucket, or repairing a partially lost remote.
+write-through path: useful after switching `advanced.storage.backend` from
+`local` to `s3`, restoring a bucket, or repairing a partially lost remote.
 
 Only local files are considered:
 * `UPLOAD_DIR` → original uploads
@@ -18,7 +18,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Callable
 
-from .storage import LocalStorage, content_type_for
+from .storage import LocalStorage, Storage, content_type_for
 
 logger = logging.getLogger("mztlab.storage_sync")
 
@@ -36,7 +36,7 @@ class SyncResult:
     current: str = ""
     errors: list[str] = field(default_factory=list)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, object]:
         return {
             "total": self.total,
             "uploaded": self.uploaded,
@@ -61,7 +61,7 @@ def local_objects(local: LocalStorage, scope: str = "all") -> list[tuple[str, in
 
 def sync_local_to_remote(
     local: LocalStorage,
-    remote,
+    remote: Storage,
     *,
     force: bool = False,
     scope: str = "all",

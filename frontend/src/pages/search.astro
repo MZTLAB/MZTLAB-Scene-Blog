@@ -6,25 +6,20 @@ import SmartImage from '../components/SmartImage.astro';
 import Icon from '../components/Icon.astro';
 import { apiServer, getSite } from '../lib/api';
 import { formatDate } from '../lib/format';
+import { copyReader } from '../lib/site';
 import type { Photo, SearchResults, SiteInfo } from '../types';
 
 const site: SiteInfo = await getSite();
-const settings = site.settings;
-const copy = (key: keyof typeof settings, fallback: string) => {
-  const value = settings[key];
-  return typeof value === 'string' && value.trim() ? value : fallback;
-};
+const { site: siteSettings } = site.settings;
+const copy = copyReader(site.settings);
 const query = (Astro.url.searchParams.get('q') || '').trim();
+// Search failures are real errors now: a broken backend must not render an
+// empty 200 result page.
 let results: SearchResults = { query: '', articles: [], projects: [], galleries: [], photos: [] };
-let error = '';
 if (query) {
-  try {
-    results = await apiServer<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`);
-    results.projects = results.projects || [];
-    results.photos = results.photos || [];
-  } catch (exception) {
-    error = exception instanceof Error ? exception.message : '搜索失败';
-  }
+  results = await apiServer<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`);
+  results.projects = results.projects || [];
+  results.photos = results.photos || [];
 }
 const total =
   results.articles.length +
@@ -38,28 +33,28 @@ const photoMeta = (photo: Photo) =>
 ---
 <BaseLayout
   site={site}
-  title={query ? `搜索「${query}」` : copy('copy_search_title', '搜索')}
-  description={`${copy('copy_search_lead', '在标题、正文、器材与项目信息之间查找。')} ${settings.site_title}`}
+  title={query ? `搜索「${query}」` : copy('search_title', '搜索')}
+  description={`${copy('search_lead', '在标题、正文、器材与项目信息之间查找。')} ${siteSettings.site_title}`}
   noindex={!query}
 >
   <section class="container page-hero">
-    <span class="eyebrow">{copy('copy_search_eyebrow', '// SEARCH')}</span>
-    <h1>{copy('copy_search_title', '搜索')}</h1>
-    <p>{copy('copy_search_lead', '在标题、正文、器材与项目信息之间查找。')}</p>
+    <span class="eyebrow">{copy('search_eyebrow', '// SEARCH')}</span>
+    <h1>{copy('search_title', '搜索')}</h1>
+    <p>{copy('search_lead', '在标题、正文、器材与项目信息之间查找。')}</p>
     <form class="search-form" action="/search" method="get" role="search">
       <Icon name="search" size={15} />
       <input
         name="q"
         type="search"
         value={query}
-        placeholder={copy('copy_search_placeholder', '输入关键词')}
+        placeholder={copy('search_placeholder', '输入关键词')}
         aria-label="搜索全站"
         autofocus={!query}
       />
-      <button class="btn btn--small" type="submit">{copy('copy_cta_search', '搜索')}</button>
+      <button class="btn btn--small" type="submit">{copy('cta_search', '搜索')}</button>
     </form>
     {
-      query && !error && (
+      query && (
         <div class="page-hero__meta">
           <span>「{query}」</span>
           <span>/</span>
@@ -71,32 +66,26 @@ const photoMeta = (photo: Photo) =>
 
   <div class="container">
     {
-      error ? (
-        <div class="empty-state">
-          <span class="empty-mark">!</span>
-          <h2>搜索不可用</h2>
-          <p>{error}</p>
-        </div>
-      ) : !query ? (
+      !query ? (
         <div class="empty-state">
           <span class="empty-mark">⌕</span>
-          <h2>{copy('copy_search_placeholder', '输入关键词')}</h2>
-          <p>{copy('copy_search_suggestions', '试试标题、正文、地点、器材、年份或角色。')}</p>
+          <h2>{copy('search_placeholder', '输入关键词')}</h2>
+          <p>{copy('search_suggestions', '试试标题、正文、地点、器材、年份或角色。')}</p>
           <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-            <a class="btn btn--ghost" href="/photos">{copy('copy_photos_title', '影像')}</a>
-            <a class="btn btn--ghost" href="/projects">{copy('copy_projects_title', '项目')}</a>
-            <a class="btn btn--ghost" href="/archive">{copy('copy_texts_title', '文字')}</a>
+            <a class="btn btn--ghost" href="/photos">{copy('photos_title', '影像')}</a>
+            <a class="btn btn--ghost" href="/projects">{copy('projects_title', '项目')}</a>
+            <a class="btn btn--ghost" href="/archive">{copy('texts_title', '文字')}</a>
           </div>
         </div>
       ) : total === 0 ? (
         <div class="empty-state">
           <span class="empty-mark">—</span>
-          <h2>{copy('copy_search_empty', '没有找到匹配的内容。')}</h2>
-          <p>{copy('copy_search_suggestions', '试试标题、正文、地点、器材、年份或角色。')}</p>
+          <h2>{copy('search_empty', '没有找到匹配的内容。')}</h2>
+          <p>{copy('search_suggestions', '试试标题、正文、地点、器材、年份或角色。')}</p>
           <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
-            <a class="btn btn--ghost" href="/photos">{copy('copy_photos_title', '影像')}</a>
-            <a class="btn btn--ghost" href="/projects">{copy('copy_projects_title', '项目')}</a>
-            <a class="btn btn--ghost" href="/archive">{copy('copy_texts_title', '文字')}</a>
+            <a class="btn btn--ghost" href="/photos">{copy('photos_title', '影像')}</a>
+            <a class="btn btn--ghost" href="/projects">{copy('projects_title', '项目')}</a>
+            <a class="btn btn--ghost" href="/archive">{copy('texts_title', '文字')}</a>
           </div>
         </div>
       ) : (
@@ -104,7 +93,7 @@ const photoMeta = (photo: Photo) =>
           {(results.projects?.length || 0) > 0 && (
             <section class="result-group">
               <h2>
-                {copy('copy_search_projects', '项目')} <span>{String(results.projects.length).padStart(2, '0')}</span>
+                {copy('search_projects', '项目')} <span>{String(results.projects.length).padStart(2, '0')}</span>
               </h2>
               <div class="project-grid project-grid--compact">
                 {results.projects.map((project, index) => (
@@ -117,7 +106,7 @@ const photoMeta = (photo: Photo) =>
           {(results.photos?.length || 0) > 0 && (
             <section class="result-group">
               <h2>
-                {copy('copy_search_photo_items', '照片')} <span>{String(results.photos.length).padStart(2, '0')}</span>
+                {copy('search_photo_items', '照片')} <span>{String(results.photos.length).padStart(2, '0')}</span>
               </h2>
               <div class="search-photo-grid">
                 {results.photos.map((photo) => (
@@ -138,11 +127,11 @@ const photoMeta = (photo: Photo) =>
           {results.galleries.length > 0 && (
             <section class="result-group">
               <h2>
-                {copy('copy_search_photos', '影像')} <span>{String(results.galleries.length).padStart(2, '0')}</span>
+                {copy('search_photos', '影像')} <span>{String(results.galleries.length).padStart(2, '0')}</span>
               </h2>
               <div class="gallery-grid">
                 {results.galleries.map((gallery, index) => (
-                  <GalleryCard gallery={gallery} label={settings.site_title} index={index + 1} />
+                  <GalleryCard gallery={gallery} label={siteSettings.site_title} index={index + 1} />
                 ))}
               </div>
             </section>
@@ -151,7 +140,7 @@ const photoMeta = (photo: Photo) =>
           {results.articles.length > 0 && (
             <section class="result-group">
               <h2>
-                {copy('copy_search_texts', '文字')} <span>{String(results.articles.length).padStart(2, '0')}</span>
+                {copy('search_texts', '文字')} <span>{String(results.articles.length).padStart(2, '0')}</span>
               </h2>
               <div class="journal-list">
                 {results.articles.map((post) => (

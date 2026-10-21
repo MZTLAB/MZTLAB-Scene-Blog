@@ -1,40 +1,12 @@
 import { api } from '../lib/api';
 import { errorMessage, toast } from '../lib/admin-client';
-import type { SiteSettings } from '../types';
+import { buildSettingsPatch, flattenSettings } from '../lib/settings';
+import type { AdminSettings, AdminSettingsResponse } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-appearance]');
 if (root) {
   const saveButton = document.querySelector<HTMLButtonElement>('[data-save-appearance]');
-  let settings: SiteSettings | null = null;
-
-  const load = async () => {
-    try {
-      const result = await api<{ settings: SiteSettings }>('/api/admin/settings');
-      settings = result.settings;
-      hydrate(settings);
-      apply();
-    } catch (error) {
-      toast(errorMessage(error), 'error');
-    }
-  };
-
-  const hydrate = (value: SiteSettings) => {
-    root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
-      const key = input.dataset.setting as keyof SiteSettings;
-      const current = value[key];
-      if (input.type === 'checkbox') {
-        (input as HTMLInputElement).checked = Boolean(current);
-      } else {
-        input.value = String(current ?? '');
-      }
-    });
-    root.querySelectorAll<HTMLElement>('[data-choice]').forEach((button) => {
-      const key = button.dataset.choiceGroup as keyof SiteSettings;
-      button.classList.toggle('is-selected', String(value[key]) === button.dataset.choice);
-      button.classList.toggle('is-active', String(value[key]) === button.dataset.choice);
-    });
-    updateRangeLabels();
-  };
+  let flat: Record<string, string | boolean> = {};
 
   const updateRangeLabels = () => {
     const width = root.querySelector<HTMLInputElement>('[data-setting="layout_width"]');
@@ -45,44 +17,52 @@ if (root) {
     if (radiusOut && radius) radiusOut.textContent = `${radius.value}px`;
   };
 
-  const collect = () => {
-    const result: Record<string, unknown> = {};
+  const hydrate = (settings: AdminSettings) => {
+    flat = flattenSettings(settings);
     root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
-      const key = input.dataset.setting!;
-      result[key] = input.type === 'checkbox' ? (input as HTMLInputElement).checked : input.value;
+      const value = flat[input.dataset.setting!];
+      if (input.type === 'checkbox') {
+        (input as HTMLInputElement).checked = Boolean(value);
+      } else {
+        input.value = String(value ?? '');
+      }
     });
-    ['layout_width', 'radius', 'gallery_columns'].forEach((key) => {
-      if (result[key] !== undefined) result[key] = Number(result[key]);
+    root.querySelectorAll<HTMLElement>('[data-choice]').forEach((button) => {
+      const group = button.dataset.choiceGroup!;
+      const selected = String(flat[group] ?? '') === button.dataset.choice;
+      button.classList.toggle('is-selected', selected);
+      button.classList.toggle('is-active', selected);
+    });
+    updateRangeLabels();
+  };
+
+  const collect = (): Record<string, string | boolean> => {
+    const result: Record<string, string | boolean> = {};
+    root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
+      result[input.dataset.setting!] =
+        input.type === 'checkbox' ? (input as HTMLInputElement).checked : input.value;
     });
     return result;
   };
 
-  const paletteAliases: Record<string, string> = {
-    paper: 'scene',
-    graphite: 'stone',
-    forest: 'sand',
-    ocean: 'stone',
-  };
-
   const apply = () => {
-    if (!settings) return;
-    settings = { ...settings, ...(collect() as Partial<SiteSettings>) };
+    const current: Record<string, string | boolean> = { ...flat, ...collect() };
     const html = document.documentElement;
-    html.style.setProperty('--accent', String(settings.accent));
-    html.style.setProperty('--layout-width', `${settings.layout_width}px`);
-    html.style.setProperty('--radius', `${settings.radius}px`);
-    html.style.setProperty('--photo-columns', String(settings.gallery_columns || 3));
-    const rawPalette = String(settings.theme);
-    html.dataset.palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
-      ? rawPalette
-      : paletteAliases[rawPalette] || 'scene';
-    html.dataset.font = String(settings.font_pair);
+    html.style.setProperty('--accent', String(current.accent || '#c2451f'));
+    html.style.setProperty('--layout-width', `${Number(current.layout_width) || 1360}px`);
+    html.style.setProperty('--radius', `${Number(current.radius) || 0}px`);
+    html.style.setProperty('--photo-columns', String(Number(current.gallery_columns) || 3));
+    const palette = ['scene', 'stone', 'sand', 'night'].includes(String(current.theme))
+      ? String(current.theme)
+      : 'scene';
+    html.dataset.palette = palette;
+    html.dataset.font = String(current.font_pair || 'mono');
     const mode =
-      settings.color_mode === 'system'
+      current.color_mode === 'system'
         ? window.matchMedia('(prefers-color-scheme: dark)').matches
           ? 'dark'
           : 'light'
-        : String(settings.color_mode);
+        : String(current.color_mode || 'light');
     html.dataset.colorMode = mode;
     html.style.colorScheme = mode;
 
@@ -93,19 +73,29 @@ if (root) {
     const card = root.querySelector<HTMLElement>('[data-preview-card]');
     const accentInput = root.querySelector<HTMLInputElement>('input[type="color"][data-setting="accent"]');
     const accentText = root.querySelector<HTMLInputElement>('input[type="text"][data-setting="accent"]');
-    if (accentInput) accentInput.value = String(settings.accent);
-    if (accentText) accentText.value = String(settings.accent);
-    if (title) title.textContent = String(settings.hero_title || '光落下的地方，就是场景。');
-    if (subtitle) subtitle.textContent = String(settings.hero_subtitle || settings.description || '');
-    if (siteName) siteName.textContent = String(settings.site_title);
+    if (accentInput) accentInput.value = String(current.accent || '#c2451f');
+    if (accentText) accentText.value = String(current.accent || '#c2451f');
+    if (title) title.textContent = String(current.hero_title || '光落下的地方，就是场景。');
+    if (subtitle) subtitle.textContent = String(current.hero_subtitle || current.description || '');
+    if (siteName) siteName.textContent = String(current.site_title || '');
     if (hero) {
-      hero.style.display = settings.hero_show ? '' : 'none';
-      hero.dataset.style = String(settings.hero_style);
+      hero.style.display = current.hero_show ? '' : 'none';
+      hero.dataset.style = String(current.hero_style || 'split');
     }
     if (card) {
-      card.style.display = settings.post_layout === 'list' ? 'none' : '';
+      card.style.display = current.post_layout === 'list' ? 'none' : '';
     }
     updateRangeLabels();
+  };
+
+  const load = async () => {
+    try {
+      const result = await api<AdminSettingsResponse>('/api/admin/settings');
+      hydrate(result.settings);
+      apply();
+    } catch (error) {
+      toast(errorMessage(error), 'error');
+    }
   };
 
   root.addEventListener('input', (event) => {
@@ -141,12 +131,11 @@ if (root) {
   const save = async () => {
     if (saveButton) saveButton.disabled = true;
     try {
-      const result = await api<{ settings: SiteSettings }>('/api/admin/settings', {
-        method: 'PUT',
-        body: collect(),
+      const result = await api<AdminSettingsResponse>('/api/admin/settings', {
+        method: 'PATCH',
+        body: buildSettingsPatch(collect(), ['site', 'appearance', 'copy']),
       });
-      settings = result.settings;
-      hydrate(settings);
+      hydrate(result.settings);
       apply();
       toast('外观设置已保存，刷新前台即可看到变化', 'success');
     } catch (error) {

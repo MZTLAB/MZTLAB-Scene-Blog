@@ -2,10 +2,9 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import Icon from '../../components/Icon.astro';
 import ImageQualityDialog from '../../components/admin/ImageQualityDialog.astro';
-import { guardAdmin } from '../../lib/auth';
-import { getSite } from '../../lib/api';
-import { fallbackSite } from '../../config';
-import type { SiteSettings } from '../../types';
+import { guardAdmin, requestCookie } from '../../lib/auth';
+import { apiServer } from '../../lib/api';
+import type { AdminSettingsResponse, UploadSettings } from '../../types';
 
 const guard = await guardAdmin(Astro, 'media.manage');
 if (guard instanceof Response) return guard;
@@ -36,28 +35,27 @@ const FILE_MIME: Record<string, string> = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
 };
-let settings: SiteSettings = fallbackSite.settings as unknown as SiteSettings;
-try {
-  settings = (await getSite()).settings;
-} catch {
-  // The page still renders with the built-in defaults if the API is briefly down.
+// The upload policy lives in the admin-only settings document (there is no
+// upload group in the public /api/site projection). Members who cannot read
+// settings rely on server-side validation for the file picker hints.
+let upload: UploadSettings | null = null;
+if (user.permissions?.includes('settings.manage')) {
+  const settingsResult = await apiServer<AdminSettingsResponse>('/api/admin/settings', {
+    cookie: requestCookie(Astro),
+  });
+  upload = settingsResult.settings.upload;
 }
-const parseFormats = (raw: unknown, allowed: string[]): string[] => {
-  const tokens = new Set(
-    String(raw || '')
-      .replace(/;/g, ',')
-      .split(',')
-      .map((token) => token.trim().toLowerCase().replace(/^\./, '')),
-  );
-  const selected = allowed.filter((format) => tokens.has(format));
+const pickFormats = (allowed: string[], configured: string[] | undefined): string[] => {
+  const selected = (configured || []).filter((format) => allowed.includes(format));
   return selected.length ? selected : allowed;
 };
-const imageFormats = parseFormats(settings.upload_image_formats, Object.keys(IMAGE_MIME));
-const audioFormats = parseFormats(settings.upload_audio_formats, Object.keys(AUDIO_MIME));
-const fileFormats = String(settings.upload_file_formats || '').trim()
-  ? parseFormats(settings.upload_file_formats, Object.keys(FILE_MIME))
-  : [];
-const maxMb = Math.max(1, Math.min(200, Number(settings.upload_max_mb) || 12));
+const imageFormats = pickFormats(Object.keys(IMAGE_MIME), upload?.image_formats);
+const audioFormats = pickFormats(Object.keys(AUDIO_MIME), upload?.audio_formats);
+// Unlike images/audio, an explicitly empty extra-file list means "no extra files".
+const fileFormats = upload
+  ? (upload.file_formats || []).filter((format) => format in FILE_MIME)
+  : Object.keys(FILE_MIME);
+const maxMb = upload ? Math.max(1, Math.min(200, Number(upload.max_mb) || 12)) : 200;
 const adminUnrestricted = user.role === 'admin';
 const accept = [
   ...imageFormats.map((format) => IMAGE_MIME[format]),
@@ -73,10 +71,14 @@ const formatSummary = [
   .join('，以及 ');
 const uploadHint = adminUnrestricted
   ? '管理员不受上传设置限制 · 图片可进相册，音频可插入文章，其他文件可复制链接下载'
-  : `单个文件不超过 ${maxMb}MB · 图片可进相册，音频可插入文章，其他文件可复制链接下载`;
+  : upload
+    ? `单个文件不超过 ${maxMb}MB · 图片可进相册，音频可插入文章，其他文件可复制链接下载`
+    : '具体格式与大小限制由服务器校验 · 图片可进相册，音频可插入文章';
 const descriptionPrefix = adminUnrestricted
   ? '管理员可上传任意格式与大小的文件（服务端技术上限除外）'
-  : `支持 ${formatSummary}；单个文件不超过 ${maxMb}MB。上传规则在 设置 → 上传与媒体 中调整。`;
+  : upload
+    ? `支持 ${formatSummary}；单个文件不超过 ${maxMb}MB。上传规则在 设置 → 上传与媒体 中调整。`
+    : '上传规则由服务端校验。';
 ---
 <AdminLayout user={user} title="媒体库" subtitle="Assets / Media" active="media">
   <div

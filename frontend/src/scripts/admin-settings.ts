@@ -1,36 +1,17 @@
 import { api } from '../lib/api';
 import { errorMessage, escapeHtml, toast } from '../lib/admin-client';
-import type { NavLink, SiteSettings } from '../types';
+import { buildSettingsPatch, flattenSettings } from '../lib/settings';
+import type { AdminSettings, AdminSettingsResponse, NavLink } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-settings-page]');
 if (root) {
   const saveButton = document.querySelector<HTMLButtonElement>('[data-save-settings]');
-  let settings: SiteSettings | null = null;
+  let flat: Record<string, string | boolean> = {};
   const links: Record<'nav' | 'social' | 'footer', NavLink[]> = {
     nav: [],
     social: [],
     footer: [],
   };
-  const numericKeys = new Set([
-    'posts_per_page', 'upload_max_mb', 'image_avif_speed', 'image_webp_quality',
-    'image_jpeg_quality', 'image_quality_thumb', 'image_quality_tile',
-    'image_quality_card', 'image_quality_hero', 'image_quality_viewer',
-    'image_quality_prose', 'image_quality_full', 'image_max_width',
-    'image_cache_days',
-  ]);
-  const booleanKeys = new Set([
-    'show_reading_time',
-    'show_author',
-    'show_views',
-    'comments_enabled',
-    'comment_moderation',
-    'image_avif_enabled',
-    'image_webp_enabled',
-    'image_prewarm',
-    'image_lazy_enabled',
-    'storage_s3_path_style',
-    'storage_backup_local',
-  ]);
 
   const tabs = root.querySelectorAll<HTMLButtonElement>('[data-settings-tab]');
   const panels = root.querySelectorAll<HTMLElement>('[data-settings-panel]');
@@ -43,59 +24,61 @@ if (root) {
   const hash = window.location.hash.slice(1);
   if (hash) activateTab(hash);
 
+  const syncSwitches = () => {
+    root.querySelectorAll<HTMLElement>('[data-switch]').forEach((label) => {
+      const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]');
+      if (!input) return;
+      label.setAttribute('aria-checked', input.checked ? 'true' : 'false');
+    });
+  };
   root.querySelectorAll<HTMLElement>('[data-switch]').forEach((label) => {
     const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]');
     if (!input) return;
-    const sync = () => label.setAttribute('aria-checked', input.checked ? 'true' : 'false');
-    input.addEventListener('change', sync);
-    sync();
+    input.addEventListener('change', syncSwitches);
   });
-
-  interface SettingsMeta {
-    image?: { avif?: boolean; webp?: boolean; scenes?: string[] };
-    storage?: { backends?: string[]; serve_modes?: string[] };
-  }
+  syncSwitches();
 
   const setHint = (selector: string, text: string) => {
     const node = root.querySelector<HTMLElement>(selector);
     if (node) node.textContent = text;
   };
 
+  const hydrate = (result: AdminSettingsResponse) => {
+    const settings: AdminSettings = result.settings;
+    flat = flattenSettings(settings);
+    root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
+      const value = flat[input.dataset.setting!];
+      if (input.type === 'checkbox') (input as HTMLInputElement).checked = Boolean(value);
+      else input.value = String(value ?? '');
+    });
+    const image = result.meta?.image;
+    if (image) {
+      setHint(
+        '[data-codec-status]',
+        `服务端能力：AVIF ${image.avif ? '可用' : '不可用'} · WebP ${image.webp ? '可用' : '不可用'}`,
+      );
+    }
+    const secrets = result.storage_secrets;
+    if (secrets) {
+      setHint(
+        '[data-storage-secrets]',
+        `Access Key：${secrets.access_key_configured ? '已配置' : '未配置'} · Secret Key：${
+          secrets.secret_key_configured ? '已配置' : '未配置'
+        }（只从环境变量读取）`,
+      );
+    }
+    links.nav = [...(settings.site.nav || [])];
+    links.social = [...(settings.site.social || [])];
+    links.footer = [...(settings.site.footer_links || [])];
+    renderLinks('nav');
+    renderLinks('social');
+    renderLinks('footer');
+    syncSwitches();
+  };
+
   const load = async () => {
     try {
-      const result = await api<{ settings: SiteSettings; meta?: SettingsMeta }>(
-        '/api/admin/settings',
-      );
-      settings = result.settings;
-      root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
-        const key = input.dataset.setting as keyof SiteSettings;
-        const value = settings?.[key];
-        if (input.type === 'checkbox') (input as HTMLInputElement).checked = Boolean(value);
-        else input.value = String(value ?? '');
-      });
-      const image = result.meta?.image;
-      if (image) {
-        setHint(
-          '[data-codec-status]',
-          `服务端能力：AVIF ${image.avif ? '可用' : '不可用'} · WebP ${image.webp ? '可用' : '不可用'}`,
-        );
-      }
-      const secretField = root.querySelector<HTMLInputElement>('[data-secret]');
-      if (secretField) {
-        const configured = Boolean(settings?.storage_s3_secret_key_configured);
-        secretField.placeholder = configured ? '已保存，留空则不修改' : '尚未设置';
-        setHint('[data-secret-hint]', configured ? '已保存密钥；填写新值可替换。' : '还没有保存密钥。');
-      }
-      links.nav = [...(settings.nav || [])];
-      links.social = [...(settings.social || [])];
-      links.footer = [...(settings.footer_links || [])];
-      renderLinks('nav');
-      renderLinks('social');
-      renderLinks('footer');
-      root.querySelectorAll<HTMLElement>('[data-switch]').forEach((label) => {
-        const input = label.querySelector<HTMLInputElement>('input[type="checkbox"]');
-        if (input) label.setAttribute('aria-checked', input.checked ? 'true' : 'false');
-      });
+      hydrate(await api<AdminSettingsResponse>('/api/admin/settings'));
     } catch (error) {
       toast(errorMessage(error), 'error');
     }
@@ -216,32 +199,28 @@ if (root) {
   });
 
   const collect = () => {
-    const payload: Record<string, unknown> = {};
+    const values: Record<string, string | boolean> = {};
     root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[data-setting]').forEach((input) => {
-      const key = input.dataset.setting!;
-      if (input.type === 'checkbox') payload[key] = (input as HTMLInputElement).checked;
-      else if (numericKeys.has(key)) {
-        const value = Number(input.value);
-        payload[key] = Number.isFinite(value) ? value : 0;
-      } else if (booleanKeys.has(key)) payload[key] = input.value === 'true';
-      else payload[key] = input.value;
+      values[input.dataset.setting!] =
+        input.type === 'checkbox' ? (input as HTMLInputElement).checked : input.value;
     });
-    payload.nav = links.nav.filter((link) => link.label.trim() && link.url.trim());
-    payload.social = links.social.filter((link) => link.label.trim() && link.url.trim());
-    payload.footer_links = links.footer.filter(
-      (link) => link.label.trim() && link.url.trim(),
-    );
-    return payload;
+    const patch = buildSettingsPatch(values);
+    const site = (patch.site as Record<string, unknown> | undefined) ?? {};
+    patch.site = site;
+    site.nav = links.nav.filter((link) => link.label.trim() && link.url.trim());
+    site.social = links.social.filter((link) => link.label.trim() && link.url.trim());
+    site.footer_links = links.footer.filter((link) => link.label.trim() && link.url.trim());
+    return patch;
   };
 
   const save = async () => {
     if (saveButton) saveButton.disabled = true;
     try {
-      const result = await api<{ settings: SiteSettings }>('/api/admin/settings', {
-        method: 'PUT',
+      const result = await api<AdminSettingsResponse>('/api/admin/settings', {
+        method: 'PATCH',
         body: collect(),
       });
-      settings = result.settings;
+      hydrate(result);
       toast('设置已保存', 'success');
     } catch (error) {
       toast(errorMessage(error), 'error');

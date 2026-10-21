@@ -1,0 +1,72 @@
+---
+// Minimal static error page: no site data, no API calls. Astro renders it with
+// status 500 when an SSR data request fails, so the failure is visible to
+// monitoring instead of being masked by a half-rendered 200.
+Astro.response.status = 500;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>500 · 服务暂时不可用</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --accent: #c2451f;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-content: center;
+        gap: 14px;
+        padding: 32px;
+        background: #f7f6f2;
+        color: #12120f;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      strong {
+        font-size: clamp(2.4rem, 8vw, 4rem);
+        line-height: 1;
+        letter-spacing: -0.04em;
+        color: var(--accent);
+      }
+      h1 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+      p {
+        margin: 0;
+        max-width: 46ch;
+        font-size: 0.85rem;
+        line-height: 1.7;
+        color: #5c5a53;
+      }
+      a {
+        color: var(--accent);
+        font-size: 0.85rem;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background: #0c0c0b;
+          color: #f2f0e9;
+        }
+        p {
+          color: #a8a59b;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <strong>500</strong>
+    <h1>服务暂时不可用</h1>
+    <p>页面需要的内容服务没有正常响应。请稍后刷新，或确认后端已经启动。</p>
+    <a href="/">← 返回首页</a>
+  </body>
+</html>

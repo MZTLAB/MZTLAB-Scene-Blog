@@ -14,7 +14,7 @@ try {
   if (error instanceof ApiError && error.status === 404) return Astro.rewrite('/404');
   throw error;
 }
-const settings = site.settings;
+const settings = site.settings.site;
 const description = page.seo_description || '';
 ---
 <BaseLayout site={site} title={page.seo_title || page.title} description={description} image={page.cover_image} author={page.author?.name}>

@@ -45,9 +45,6 @@ export function statusBadge(status: string): string {
     published: '已发布',
     draft: '草稿',
     scheduled: '定时',
-    pending: '待审核',
-    approved: '已通过',
-    spam: '垃圾',
   };
   return `<span class="badge badge--${escapeHtml(status)}">${escapeHtml(labels[status] || status)}</span>`;
 }
@@ -89,15 +86,4 @@ export function initAdminShell(): void {
   document.querySelectorAll<HTMLElement>('[data-logout]').forEach((button) =>
     button.addEventListener('click', () => logout()),
   );
-
-  const pendingCount = document.querySelector<HTMLElement>('[data-pending-count]');
-  if (pendingCount) {
-    api<{ comments: { pending: number } }>('/api/admin/stats', { redirectOn401: false })
-      .then((stats) => {
-        const count = stats.comments?.pending || 0;
-        pendingCount.textContent = String(count);
-        pendingCount.hidden = count === 0;
-      })
-      .catch(() => {});
-  }
 }

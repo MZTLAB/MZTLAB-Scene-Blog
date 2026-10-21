@@ -17,7 +17,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, RedirectResponse, Response, StreamingResponse
 
-from ..db import db, load_settings_cached
+from ..db import db
 from ..images import (
     EXT_FORMAT,
     SCENES,
@@ -27,6 +27,7 @@ from ..images import (
     is_image_row,
     scene_widths,
 )
+from ..settings import load_settings_cached
 from ..storage import (
     StorageError,
     StorageMissing,
@@ -42,9 +43,31 @@ router = APIRouter(tags=["media"])
 # the site's origin is served as a download with a locked-down CSP instead of
 # being rendered inline.
 ACTIVE_MEDIA_EXTENSIONS = {
-    "html", "htm", "xhtml", "shtml", "svg", "xml", "xsl", "js", "mjs",
-    "cjs", "css", "php", "phtml", "asp", "aspx", "jsp", "exe", "dll",
-    "com", "bat", "cmd", "ps1", "sh", "wasm", "swf",
+    "html",
+    "htm",
+    "xhtml",
+    "shtml",
+    "svg",
+    "xml",
+    "xsl",
+    "js",
+    "mjs",
+    "cjs",
+    "css",
+    "php",
+    "phtml",
+    "asp",
+    "aspx",
+    "jsp",
+    "exe",
+    "dll",
+    "com",
+    "bat",
+    "cmd",
+    "ps1",
+    "sh",
+    "wasm",
+    "swf",
 }
 
 _SAFE_KEY = re.compile(r"^[A-Za-z0-9_\-./]+$")
@@ -60,8 +83,7 @@ def _content_disposition(filename: str) -> str:
         if suffix:
             ascii_name += suffix
     return (
-        f"attachment; filename=\"{ascii_name[:150]}\"; "
-        f"filename*=UTF-8''{quote(cleaned, safe='')}"
+        f"attachment; filename=\"{ascii_name[:150]}\"; filename*=UTF-8''{quote(cleaned, safe='')}"
     )
 
 
@@ -148,13 +170,7 @@ def image_derivative(media_id: int, token: str, scene: str, name: str) -> Respon
 @router.get("/media/{path:path}")
 def media_file(path: str, download: bool = False) -> Response:
     key = (path or "").strip()
-    if (
-        not key
-        or key.startswith("/")
-        or ".." in key
-        or "\\" in key
-        or not _SAFE_KEY.match(key)
-    ):
+    if not key or key.startswith("/") or ".." in key or "\\" in key or not _SAFE_KEY.match(key):
         raise HTTPException(status_code=400, detail="非法路径")
     extension = key.rsplit(".", 1)[-1].lower() if "." in key else ""
     attachment = extension in ACTIVE_MEDIA_EXTENSIONS

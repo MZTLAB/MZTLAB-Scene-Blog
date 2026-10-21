@@ -5,40 +5,47 @@ import unittest
 from pydantic import ValidationError
 
 from app.avatars import clean_avatar_url
-from app.schemas import PostIn, ProfileIn
+from app.schemas import PostIn, ProfileIn, ProjectIn, ProjectPatch
 
 
 class ProjectKindTests(unittest.TestCase):
     def test_presets_still_accepted(self) -> None:
-        self.assertEqual(PostIn(title="x", project_kind="code").project_kind, "code")
-        self.assertEqual(PostIn(title="x", project_kind="video").project_kind, "video")
+        self.assertEqual(ProjectIn(title="x", project_kind="code").project_kind, "code")
+        self.assertEqual(ProjectIn(title="x", project_kind="video").project_kind, "video")
 
     def test_custom_type_is_allowed(self) -> None:
         self.assertEqual(
-            PostIn(title="x", project_kind="字体设计").project_kind,
+            ProjectIn(title="x", project_kind="字体设计").project_kind,
             "字体设计",
         )
         self.assertEqual(
-            PostIn(title="x", project_kind="motion / 3D").project_kind,
+            ProjectIn(title="x", project_kind="motion / 3D").project_kind,
             "motion / 3D",
         )
 
     def test_type_is_normalised(self) -> None:
-        payload = PostIn(title="x", project_kind="  字体   设计  ")
+        payload = ProjectIn(title="x", project_kind="  字体   设计  ")
         self.assertEqual(payload.project_kind, "字体 设计")
-        payload = PostIn(title="x", project_kind="a\x00b")
+        payload = ProjectIn(title="x", project_kind="a\x00b")
         self.assertEqual(payload.project_kind, "ab")
-        self.assertEqual(PostIn(title="x").project_kind, "")
+        self.assertEqual(ProjectIn(title="x").project_kind, "")
 
     def test_type_has_a_length_limit(self) -> None:
         with self.assertRaises(ValidationError):
-            PostIn(title="x", project_kind="x" * 41)
+            ProjectIn(title="x", project_kind="x" * 41)
 
-    def test_author_transfer_target_must_be_positive(self) -> None:
-        self.assertEqual(PostIn(title="x", author_id=3).author_id, 3)
-        self.assertIsNone(PostIn(title="x").author_id)
+    def test_owner_transfer_target_must_be_positive(self) -> None:
+        self.assertEqual(PostIn(title="x", owner_id=3).owner_id, 3)
+        self.assertIsNone(PostIn(title="x").owner_id)
         with self.assertRaises(ValidationError):
-            PostIn(title="x", author_id=0)
+            PostIn(title="x", owner_id=0)
+
+    def test_patch_omitted_fields_are_distinguishable(self) -> None:
+        patch = ProjectPatch(title="新标题")
+        self.assertEqual(patch.model_fields_set, {"title"})
+        self.assertIsNone(ProjectPatch().title)
+        # Content models split per resource: posts no longer carry project fields.
+        self.assertNotIn("project_kind", PostIn.model_fields)
 
 
 class AvatarPolicyTests(unittest.TestCase):

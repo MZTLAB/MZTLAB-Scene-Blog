@@ -2,15 +2,25 @@ from __future__ import annotations
 
 import unittest
 
-from app.defaults import default_settings
 from app.routes.media import (
     AUDIO_EXTENSIONS,
     FILE_FORMATS,
     _any_file_format,
     _audio_format,
     _file_format,
+    _media_patch_columns,
     _serialize,
+    _upload_policy,
 )
+from app.schemas import MediaAltIn
+from app.settings import Settings
+
+
+def _settings(**upload_overrides: object) -> Settings:
+    settings = Settings()
+    for key, value in upload_overrides.items():
+        setattr(settings.upload, key, value)
+    return settings
 
 
 class MediaSerializeTests(unittest.TestCase):
@@ -29,16 +39,92 @@ class MediaSerializeTests(unittest.TestCase):
             "avif_quality": 33,
             "avif_quality_auto": auto,
             "ready_hash": "",
-            "uploaded_by": 1,
             "owner_id": 1,
         }
 
     def test_auto_flag_is_a_boolean(self) -> None:
-        auto = _serialize(self._row(1), default_settings())
+        auto = _serialize(self._row(1), Settings())
         self.assertIs(auto["avif_quality_auto"], True)
-        manual = _serialize(self._row(0), default_settings())
+        manual = _serialize(self._row(0), Settings())
         self.assertIs(manual["avif_quality_auto"], False)
         self.assertEqual(manual["avif_quality"], 33)
+
+    def test_owner_comes_from_owner_id_only(self) -> None:
+        item = _serialize(self._row(1), Settings())
+        self.assertEqual(item["owner"]["id"], 1)
+        self.assertEqual(item["owner"]["name"], "未知成员")
+        self.assertNotIn("uploaded_by", item)
+        self.assertNotIn("effective_owner_id", item)
+        self.assertNotIn("ready_hash", item)
+
+
+class MediaPatchTests(unittest.TestCase):
+    """PATCH semantics: omit = keep, explicit null = clear."""
+
+    def _row(self, **overrides: object) -> dict[str, object]:
+        row: dict[str, object] = {
+            "id": 7,
+            "mime": "image/jpeg",
+            "alt": "old",
+            "avif_quality_auto": 0,
+            "avif_quality": 40,
+        }
+        row.update(overrides)
+        return row
+
+    def test_omitted_fields_are_not_written(self) -> None:
+        columns = _media_patch_columns(self._row(), MediaAltIn())
+        self.assertEqual(columns, {})
+
+    def test_provided_alt_only_changes_alt(self) -> None:
+        columns = _media_patch_columns(self._row(), MediaAltIn(alt="new"))
+        self.assertEqual(columns, {"alt": "new"})
+
+    def test_null_avif_quality_clears_to_auto_default(self) -> None:
+        payload = MediaAltIn.model_validate({"avif_quality": None})
+        columns = _media_patch_columns(self._row(), payload)
+        self.assertEqual(columns["avif_quality_auto"], 1)
+        self.assertEqual(columns["avif_quality"], 55)
+        self.assertEqual(columns["ready_hash"], "")
+
+    def test_explicit_manual_quality_is_written(self) -> None:
+        payload = MediaAltIn.model_validate({"avif_quality_auto": False, "avif_quality": 60})
+        columns = _media_patch_columns(self._row(), payload)
+        self.assertEqual(columns["avif_quality_auto"], 0)
+        self.assertEqual(columns["avif_quality"], 60)
+
+    def test_audio_rows_ignore_avif_quality(self) -> None:
+        payload = MediaAltIn.model_validate({"avif_quality_auto": False, "avif_quality": 60})
+        columns = _media_patch_columns(self._row(mime="audio/mpeg"), payload)
+        self.assertEqual(columns, {})
+
+
+class UploadPolicyTests(unittest.TestCase):
+    def test_policy_reads_typed_upload_settings(self) -> None:
+        max_bytes, images, audio, files = _upload_policy(
+            _settings(
+                max_mb=5,
+                image_formats=["png"],
+                audio_formats=["mp3"],
+                file_formats=["pdf"],
+            )
+        )
+        self.assertEqual(max_bytes, 5 * 1024 * 1024)
+        self.assertEqual(set(images), {"png"})
+        self.assertEqual(set(audio), {"mp3"})
+        self.assertEqual(set(files), {"pdf"})
+
+    def test_empty_image_or_audio_selection_falls_back_to_the_catalog(self) -> None:
+        _, images, audio, files = _upload_policy(
+            _settings(image_formats=[], audio_formats=[], file_formats=[])
+        )
+        self.assertIn("jpg", images)
+        self.assertIn("mp3", audio)
+        self.assertEqual(files, {})
+
+    def test_max_mb_is_clamped_to_the_technical_ceiling(self) -> None:
+        max_bytes, _, _, _ = _upload_policy(_settings(max_mb=10_000))
+        self.assertEqual(max_bytes, 200 * 1024 * 1024)
 
 
 class UploadFormatTests(unittest.TestCase):

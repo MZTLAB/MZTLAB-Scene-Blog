@@ -7,7 +7,7 @@ interface Props {
 }
 
 const { site } = Astro.props;
-const settings = site.settings;
+const settings = site.settings.site;
 const path = Astro.url.pathname;
 const fallbackNav = [
   { label: '首页', url: '/' },
@@ -18,7 +18,6 @@ const fallbackNav = [
 ];
 const nav = settings.nav?.length ? settings.nav : fallbackNav;
 const markSrc = settings.favicon || '/favicon.svg';
-
 function isExternal(url: string): boolean {
   return /^https?:\/\//.test(url);
 }

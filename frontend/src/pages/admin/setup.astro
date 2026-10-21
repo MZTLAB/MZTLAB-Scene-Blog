@@ -3,7 +3,6 @@ import AuthLayout from '../../layouts/AuthLayout.astro';
 import Icon from '../../components/Icon.astro';
 import { getAuthStatus } from '../../lib/auth';
 import { getSite } from '../../lib/api';
-import { fallbackSite } from '../../config';
 import type { SiteInfo } from '../../types';
 
 const status = await getAuthStatus(Astro);
@@ -11,12 +10,7 @@ if (!status.needs_setup) {
   return status.authenticated ? Astro.redirect('/admin') : Astro.redirect('/admin/login');
 }
 
-let site: SiteInfo = fallbackSite as unknown as SiteInfo;
-try {
-  site = await getSite();
-} catch {
-  // fallback
-}
+const site: SiteInfo = await getSite();
 ---
 <AuthLayout site={site} mode="setup">
   <h1>给这个场景，<br />写一个名字。</h1>
@@ -25,7 +19,7 @@ try {
   <form class="auth-form" data-setup-form>
     <div class="a-field">
       <label for="site_title">站点名称</label>
-      <input id="site_title" name="site_title" type="text" value={site.settings.site_title} maxlength="50" required />
+      <input id="site_title" name="site_title" type="text" value={site.settings.site.site_title} maxlength="50" required />
     </div>
     <div class="a-field">
       <label for="display_name">你的称呼</label>
@@ -74,7 +68,7 @@ try {
         body: JSON.stringify(data),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.detail || '初始化失败');
+      if (!response.ok) throw new Error(result.error?.message || '初始化失败');
       window.location.href = '/admin';
     } catch (error) {
       if (errorBox) errorBox.textContent = error instanceof Error ? error.message : '初始化失败';

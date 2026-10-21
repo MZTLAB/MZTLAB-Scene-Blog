@@ -1,10 +1,14 @@
 # MZTLAB · Scene 开发文档
 
+> 适用版本：**3.0.0-beta1**（重构中；2.x 内容将在 Phase 5 归档到 `docs/archive/2.x/` 后整体重写）
+>
+> 本文件当前描述的是 2.x 实现，3.0.0 的模块职责、数据流、契约生成、接入层契约、jobs／心跳、reencode 与测试矩阵见重构计划 [`REFACTOR-3.0.0.md`](REFACTOR-3.0.0.md) 与 [`EDGE.md`](EDGE.md)。
+>
 > 面向后续开发者 / 维护者的工程手册：项目框架、模块职责、数据流、扩展与修改代码的具体路径。
 >
-> 目标版本：`2.2.0`（`backend/app/config.py` → `VERSION`，`frontend/package.json` → `version`）
-> 数据库结构版本：`8`（`backend/app/db.py` → `SCHEMA_VERSION`）
-> 主题：**Scene**（2.2 重建：三列内容区 + 可配置文案 + 项目内容类型）
+> 目标版本：`3.0.0-beta1`（`backend/app/config.py` → `VERSION`，`frontend/package.json` → `version`）
+> 数据库结构版本：`1`（`backend/app/db.py` → `SCHEMA_VERSION`）
+> 主题：**Scene**（三列内容区 + 可配置文案 + 项目内容类型）
 >
 > 相关文档：[`README.md`](../README.md) 偏使用说明与功能概览；本文偏实现与二次开发。
 

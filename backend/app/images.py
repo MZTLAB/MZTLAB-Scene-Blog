@@ -5,17 +5,21 @@ copies at the widths the public pages actually use, exposes them through stable
 hash-based URLs and hands the frontend a compact per-image metadata block.
 
 Formats:
-* AVIF — primary source, per-scenario quality (`image_quality_<scene>`).
+* AVIF — primary source, per-scenario quality (`advanced.image.quality_<scene>`).
 * WebP — fallback for browsers without AVIF.
 * JPEG — final fallback, also what a plain `<img>` loads.
 
-The width ladder is `image_widths` (default 720,2560) plus the original
+The width ladder is `advanced.image.widths` (default 720,2560) plus the original
 resolution as the "full" tier. Scenes map onto those tiers:
 
     thumb / tile / card  → smallest ladder width
     hero / viewer        → largest ladder width
     prose                → both
-    full                 → original width (optionally capped by image_max_width)
+    full                 → original width (optionally capped by
+                           `advanced.image.max_width`)
+
+Everything here takes the typed `Settings` object; there is no flat
+`dict[str, Any]` configuration any more.
 """
 
 from __future__ import annotations
@@ -30,7 +34,8 @@ from typing import Any
 from PIL import Image, ImageOps, features
 
 from .config import IMAGE_ENCODE_WORKERS, IMAGE_MAX_WIDTH_HARD_LIMIT
-from .db import db, load_settings_cached, now_iso
+from .db import db, now_iso
+from .settings import Settings, load_settings_cached
 from .storage import (
     DERIVED_PREFIX,
     StorageMissing,
@@ -63,40 +68,35 @@ class SkipDerivative(Exception):
 
 
 # ---------------------------------------------------------------------------
-# Settings helpers
+# Settings helpers (typed `Settings`, no flat dictionaries)
 # ---------------------------------------------------------------------------
 
-def _int_setting(settings: dict[str, Any], key: str, default: int) -> int:
-    try:
-        value = int(settings.get(key, default))
-    except (TypeError, ValueError):
-        return default
-    return value
+SCENE_QUALITY_FIELDS: dict[str, str] = {scene: f"quality_{scene}" for scene in SCENES}
 
 
-def width_ladder(settings: dict[str, Any]) -> list[int]:
-    raw = settings.get("image_widths", "")
+def width_ladder(settings: Settings) -> list[int]:
+    """The validated width ladder; normalised defensively for old databases."""
     values: list[int] = []
-    for token in str(raw).replace(";", ",").split(","):
-        token = token.strip()
-        if not token.isdigit():
+    for width in settings.advanced.image.widths:
+        try:
+            value = int(width)
+        except (TypeError, ValueError):
             continue
-        width = int(token)
-        if 64 <= width <= IMAGE_MAX_WIDTH_HARD_LIMIT:
-            values.append(width)
+        if 64 <= value <= IMAGE_MAX_WIDTH_HARD_LIMIT:
+            values.append(value)
     unique = sorted(set(values))[:MAX_LADDER_ENTRIES]
     return unique or list(DEFAULT_LADDER)
 
 
-def avif_enabled(settings: dict[str, Any]) -> bool:
-    return AVIF_SUPPORTED and bool(settings.get("image_avif_enabled", True))
+def avif_enabled(settings: Settings) -> bool:
+    return AVIF_SUPPORTED and bool(settings.advanced.image.avif_enabled)
 
 
-def webp_enabled(settings: dict[str, Any]) -> bool:
-    return WEBP_SUPPORTED and bool(settings.get("image_webp_enabled", True))
+def webp_enabled(settings: Settings) -> bool:
+    return WEBP_SUPPORTED and bool(settings.advanced.image.webp_enabled)
 
 
-def generation_formats(settings: dict[str, Any]) -> list[str]:
+def generation_formats(settings: Settings) -> list[str]:
     formats: list[str] = []
     if avif_enabled(settings):
         formats.append("avif")
@@ -107,14 +107,19 @@ def generation_formats(settings: dict[str, Any]) -> list[str]:
     return formats
 
 
-def source_formats(settings: dict[str, Any]) -> list[str]:
+def source_formats(settings: Settings) -> list[str]:
     """Formats offered to `<picture><source>`, in preference order."""
     return [fmt for fmt in ("avif", "webp") if fmt in generation_formats(settings)]
 
 
-def scene_quality(scene: str, settings: dict[str, Any]) -> int:
-    value = _int_setting(settings, f"image_quality_{scene}", DEFAULT_QUALITY)
-    return max(1, min(100, value))
+def _clamp_quality(value: int) -> int:
+    return max(1, min(100, int(value)))
+
+
+def scene_quality(scene: str, settings: Settings) -> int:
+    image = settings.advanced.image
+    field = SCENE_QUALITY_FIELDS.get(scene, "quality_full")
+    return _clamp_quality(getattr(image, field, DEFAULT_QUALITY))
 
 
 def media_quality_override(media_row: Any) -> int | None:
@@ -131,25 +136,26 @@ def media_quality_override(media_row: Any) -> int | None:
 def quality_for(
     scene: str,
     fmt: str,
-    settings: dict[str, Any],
+    settings: Settings,
     media_row: Any = None,
 ) -> int:
+    image = settings.advanced.image
     if fmt == "webp":
-        return max(1, min(100, _int_setting(settings, "image_webp_quality", 80)))
+        return _clamp_quality(image.webp_quality)
     if fmt == "jpeg":
-        return max(1, min(100, _int_setting(settings, "image_jpeg_quality", 82)))
+        return _clamp_quality(image.jpeg_quality)
     override = media_quality_override(media_row)
     return override if override is not None else scene_quality(scene, settings)
 
 
-def full_width(settings: dict[str, Any], original: int) -> int:
-    cap = _int_setting(settings, "image_max_width", 0)
+def full_width(settings: Settings, original: int) -> int:
+    cap = int(settings.advanced.image.max_width)
     if cap <= 0:
         return original
     return min(original, max(64, min(cap, IMAGE_MAX_WIDTH_HARD_LIMIT)))
 
 
-def scene_widths(scene: str, original_width: int, settings: dict[str, Any]) -> list[int]:
+def scene_widths(scene: str, original_width: int, settings: Settings) -> list[int]:
     if original_width <= 0:
         return []
     ladder = width_ladder(settings)
@@ -182,6 +188,7 @@ def payload_widths(scene: str, payload: dict[str, Any]) -> list[int]:
 # Media rows
 # ---------------------------------------------------------------------------
 
+
 def _field(row: Any, key: str, default: Any = None) -> Any:
     try:
         value = row[key]
@@ -196,12 +203,13 @@ def is_image_row(row: Any) -> bool:
     return str(_field(row, "mime", "")).startswith("image/")
 
 
-def variants_hash(row: Any, settings: dict[str, Any]) -> str:
+def variants_hash(row: Any, settings: Settings) -> str:
     """Stable token for the current derivative set of one image.
 
     Changing a quality, the ladder or the enabled formats changes the token, so
     every generated URL changes with it and stale CDN entries are never served.
     """
+    image = settings.advanced.image
     orig = int(_field(row, "width", 0) or 0)
     manual_quality = media_quality_override(row)
     parts = [
@@ -215,14 +223,14 @@ def variants_hash(row: Any, settings: dict[str, Any]) -> str:
         str(full_width(settings, orig or 1)),
         ",".join(f"{scene}:{scene_quality(scene, settings)}" for scene in SCENES),
         ",".join(generation_formats(settings)),
-        str(_int_setting(settings, "image_webp_quality", 80)),
-        str(_int_setting(settings, "image_jpeg_quality", 82)),
-        str(_int_setting(settings, "image_avif_speed", 6)),
+        str(_clamp_quality(image.webp_quality)),
+        str(_clamp_quality(image.jpeg_quality)),
+        str(max(0, min(10, int(image.avif_speed)))),
     ]
     return hashlib.sha1("|".join(parts).encode("utf-8")).hexdigest()[:10]
 
 
-def image_payload(row: Any, settings: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def image_payload(row: Any, settings: Settings | None = None) -> dict[str, Any] | None:
     """Compact metadata the frontend needs to build `<picture>` URLs."""
     if not is_image_row(row):
         return None
@@ -263,12 +271,8 @@ def image_payload(row: Any, settings: dict[str, Any] | None = None) -> dict[str,
     }
 
 
-def derivative_key(
-    media_id: int, token: str, scene: str, width: int, fmt: str
-) -> str:
-    return (
-        f"{DERIVED_PREFIX}{media_id}/{token}/{scene}/{width}.{FORMAT_EXT[fmt]}"
-    )
+def derivative_key(media_id: int, token: str, scene: str, width: int, fmt: str) -> str:
+    return f"{DERIVED_PREFIX}{media_id}/{token}/{scene}/{width}.{FORMAT_EXT[fmt]}"
 
 
 def derivative_url(
@@ -280,9 +284,7 @@ def derivative_url(
     return f"{base}/{scene}/{width}.{FORMAT_EXT[fmt]}"
 
 
-def srcset(
-    payload: dict[str, Any], scene: str, fmt: str, *, prefer_direct: bool = True
-) -> str:
+def srcset(payload: dict[str, Any], scene: str, fmt: str, *, prefer_direct: bool = True) -> str:
     widths = payload_widths(scene, payload)
     return ", ".join(
         f"{derivative_url(payload, scene, width, fmt, prefer_direct=prefer_direct)} {width}w"
@@ -295,14 +297,12 @@ def url_to_filename(url: str) -> str | None:
     if not url:
         return None
     if url.startswith("/media/"):
-        return url[len("/media/"):]
+        return url[len("/media/") :]
     return None
 
 
 def media_by_filename(conn: Any, filename: str) -> Any:
-    return conn.execute(
-        "SELECT * FROM media WHERE filename = ?", (filename,)
-    ).fetchone()
+    return conn.execute("SELECT * FROM media WHERE filename = ?", (filename,)).fetchone()
 
 
 def media_by_url(conn: Any, url: str) -> Any:
@@ -311,7 +311,7 @@ def media_by_url(conn: Any, url: str) -> Any:
 
 
 def image_payload_for_url(
-    conn: Any, url: str, settings: dict[str, Any] | None = None
+    conn: Any, url: str, settings: Settings | None = None
 ) -> dict[str, Any] | None:
     row = media_by_url(conn, url)
     return image_payload(row, settings) if row else None
@@ -321,6 +321,7 @@ def image_payload_for_url(
 # Encoding
 # ---------------------------------------------------------------------------
 
+
 def _single_flight(key: str, factory):
     with _LOCKS_GUARD:
         lock = _LOCKS.setdefault(key, threading.Lock())
@@ -328,9 +329,7 @@ def _single_flight(key: str, factory):
         return factory()
 
 
-def _derivative_record(
-    media_id: int, scene: str, width: int, fmt: str
-) -> Any:
+def _derivative_record(media_id: int, scene: str, width: int, fmt: str) -> Any:
     with db() as conn:
         return conn.execute(
             """SELECT * FROM media_derivatives
@@ -376,14 +375,14 @@ def _load_source(data: bytes, target_width: int) -> Image.Image:
     return image
 
 
-def _encode(image: Image.Image, width: int, fmt: str, quality: int, speed: int) -> tuple[bytes, int, int]:
+def _encode(
+    image: Image.Image, width: int, fmt: str, quality: int, speed: int
+) -> tuple[bytes, int, int]:
     original_width, original_height = image.size
     if 0 < width < original_width:
         height = max(1, round(original_height * width / original_width))
         image = image.resize((width, height), Image.Resampling.LANCZOS)
-    has_alpha = image.mode in {"RGBA", "LA"} or (
-        image.mode == "P" and "transparency" in image.info
-    )
+    has_alpha = image.mode in {"RGBA", "LA"} or (image.mode == "P" and "transparency" in image.info)
     if has_alpha:
         image = image.convert("RGBA")
     elif image.mode not in {"RGB", "L"}:
@@ -401,7 +400,10 @@ def _encode(image: Image.Image, width: int, fmt: str, quality: int, speed: int) 
         )
     elif fmt == "webp":
         image.save(
-            buffer, "WEBP", quality=quality, method=4,
+            buffer,
+            "WEBP",
+            quality=quality,
+            method=4,
             icc_profile=icc if icc else None,
         )
     else:
@@ -410,7 +412,11 @@ def _encode(image: Image.Image, width: int, fmt: str, quality: int, speed: int) 
             background.paste(image, mask=image.split()[-1])
             image = background
         image.save(
-            buffer, "JPEG", quality=quality, optimize=True, progressive=True,
+            buffer,
+            "JPEG",
+            quality=quality,
+            optimize=True,
+            progressive=True,
             icc_profile=icc if icc else None,
         )
     return buffer.getvalue(), image.width, image.height
@@ -418,7 +424,7 @@ def _encode(image: Image.Image, width: int, fmt: str, quality: int, speed: int) 
 
 def ensure_derivative(
     media_row: Any,
-    settings: dict[str, Any],
+    settings: Settings,
     scene: str,
     width: int,
     fmt: str,
@@ -441,7 +447,7 @@ def ensure_derivative(
         except StorageMissing as error:
             raise SkipDerivative("original file is missing") from error
         quality = quality_for(scene, fmt, settings, media_row)
-        speed = max(0, min(10, _int_setting(settings, "image_avif_speed", 6)))
+        speed = max(0, min(10, int(settings.advanced.image.avif_speed)))
         image = _load_source(source, width)
         try:
             data, out_width, out_height = _encode(image, width, fmt, quality, speed)
@@ -449,9 +455,7 @@ def ensure_derivative(
             image.close()
         with _SEMAPHORE:
             storage.save(key, data, content_type_for(key))
-        _record_derivative(
-            media_id, scene, width, fmt, quality, out_height, len(data), key
-        )
+        _record_derivative(media_id, scene, width, fmt, quality, out_height, len(data), key)
         return key
 
     return _single_flight(key, generate)
@@ -482,14 +486,14 @@ def prewarm_media(media_id: int, *, force: bool = False) -> bool:
                 except SkipDerivative:
                     continue
                 except Exception:
-                    logger.exception("prewarm failed media=%s scene=%s fmt=%s", media_id, scene, fmt)
+                    logger.exception(
+                        "prewarm failed media=%s scene=%s fmt=%s", media_id, scene, fmt
+                    )
                     complete = False
     if complete:
         token = variants_hash(row, settings)
         with db() as conn:
-            conn.execute(
-                "UPDATE media SET ready_hash = ? WHERE id = ?", (token, media_id)
-            )
+            conn.execute("UPDATE media SET ready_hash = ? WHERE id = ?", (token, media_id))
     return complete
 
 
@@ -567,9 +571,7 @@ def picture_html(
         candidate = ", ".join(
             f"{derivative_url(payload, scene, width, fmt)} {width}w" for width in widths
         )
-        sources.append(
-            f'<source type="{mime}" srcset="{candidate}" sizes="{sizes}">'
-        )
+        sources.append(f'<source type="{mime}" srcset="{candidate}" sizes="{sizes}">')
     fallback = derivative_url(payload, scene, widths[-1], "jpeg", prefer_direct=False)
     ratio = payload["height"] / payload["width"] if payload.get("width") else 1
     display_width = widths[-1]
@@ -583,9 +585,7 @@ def picture_html(
     return f"<picture{class_attr}>{''.join(sources)}{image_tag}</picture>"
 
 
-def rewrite_inline_images(
-    html: str, conn: Any, settings: dict[str, Any] | None = None
-) -> str:
+def rewrite_inline_images(html: str, conn: Any, settings: Settings | None = None) -> str:
     """Upgrade `/media/...` `<img>` tags inside rendered Markdown to `<picture>`."""
     if not html or "/media/" not in html:
         return html
@@ -619,9 +619,7 @@ def rewrite_inline_images(
             return tag
         alt_match = _ALT_ATTR.search(tag)
         alt = alt_match.group(1) if alt_match else ""
-        picture = picture_html(
-            payload, scene="prose", alt=alt, sizes=_PROSE_SIZES
-        )
+        picture = picture_html(payload, scene="prose", alt=alt, sizes=_PROSE_SIZES)
         return picture or tag
 
     return _IMG_TAG.sub(replace, html)

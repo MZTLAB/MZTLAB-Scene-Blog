@@ -1,233 +1,61 @@
 """SQLite access layer.
 
-The blog is deliberately built on the Python standard library's sqlite3 so it
-has no ORM to learn and no migration tool to install. Each request opens a
-short-lived connection; WAL mode keeps readers and the occasional write from
-blocking each other.
+3.0.0 keeps the standard library's sqlite3 (no ORM, no migration framework) but
+changes the contract: the schema is created from versioned SQL files under
+`backend/migrations/`, and a startup with anything other than an empty, current
+database fails loudly. There is no 2.x migration path (decision D1).
 """
 
 from __future__ import annotations
 
-import json
 import sqlite3
-import time
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Iterator
 
-from .config import DB_PATH
-from .defaults import default_settings
+from .config import BASE_DIR, DB_PATH
 
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 1
+MIGRATIONS_DIR = BASE_DIR / "migrations"
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS users (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    username      TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    display_name  TEXT NOT NULL,
-    email         TEXT NOT NULL DEFAULT '',
-    bio           TEXT NOT NULL DEFAULT '',
-    avatar        TEXT NOT NULL DEFAULT '',
-    role          TEXT NOT NULL DEFAULT 'author',
-    is_active     INTEGER NOT NULL DEFAULT 1,
-    last_login_at TEXT NOT NULL DEFAULT '',
-    created_at    TEXT NOT NULL,
-    updated_at    TEXT NOT NULL
-);
+# Tables every 3.0.0 database must contain. Used by the startup check and by
+# `scripts/db.py verify`.
+REQUIRED_TABLES = frozenset(
+    {
+        "users",
+        "sessions",
+        "posts",
+        "project_details",
+        "revisions",
+        "taxonomy_terms",
+        "post_terms",
+        "media",
+        "media_derivatives",
+        "galleries",
+        "photos",
+        "settings",
+        "jobs",
+        "schema_meta",
+    }
+)
 
-CREATE TABLE IF NOT EXISTS sessions (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    token_hash  TEXT NOT NULL UNIQUE,
-    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at  TEXT NOT NULL,
-    expires_at  TEXT NOT NULL,
-    user_agent  TEXT NOT NULL DEFAULT '',
-    ip          TEXT NOT NULL DEFAULT ''
-);
+SCHEMA_RESET_HINT = (
+    "3.0.0 only supports initialising an empty database. "
+    "Clear BLOG_DATA_DIR (or point BLOG_DATA_DIR at a new directory) and restart."
+)
 
-CREATE TABLE IF NOT EXISTS posts (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
-    type              TEXT NOT NULL DEFAULT 'post',
-    title             TEXT NOT NULL,
-    slug              TEXT NOT NULL UNIQUE,
-    excerpt           TEXT NOT NULL DEFAULT '',
-    content_md        TEXT NOT NULL DEFAULT '',
-    content_html      TEXT NOT NULL DEFAULT '',
-    cover_image       TEXT NOT NULL DEFAULT '',
-    status            TEXT NOT NULL DEFAULT 'draft',
-    featured          INTEGER NOT NULL DEFAULT 0,
-    allow_comments    INTEGER NOT NULL DEFAULT 1,
-    author_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    published_at      TEXT,
-    created_at        TEXT NOT NULL,
-    updated_at        TEXT NOT NULL,
-    seo_title         TEXT NOT NULL DEFAULT '',
-    seo_description   TEXT NOT NULL DEFAULT '',
-    project_year      TEXT NOT NULL DEFAULT '',
-    project_role      TEXT NOT NULL DEFAULT '',
-    project_client    TEXT NOT NULL DEFAULT '',
-    project_kind      TEXT NOT NULL DEFAULT '',   -- free-form project type
-    project_url       TEXT NOT NULL DEFAULT '',
-    view_count        INTEGER NOT NULL DEFAULT 0
-);
 
-CREATE INDEX IF NOT EXISTS idx_posts_public
-    ON posts(type, status, published_at);
-CREATE INDEX IF NOT EXISTS idx_posts_updated ON posts(updated_at);
-
-CREATE TABLE IF NOT EXISTS categories (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    slug        TEXT NOT NULL UNIQUE,
-    description TEXT NOT NULL DEFAULT '',
-    created_at  TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS tags (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    name        TEXT NOT NULL,
-    slug        TEXT NOT NULL UNIQUE,
-    description TEXT NOT NULL DEFAULT '',
-    created_at  TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS post_categories (
-    post_id     INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-    PRIMARY KEY (post_id, category_id)
-);
-
-CREATE TABLE IF NOT EXISTS post_tags (
-    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    tag_id  INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (post_id, tag_id)
-);
-
-CREATE TABLE IF NOT EXISTS comments (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    post_id      INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    author_name  TEXT NOT NULL,
-    author_email TEXT NOT NULL DEFAULT '',
-    author_url   TEXT NOT NULL DEFAULT '',
-    content      TEXT NOT NULL,
-    status       TEXT NOT NULL DEFAULT 'pending',
-    ip           TEXT NOT NULL DEFAULT '',
-    created_at   TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id, status, created_at);
-
-CREATE TABLE IF NOT EXISTS media (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    filename      TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    mime          TEXT NOT NULL,
-    size          INTEGER NOT NULL,
-    width         INTEGER NOT NULL DEFAULT 0,
-    height        INTEGER NOT NULL DEFAULT 0,
-    alt           TEXT NOT NULL DEFAULT '',
-    uploaded_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    owner_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    exif          TEXT NOT NULL DEFAULT '',
-    -- Image pipeline: whether AVIF quality is decided per scene (automatic)
-    -- or by the manual `avif_quality` value, plus a dominant-colour placeholder
-    -- and the hash of the derivative set that is already generated.
-    avif_quality       INTEGER NOT NULL DEFAULT 55,
-    avif_quality_auto  INTEGER NOT NULL DEFAULT 1,
-    placeholder   TEXT NOT NULL DEFAULT '',
-    ready_hash    TEXT NOT NULL DEFAULT '',
-    created_at    TEXT NOT NULL
-);
-
--- One row per generated derivative. The file itself lives in the storage
--- backend (local cache directory or the S3-compatible bucket).
-CREATE TABLE IF NOT EXISTS media_derivatives (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    media_id   INTEGER NOT NULL REFERENCES media(id) ON DELETE CASCADE,
-    scene      TEXT NOT NULL,
-    width      INTEGER NOT NULL,
-    format     TEXT NOT NULL,
-    quality    INTEGER NOT NULL,
-    height     INTEGER NOT NULL DEFAULT 0,
-    size       INTEGER NOT NULL DEFAULT 0,
-    key        TEXT NOT NULL,
-    created_at TEXT NOT NULL,
-    UNIQUE(media_id, scene, width, format)
-);
-
-CREATE INDEX IF NOT EXISTS idx_derivatives_media
-    ON media_derivatives(media_id, format, width);
-
-CREATE TABLE IF NOT EXISTS settings (
-    key        TEXT PRIMARY KEY,
-    value      TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
--- Scene galleries ---------------------------------------------------------
--- A gallery is a curated set ("相册") of photos. A photo always points at a
--- validated media row, but keeps a filename snapshot so a gallery stays
--- readable even if the library entry is removed later.
-
-CREATE TABLE IF NOT EXISTS galleries (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    title          TEXT NOT NULL,
-    slug           TEXT NOT NULL UNIQUE,
-    description    TEXT NOT NULL DEFAULT '',
-    status         TEXT NOT NULL DEFAULT 'draft',
-    featured       INTEGER NOT NULL DEFAULT 0,
-    cover_photo_id INTEGER REFERENCES photos(id) ON DELETE SET NULL,
-    author_id      INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    view_count     INTEGER NOT NULL DEFAULT 0,
-    created_at     TEXT NOT NULL,
-    updated_at     TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_galleries_public ON galleries(status, featured, updated_at);
-
-CREATE TABLE IF NOT EXISTS photos (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    gallery_id INTEGER REFERENCES galleries(id) ON DELETE SET NULL,
-    media_id   INTEGER REFERENCES media(id) ON DELETE CASCADE,
-    filename   TEXT NOT NULL,
-    title      TEXT NOT NULL DEFAULT '',
-    caption    TEXT NOT NULL DEFAULT '',
-    location   TEXT NOT NULL DEFAULT '',
-    camera     TEXT NOT NULL DEFAULT '',
-    lens       TEXT NOT NULL DEFAULT '',
-    taken_at   TEXT NOT NULL DEFAULT '',
-    width      INTEGER NOT NULL DEFAULT 0,
-    height     INTEGER NOT NULL DEFAULT 0,
-    exif_fields TEXT NOT NULL DEFAULT 'camera,lens,focal_length,aperture,exposure,iso,taken_at,dimensions',
-    allow_download INTEGER NOT NULL DEFAULT 1,
-    featured   INTEGER NOT NULL DEFAULT 0,
-    status     TEXT NOT NULL DEFAULT 'published',
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_photos_gallery ON photos(gallery_id, sort_order, id);
-CREATE INDEX IF NOT EXISTS idx_photos_status ON photos(status, featured, created_at);
-
-CREATE TABLE IF NOT EXISTS revisions (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    post_id    INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
-    title      TEXT NOT NULL,
-    excerpt    TEXT NOT NULL,
-    content_md TEXT NOT NULL,
-    author_id  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-    created_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_revisions_post ON revisions(post_id, created_at);
-"""
+class SchemaVersionError(RuntimeError):
+    """Raised when the database is not a fresh, current 3.0.0 database."""
 
 
 def connect() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
+    # SQLite has a single writer. A busy timeout keeps short write transactions
+    # from failing under concurrent uploads instead of blocking the whole site.
     conn.execute("PRAGMA busy_timeout = 5000")
     conn.execute("PRAGMA journal_mode = WAL")
     return conn
@@ -235,6 +63,12 @@ def connect() -> sqlite3.Connection:
 
 @contextmanager
 def db() -> Iterator[sqlite3.Connection]:
+    """A short transaction: commit on success, roll back on error.
+
+    Transactions must only wrap short database critical sections. Long work
+    (uploads, Pillow decoding, object-storage I/O, builds) happens outside so
+    SQLite's single write lock never blocks the rest of the site.
+    """
     conn = connect()
     try:
         yield conn
@@ -259,560 +93,99 @@ def row_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
     return dict(row) if row is not None else None
 
 
+# ---------------------------------------------------------------------------
+# Schema bootstrap
+# ---------------------------------------------------------------------------
+
+def migration_files() -> list[tuple[int, Path]]:
+    migrations: list[tuple[int, Path]] = []
+    if not MIGRATIONS_DIR.exists():
+        return migrations
+    for path in sorted(MIGRATIONS_DIR.glob("*.sql")):
+        prefix = path.name.split("_", 1)[0]
+        if not prefix.isdigit():
+            raise SchemaVersionError(f"迁移文件名缺少版本号前缀: {path.name}")
+        migrations.append((int(prefix), path))
+    return migrations
+
+
+def _user_tables(conn: sqlite3.Connection) -> set[str]:
+    return {
+        str(row["name"])
+        for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%'"
+        )
+    }
+
+
+def apply_migrations(conn: sqlite3.Connection, from_version: int) -> int:
+    version = from_version
+    for number, path in migration_files():
+        if number <= version:
+            continue
+        conn.executescript(path.read_text(encoding="utf-8"))
+        conn.execute(f"PRAGMA user_version = {number}")
+        version = number
+    return version
+
+
+def verify_schema(conn: sqlite3.Connection) -> None:
+    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
+    if version != SCHEMA_VERSION:
+        raise SchemaVersionError(
+            f"数据库结构版本为 {version}，3.0.0 需要 {SCHEMA_VERSION}。{SCHEMA_RESET_HINT}"
+        )
+    missing = REQUIRED_TABLES - _user_tables(conn)
+    if missing:
+        raise SchemaVersionError(
+            "数据库缺少 3.0.0 必需的表: " + ", ".join(sorted(missing)) + "。" + SCHEMA_RESET_HINT
+        )
+
+
 def init_db() -> None:
+    """Create a fresh database or verify an existing one; never migrate data."""
+    from .settings import seed_default_settings
+
     with db() as conn:
         version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-        conn.executescript(SCHEMA)
-        _ensure_columns(conn)
-        if version < 3:
-            _backfill_owners(conn)
-            _backfill_media_exif(conn)
-        _ensure_default_settings(conn)
-        if version < 10:
-            _migrate_avif_quality_auto(conn)
-        if version < 11:
-            _migrate_quality_defaults(conn)
-        if version < 12:
-            _migrate_full_quality_default(conn)
-        if version < 13:
-            _migrate_quality_trim(conn)
-        _migrate_scene(conn)
-        _migrate_mono(conn)
-        _migrate_scene_v22(conn)
-        _migrate_project_kind_text(conn)
-        _migrate_editor_manage_others(conn)
-        _migrate_scene_wording(conn)
-        _migrate_scene_demo_project(conn)
-        conn.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
-    invalidate_settings_cache()
-    from .seed import ensure_bootstrap_admin, seed_demo_content  # avoid circular import
+        tables = _user_tables(conn)
+        if version == 0 and tables:
+            raise SchemaVersionError(
+                "检测到非 3.0.0 的数据库结构（可能是 2.x 或未完成的初始化）。"
+                + SCHEMA_RESET_HINT
+            )
+        if version > SCHEMA_VERSION:
+            raise SchemaVersionError(
+                f"检测到 2.x 或更高版本的数据库（结构版本 {version}，"
+                f"本程序支持 {SCHEMA_VERSION}）。{SCHEMA_RESET_HINT}"
+            )
+        if version == 0:
+            apply_migrations(conn, 0)
+        elif version < SCHEMA_VERSION:
+            # Future 3.x versions add migrations/0002_*.sql etc.; applying them
+            # is explicit and versioned, never a startup data patch.
+            apply_migrations(conn, version)
+        verify_schema(conn)
+        seed_default_settings(conn)
+        conn.execute(
+            """INSERT INTO schema_meta(key, value) VALUES ('schema_version', ?)
+               ON CONFLICT(key) DO UPDATE SET value = excluded.value""",
+            (str(SCHEMA_VERSION),),
+        )
+        conn.execute(
+            """INSERT OR IGNORE INTO schema_meta(key, value)
+               VALUES ('initialised_at', ?)""",
+            (now_iso(),),
+        )
 
-    seed_demo_content()
+    from .seed import ensure_bootstrap_admin, seed_demo_content  # circular-safe
+
+    # An account must exist before demo content can own it (`owner_id` is
+    # NOT NULL). With the setup-page flow there is no account yet, so demo
+    # seeding is deferred until /api/setup creates one.
     ensure_bootstrap_admin()
-
-
-# Columns added after the first release. `CREATE TABLE IF NOT EXISTS` does not
-# touch an existing table, so upgrades need an explicit ALTER.
-_ADDED_COLUMNS: dict[str, dict[str, str]] = {
-    "users": {
-        "is_active": "INTEGER NOT NULL DEFAULT 1",
-        "last_login_at": "TEXT NOT NULL DEFAULT ''",
-    },
-    "posts": {
-        "project_year": "TEXT NOT NULL DEFAULT ''",
-        "project_role": "TEXT NOT NULL DEFAULT ''",
-        "project_client": "TEXT NOT NULL DEFAULT ''",
-        "project_kind": "TEXT NOT NULL DEFAULT ''",
-        "project_url": "TEXT NOT NULL DEFAULT ''",
-    },
-    "photos": {
-        "exif_fields": (
-            "TEXT NOT NULL DEFAULT "
-            "'camera,lens,focal_length,aperture,exposure,iso,taken_at,dimensions'"
-        ),
-        "allow_download": "INTEGER NOT NULL DEFAULT 1",
-    },
-    "media": {
-        "owner_id": "INTEGER REFERENCES users(id) ON DELETE SET NULL",
-        "exif": "TEXT NOT NULL DEFAULT ''",
-        "avif_quality": "INTEGER NOT NULL DEFAULT 55",
-        "avif_quality_auto": "INTEGER NOT NULL DEFAULT 1",
-        "placeholder": "TEXT NOT NULL DEFAULT ''",
-        "ready_hash": "TEXT NOT NULL DEFAULT ''",
-    },
-}
-
-
-def _ensure_columns(conn: sqlite3.Connection) -> None:
-    for table, columns in _ADDED_COLUMNS.items():
-        existing = {
-            row["name"] for row in conn.execute(f"PRAGMA table_info({table})")
-        }
-        for name, ddl in columns.items():
-            if name not in existing:
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
-
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_media_owner ON media(owner_id, created_at)"
-    )
-    # Every start can safely mirror the legacy uploader column; this does not
-    # invent an owner for genuinely orphaned content.
-    conn.execute(
-        "UPDATE media SET owner_id = uploaded_by "
-        "WHERE owner_id IS NULL AND uploaded_by IS NOT NULL"
-    )
-
-
-def _migrate_avif_quality_auto(conn: sqlite3.Connection) -> None:
-    """`avif_quality = 0` used to mean "inherit the scene quality".
-
-    schema 10 replaces that sentinel with the explicit `avif_quality_auto`
-    flag: an old override above 0 becomes manual, everything else automatic,
-    and the manual column is normalised to a valid 1-100 value.
-    """
-    conn.execute(
-        "UPDATE media SET avif_quality_auto = "
-        "CASE WHEN avif_quality BETWEEN 1 AND 100 THEN 0 ELSE 1 END"
-    )
-    conn.execute(
-        "UPDATE media SET avif_quality = 55 "
-        "WHERE avif_quality IS NULL OR avif_quality < 1 OR avif_quality > 100"
-    )
-
-
-def _migrate_quality_defaults(conn: sqlite3.Connection) -> None:
-    """Raise the default AVIF quality for the large/full scenes.
-
-    The first pipeline release used q62 for `hero`/`full`, which looked soft
-    when a 6K file is viewed at 100%. Only untouched defaults are rewritten so
-    hand-tuned quality settings survive the upgrade.
-    """
-    upgrades = {
-        "image_quality_thumb": (45, 50),
-        "image_quality_tile": (50, 55),
-        "image_quality_card": (55, 60),
-        "image_quality_prose": (58, 65),
-        "image_quality_viewer": (58, 70),
-        "image_quality_hero": (62, 72),
-        "image_quality_full": (62, 90),
-    }
-    now = now_iso()
-    for key, (old, new) in upgrades.items():
-        conn.execute(
-            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ? AND value = ?",
-            (json.dumps(new), now, key, json.dumps(old)),
-        )
-
-
-def _migrate_full_quality_default(conn: sqlite3.Connection) -> None:
-    """Lower the untouched full-resolution default from 90 to 75.
-
-    q90 made the largest derivative unnecessarily heavy; 75 is the agreed
-    default. Only values still equal to the previous default are rewritten.
-    """
-    conn.execute(
-        "UPDATE settings SET value = ?, updated_at = ? "
-        "WHERE key = 'image_quality_full' AND value = ?",
-        (json.dumps(75), now_iso(), json.dumps(90)),
-    )
-
-
-def _migrate_quality_trim(conn: sqlite3.Connection) -> None:
-    """Trim every untouched AVIF scene quality by a small step (-5).
-
-    Balances file size against the quality bump from schema 11/12. Only values
-    still equal to the previous defaults are rewritten.
-    """
-    trims = {
-        "image_quality_thumb": (50, 45),
-        "image_quality_tile": (55, 50),
-        "image_quality_card": (60, 55),
-        "image_quality_hero": (72, 67),
-        "image_quality_viewer": (70, 65),
-        "image_quality_prose": (65, 60),
-        "image_quality_full": (75, 70),
-    }
-    now = now_iso()
-    for key, (old, new) in trims.items():
-        conn.execute(
-            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ? AND value = ?",
-            (json.dumps(new), now, key, json.dumps(old)),
-        )
-
-
-def _backfill_owners(conn: sqlite3.Connection) -> None:
-    """Give legacy rows an explicit owner.
-
-    Media used to track `uploaded_by` only; posts and galleries could have a
-    NULL author for content created before accounts existed. The first account
-    becomes the owner of that orphaned content so ownership checks have a
-    well-defined answer.
-    """
-    conn.execute(
-        "UPDATE media SET owner_id = uploaded_by "
-        "WHERE owner_id IS NULL AND uploaded_by IS NOT NULL"
-    )
-    first_user = conn.execute(
-        "SELECT id FROM users ORDER BY CASE role WHEN 'admin' THEN 0 ELSE 1 END, id LIMIT 1"
-    ).fetchone()
-    if not first_user:
-        return
-    user_id = int(first_user["id"])
-    conn.execute(
-        "UPDATE media SET owner_id = ? WHERE owner_id IS NULL", (user_id,)
-    )
-    conn.execute(
-        "UPDATE posts SET author_id = ? WHERE author_id IS NULL", (user_id,)
-    )
-    conn.execute(
-        "UPDATE galleries SET author_id = ? WHERE author_id IS NULL", (user_id,)
-    )
-
-
-def _backfill_media_exif(conn: sqlite3.Connection) -> None:
-    """Cache EXIF for media uploaded before the media.exif column existed."""
-    from .config import UPLOAD_DIR
-    from .exif import dump_exif, read_exif_file
-
-    rows = conn.execute(
-        "SELECT id, filename FROM media WHERE exif = ''"
-    ).fetchall()
-    root = UPLOAD_DIR.resolve()
-    for row in rows:
-        path = (UPLOAD_DIR / row["filename"]).resolve()
-        if not path.is_relative_to(root) or not path.exists():
-            continue
-        exif = read_exif_file(path)
-        if exif:
-            conn.execute(
-                "UPDATE media SET exif = ? WHERE id = ?",
-                (dump_exif(exif), row["id"]),
-            )
-
-
-def _migrate_scene(conn: sqlite3.Connection) -> None:
-    """Move an Ink Isle site onto the Scene defaults, once.
-
-    Only values that still match the previous defaults are replaced; anything
-    the owner typed by hand is preserved. Palettes and hero styles that no
-    longer exist are remapped so the CSS keeps rendering.
-    """
-    from .defaults import DEFAULT_SETTINGS, LEGACY_DEFAULTS, LEGACY_PALETTES
-
-    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= 5:
-        return
-
-    stored: dict[str, Any] = {}
-    for row in conn.execute("SELECT key, value FROM settings"):
-        try:
-            stored[row["key"]] = json.loads(row["value"])
-        except (json.JSONDecodeError, TypeError):
-            stored[row["key"]] = row["value"]
-
-    patch: dict[str, Any] = {}
-    for key, legacy in LEGACY_DEFAULTS.items():
-        if stored.get(key) == legacy and DEFAULT_SETTINGS.get(key) != legacy:
-            patch[key] = DEFAULT_SETTINGS[key]
-
-    theme = stored.get("theme")
-    if isinstance(theme, str) and theme in LEGACY_PALETTES:
-        patch.setdefault("theme", LEGACY_PALETTES[theme])
-    if stored.get("hero_style") == "editorial":
-        patch.setdefault("hero_style", "split")
-
-    now = now_iso()
-    for key, value in patch.items():
-        conn.execute(
-            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ?",
-            (json.dumps(value, ensure_ascii=False), now, key),
-        )
-
-
-def _migrate_mono(conn: sqlite3.Connection) -> None:
-    """Apply the Scene Mono revision without clobbering hand-written copy."""
-    from .defaults import DEFAULT_SETTINGS, SCENE_V1_COPY
-
-    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= 5:
-        return
-
-    stored: dict[str, Any] = {}
-    for row in conn.execute("SELECT key, value FROM settings"):
-        try:
-            stored[row["key"]] = json.loads(row["value"])
-        except (json.JSONDecodeError, TypeError):
-            stored[row["key"]] = row["value"]
-
-    patch: dict[str, Any] = {}
-    for key, legacy in SCENE_V1_COPY.items():
-        if stored.get(key) == legacy and DEFAULT_SETTINGS.get(key) != legacy:
-            patch[key] = DEFAULT_SETTINGS[key]
-
-    # Mono is part of the theme, not an optional preference: force it even for
-    # sites that had previously picked another pairing.
-    patch["font_pair"] = "mono"
-
-    nav = stored.get("nav")
-    if isinstance(nav, list):
-        cleaned = [
-            item
-            for item in nav
-            if isinstance(item, dict)
-            and not str(item.get("url", "")).startswith("/projects")
-            and item.get("label") != "项目"
-        ]
-        if cleaned != nav:
-            patch["nav"] = cleaned
-
-    now = now_iso()
-    for key, value in patch.items():
-        conn.execute(
-            "INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (key, json.dumps(value, ensure_ascii=False), now),
-        )
-    conn.execute("DELETE FROM settings WHERE key IN ('home_projects_title', 'home_projects_subtitle')")
-
-
-def _migrate_scene_v22(conn: sqlite3.Connection) -> None:
-    """Apply the Scene 2.2 rebuild once (v6).
-
-    The public theme was rebuilt around three equal columns — photos, projects
-    and texts — and almost every line of copy became a setting. Existing sites
-    move over only where the stored value is still the previous Scene default;
-    customised copy and navigation are preserved. Projects return to the
-    default navigation when the owner never edited the list.
-    """
-    from .defaults import DEFAULT_SETTINGS, SCENE_V2_COPY, SCENE_V2_NAV
-
-    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= 6:
-        return
-
-    stored: dict[str, Any] = {}
-    for row in conn.execute("SELECT key, value FROM settings"):
-        try:
-            stored[row["key"]] = json.loads(row["value"])
-        except (json.JSONDecodeError, TypeError):
-            stored[row["key"]] = row["value"]
-
-    patch: dict[str, Any] = {}
-    for key, legacy in SCENE_V2_COPY.items():
-        if stored.get(key) == legacy and DEFAULT_SETTINGS.get(key) != legacy:
-            patch[key] = DEFAULT_SETTINGS[key]
-
-    if stored.get("nav") == SCENE_V2_NAV:
-        patch["nav"] = DEFAULT_SETTINGS["nav"]
-
-    now = now_iso()
-    for key, value in patch.items():
-        conn.execute(
-            "INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (key, json.dumps(value, ensure_ascii=False), now),
-        )
-    # The Scene rebuild owns these; older keys belonged to the removed project
-    # section or to section titles that are now `copy_*` settings. They must
-    # not linger in /api/admin/settings.
-    conn.execute(
-        "DELETE FROM settings WHERE key IN ("
-        "'home_projects_title', 'home_projects_subtitle', 'home_projects_lead', "
-        "'home_gallery_title', 'home_gallery_subtitle', "
-        "'home_section_title', 'home_section_subtitle'"
-        ")"
-    )
-
-
-def _migrate_scene_wording(conn: sqlite3.Connection) -> None:
-    """Rename the short-lived "Index" wording back to Scene (场景).
-
-    The 2.2 rebuild briefly named the theme Index. This pass runs on every
-    start but only rewrites values that still equal one of those old default
-    strings, so hand-edited copy always survives.
-    """
-    from .defaults import DEFAULT_SETTINGS, SCENE_INDEX_COPY
-
-    stored: dict[str, Any] = {}
-    for row in conn.execute("SELECT key, value FROM settings"):
-        try:
-            stored[row["key"]] = json.loads(row["value"])
-        except (json.JSONDecodeError, TypeError):
-            stored[row["key"]] = row["value"]
-
-    patch = {
-        key: DEFAULT_SETTINGS[key]
-        for key, old in SCENE_INDEX_COPY.items()
-        if key in DEFAULT_SETTINGS and stored.get(key) == old and DEFAULT_SETTINGS[key] != old
-    }
-    if not patch:
-        return
-    now = now_iso()
-    for key, value in patch.items():
-        conn.execute(
-            "UPDATE settings SET value = ?, updated_at = ? WHERE key = ?",
-            (json.dumps(value, ensure_ascii=False), now, key),
-        )
-
-
-def _migrate_scene_demo_project(conn: sqlite3.Connection) -> None:
-    """Rename the bundled demo project away from the old Index wording.
-
-    Only the untouched demo row is rewritten (same slug and title); any edited
-    project is left alone.
-    """
-    from .content import render_markdown
-    from .seed import PROJECTS
-
-    entry = next((item for item in PROJECTS if item["slug"] == "index-portfolio"), None)
-    if not entry:
-        return
-    row = conn.execute(
-        "SELECT id, title FROM posts WHERE type = 'project' AND slug = ?",
-        (entry["slug"],),
-    ).fetchone()
-    if not row or row["title"] != "Index / 索引式作品集":
-        return
-    content = entry["content"].strip() + "\n"
-    conn.execute(
-        """UPDATE posts SET title = ?, excerpt = ?, content_md = ?,
-               content_html = ?, updated_at = ? WHERE id = ?""",
-        (
-            entry["title"],
-            entry.get("excerpt", ""),
-            content,
-            render_markdown(content),
-            now_iso(),
-            row["id"],
-        ),
-    )
-
-
-def _migrate_project_kind_text(conn: sqlite3.Connection) -> None:
-    """Move the old `code` / `video` enum values to plain display text (v7).
-
-    Project types are now a free-text field; the two former presets become the
-    readable values the rest of the site used to render.
-    """
-    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= 7:
-        return
-    conn.execute(
-        "UPDATE posts SET project_kind = '代码' "
-        "WHERE type = 'project' AND LOWER(TRIM(project_kind)) = 'code'"
-    )
-    conn.execute(
-        "UPDATE posts SET project_kind = '影像' "
-        "WHERE type = 'project' AND LOWER(TRIM(project_kind)) = 'video'"
-    )
-
-
-def _migrate_editor_manage_others(conn: sqlite3.Connection) -> None:
-    """Editors can now see/manage everyone's content by default (v8).
-
-    Existing databases stored the old opt-in default `false`; widen them once.
-    The owner can still switch it off from 设置 → 协作与权限.
-    """
-    version = int(conn.execute("PRAGMA user_version").fetchone()[0])
-    if version >= 8:
-        return
-    conn.execute(
-        "UPDATE settings SET value = 'true', updated_at = ? "
-        "WHERE key = 'editor_manage_others' AND value = 'false'",
-        (now_iso(),),
-    )
-
-
-def _ensure_default_settings(conn: sqlite3.Connection) -> None:
-    from .config import SITE_URL
-
-    now = now_iso()
-    defaults = default_settings()
-    for key, value in defaults.items():
-        conn.execute(
-            "INSERT OR IGNORE INTO settings(key, value, updated_at) VALUES (?, ?, ?)",
-            (key, json.dumps(value, ensure_ascii=False), now),
-        )
-    # Settings that the Scene rebuild retired. Deleting them on every start
-    # also cleans databases that were already upgraded.
-    conn.execute(
-        "DELETE FROM settings WHERE key IN ("
-        "'home_gallery_title', 'home_gallery_subtitle', "
-        "'home_section_title', 'home_section_subtitle', "
-        "'home_projects_title', 'home_projects_subtitle', 'home_projects_lead', "
-        "'copy_project_kind_code', 'copy_project_kind_video', "
-        "'author_name', 'author_bio', 'author_avatar'"
-        ")"
-    )
-    # BLOG_SITE_URL is a first-boot convenience for deployments. Once the URL
-    # has been changed in the admin it is left alone.
-    if SITE_URL:
-        row = conn.execute("SELECT value FROM settings WHERE key = 'site_url'").fetchone()
-        if row:
-            try:
-                current = json.loads(row["value"])
-            except (json.JSONDecodeError, TypeError):
-                current = ""
-            if not current or current == defaults["site_url"]:
-                conn.execute(
-                    "UPDATE settings SET value = ?, updated_at = ? WHERE key = 'site_url'",
-                    (json.dumps(SITE_URL, ensure_ascii=False), now),
-                )
-
-
-def load_settings() -> dict[str, Any]:
-    settings = default_settings()
-    with db() as conn:
-        for row in conn.execute("SELECT key, value FROM settings"):
-            try:
-                settings[row["key"]] = json.loads(row["value"])
-            except (json.JSONDecodeError, TypeError):
-                settings[row["key"]] = row["value"]
-    return settings
-
-
-# Serializers ask for the settings for every image on a page; a short-lived
-# cache keeps that from becoming a query per row while still propagating admin
-# edits within the same request that saved them (save_settings invalidates).
-_SETTINGS_CACHE: dict[str, Any] | None = None
-_SETTINGS_CACHE_AT = 0.0
-_SETTINGS_CACHE_TTL = 3.0
-
-
-def invalidate_settings_cache() -> None:
-    global _SETTINGS_CACHE, _SETTINGS_CACHE_AT
-    _SETTINGS_CACHE = None
-    _SETTINGS_CACHE_AT = 0.0
-
-
-def load_settings_cached(ttl: float = _SETTINGS_CACHE_TTL) -> dict[str, Any]:
-    global _SETTINGS_CACHE, _SETTINGS_CACHE_AT
-    now = time.monotonic()
-    if _SETTINGS_CACHE is not None and now - _SETTINGS_CACHE_AT < ttl:
-        return _SETTINGS_CACHE
-    _SETTINGS_CACHE = load_settings()
-    _SETTINGS_CACHE_AT = now
-    return _SETTINGS_CACHE
-
-
-def public_settings() -> dict[str, Any]:
-    """Only known public keys leave the server."""
-    from .defaults import PRIVATE_SETTING_KEYS
-
-    settings = load_settings()
-    allowed = set(default_settings().keys()) - PRIVATE_SETTING_KEYS
-    return {key: value for key, value in settings.items() if key in allowed}
-
-
-def setting_flag(
-    conn: sqlite3.Connection, key: str, default: bool = False
-) -> bool:
-    """Read one boolean setting using an existing connection."""
-    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-    if not row:
-        return default
-    try:
-        return bool(json.loads(row["value"]))
-    except (json.JSONDecodeError, TypeError):
-        return default
-
-
-def save_settings(patch: dict[str, Any]) -> dict[str, Any]:
-    now = now_iso()
-    with db() as conn:
-        for key, value in patch.items():
-            if not isinstance(key, str) or not key or len(key) > 80:
-                continue
-            conn.execute(
-                """
-                INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?)
-                ON CONFLICT(key) DO UPDATE SET value = excluded.value,
-                                               updated_at = excluded.updated_at
-                """,
-                (key, json.dumps(value, ensure_ascii=False), now),
-            )
-    invalidate_settings_cache()
-    return public_settings()
+    seed_demo_content()
 
 
 def get_user_count() -> int:
@@ -824,3 +197,8 @@ def get_user_count() -> int:
 def clear_expired_sessions() -> None:
     with db() as conn:
         conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now_iso(),))
+
+
+def get_meta(conn: sqlite3.Connection, key: str) -> str:
+    row = conn.execute("SELECT value FROM schema_meta WHERE key = ?", (key,)).fetchone()
+    return str(row["value"]) if row else ""

@@ -2,19 +2,18 @@
 import Icon from '../Icon.astro';
 import AudioEmbedDialog from './AudioEmbedDialog.astro';
 import { formatDateInput, safeJson } from '../../lib/format';
-import { hasPermission } from '../../lib/permissions';
 import type { AdminPost, AdminUser } from '../../types';
 
 interface Props {
   mode: 'new' | 'edit';
   postType: 'post' | 'page' | 'project';
   post?: AdminPost | null;
-  /** The signed-in member, used for ownership/author controls. */
+  /** The signed-in member, used for ownership controls. */
   user?: AdminUser | null;
 }
 
 const { mode, postType, post = null, user = null } = Astro.props;
-const canManageOthers = hasPermission(user, 'content.others');
+const canManageOthers = user?.permissions?.includes('content.others') ?? false;
 const currentUserId = user?.id || 0;
 const isPage = postType === 'page';
 const isProject = postType === 'project';
@@ -174,9 +173,9 @@ const initialData = {
           {
             canManageOthers && (
               <div class="a-field" style="margin-top:12px">
-                <label for="editor-author">作者 <small>转移所有权</small></label>
+                <label for="editor-author">所有者 <small>转移所有权</small></label>
                 <select id="editor-author" data-author>
-                  <option value={post?.author_id || ''}>
+                  <option value={post?.owner_id || ''}>
                     {post?.author?.name || user?.display_name || '当前账号'}
                   </option>
                 </select>
@@ -190,17 +189,6 @@ const initialData = {
                 <div>
                   <strong>设为精选</strong>
                   <span>{isProject ? '在项目页中优先展示' : '在首页优先展示'}</span>
-                </div>
-              </label>
-            )
-          }
-          {
-            !isPage && !isProject && (
-              <label class="check-row">
-                <input type="checkbox" data-comments checked={post ? Boolean(post.allow_comments) : true} />
-                <div>
-                  <strong>允许留言</strong>
-                  <span>文末显示留言</span>
                 </div>
               </label>
             )
@@ -350,7 +338,7 @@ const initialData = {
         </div>
       </details>
 
-      <div class="side-card" data-revisions-card hidden={mode !== 'edit'}>
+      <div class="side-card" data-revisions-card hidden={mode !== 'edit' || postType !== 'post'}>
         <div class="side-card__head">
           <h3>版本历史</h3>
           <span data-revision-count>0</span>
@@ -416,6 +404,7 @@ const initialData = {
     const isProject = data.type === 'project';
     const urlPrefix = isPage ? '' : isProject ? 'projects/' : 'posts/';
     const editorRoot = isPage ? '/admin/pages' : isProject ? '/admin/projects' : '/admin/posts';
+    const apiRoot = isPage ? '/api/admin/pages' : isProject ? '/api/admin/projects' : '/api/admin/posts';
     const isEdit = data.mode === 'edit' && Boolean(data.post);
     const id = data.post?.id || null;
 
@@ -428,7 +417,6 @@ const initialData = {
     const publishedInput = root.querySelector<HTMLInputElement>('[data-published]')!;
     const authorSelect = root.querySelector<HTMLSelectElement>('[data-author]');
     const featuredInput = root.querySelector<HTMLInputElement>('[data-featured]');
-    const commentsInput = root.querySelector<HTMLInputElement>('[data-comments]');
     const seoTitleInput = root.querySelector<HTMLInputElement>('[data-seo-title]')!;
     const seoDescriptionInput = root.querySelector<HTMLTextAreaElement>('[data-seo-description]')!;
     const coverUrlInput = root.querySelector<HTMLInputElement>('[data-cover-url]')!;
@@ -569,7 +557,6 @@ const initialData = {
             status: statusSelect.value,
             published: publishedInput.value,
             featured: featuredInput?.checked || false,
-            comments: commentsInput?.checked || true,
             seoTitle: seoTitleInput.value,
             seoDescription: seoDescriptionInput.value,
             savedAt: new Date().toISOString(),
@@ -593,7 +580,6 @@ const initialData = {
       statusSelect.value = String(snapshot.status || 'draft');
       publishedInput.value = String(snapshot.published || '');
       if (featuredInput) featuredInput.checked = Boolean(snapshot.featured);
-      if (commentsInput) commentsInput.checked = snapshot.comments !== false;
       seoTitleInput.value = String(snapshot.seoTitle || '');
       seoDescriptionInput.value = String(snapshot.seoDescription || '');
       renderTags();
@@ -615,7 +601,6 @@ const initialData = {
         cover_image: cover,
         status,
         featured: featuredInput?.checked || false,
-        allow_comments: commentsInput?.checked ?? true,
         published_at: publishedValue ? new Date(publishedValue).toISOString() : null,
         seo_title: seoTitleInput.value.trim(),
         seo_description: seoDescriptionInput.value.trim(),
@@ -624,9 +609,14 @@ const initialData = {
         project_client: projectClientInput?.value.trim() || '',
         project_kind: projectKindInput?.value.trim() || '',
         project_url: projectUrlInput?.value.trim() || '',
-        ...(authorSelect?.value ? { author_id: Number(authorSelect.value) } : {}),
-        tags: isPage || isProject ? [] : tags,
-        categories: isPage || isProject ? [] : categoryInput?.value.trim() ? [categoryInput.value.trim()] : [],
+        ...(authorSelect?.value ? { owner_id: Number(authorSelect.value) } : {}),
+        ...(isPage
+          ? {}
+          : {
+              tags: isProject ? [] : tags,
+              categories:
+                isProject || !categoryInput?.value.trim() ? [] : [categoryInput.value.trim()],
+            }),
       };
     };
 
@@ -658,8 +648,8 @@ const initialData = {
       const payload = collectPayload();
       try {
         const result = isEdit
-          ? await api<AdminPost>(`/api/admin/posts/${id}`, { method: 'PUT', body: payload })
-          : await api<AdminPost>(`/api/admin/posts?type=${data.type}`, { method: 'POST', body: payload });
+          ? await api<AdminPost>(`${apiRoot}/${id}`, { method: 'PATCH', body: payload })
+          : await api<AdminPost>(apiRoot, { method: 'POST', body: payload });
         setDirty(false);
         if (saveState) saveState.classList.remove('is-dirty');
         if (saveLabel) saveLabel.textContent = '已保存';
@@ -875,7 +865,7 @@ const initialData = {
     };
 
     const loadRevisions = async () => {
-      if (!isEdit || !id || !revisionsHost) return;
+      if (!isEdit || !id || !revisionsHost || data.type !== 'post') return;
       try {
         const result = await api<{ items: Revision[] }>(`/api/admin/posts/${id}/revisions`);
         if (revisionCount) revisionCount.textContent = String(result.items.length);
@@ -913,8 +903,8 @@ const initialData = {
 
     const loadAuthors = async () => {
       if (!authorSelect) return;
-      const selected = data.post?.author_id
-        ? String(data.post.author_id)
+      const selected = data.post?.owner_id
+        ? String(data.post.owner_id)
         : data.mode === 'new'
           ? String(data.currentUserId || '')
           : '';
@@ -948,7 +938,7 @@ const initialData = {
     schedulePreview(true);
     loadTaxonomyOptions();
     if (data.canManageOthers) loadAuthors();
-    if (isEdit) loadRevisions();
+    if (isEdit && data.type === 'post') loadRevisions();
 
     try {
       const raw = localStorage.getItem(draftKey);
@@ -1005,7 +995,6 @@ const initialData = {
     seoDescriptionInput.addEventListener('input', markDirty);
     publishedInput.addEventListener('change', markDirty);
     featuredInput?.addEventListener('change', markDirty);
-    commentsInput?.addEventListener('change', markDirty);
     coverUrlInput.addEventListener('change', () => {
       cover = coverUrlInput.value.trim();
       updateCover();

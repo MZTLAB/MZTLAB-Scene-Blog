@@ -3,13 +3,8 @@ import { getSite } from '../lib/api';
 import { absoluteUrl } from '../lib/format';
 
 export const GET: APIRoute = async ({ url }) => {
-  let siteUrl = url.origin;
-  try {
-    const site = await getSite();
-    siteUrl = site.settings.site_url || siteUrl;
-  } catch {
-    // Use the request origin.
-  }
+  const site = await getSite();
+  const siteUrl = site.settings.site.site_url || url.origin;
   const body = `User-agent: *
 Allow: /
 Disallow: /admin

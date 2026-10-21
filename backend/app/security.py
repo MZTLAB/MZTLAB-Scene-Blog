@@ -11,7 +11,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from threading import Lock
-from typing import Deque
+from typing import Deque, Protocol
 
 from .config import SESSION_DAYS
 
@@ -161,21 +161,60 @@ def iso_utc(value: datetime | None = None) -> str:
     return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-class RateLimiter:
-    """Tiny in-memory sliding window limiter.
+class RateLimitStore(Protocol):
+    """Backing store for rate-limit buckets.
 
-    Suitable for one process. If you run multiple workers, put the limits in
-    Redis or at the reverse proxy. We deliberately avoid another dependency.
-
-    The API is split into ``is_blocked`` / ``record`` so callers can only count
-    *failed* attempts (and reset on success), which a plain ``allow`` cannot do.
+    The 3.0.0 default is process-local memory. The protocol exists so a future
+    multi-worker deployment can swap in a shared store without touching the
+    routes, and so the single-worker requirement is explicit.
     """
 
-    def __init__(self, limit: int, window_seconds: int) -> None:
-        self.limit = limit
-        self.window = window_seconds
+    def bucket(self, key: str) -> Deque[float]: ...
+
+    def drop(self, key: str) -> None: ...
+
+    def keys(self) -> list[str]: ...
+
+
+class MemoryRateLimitStore:
+    """In-process sliding-window buckets guarded by a lock."""
+
+    def __init__(self) -> None:
         self._hits: dict[str, Deque[float]] = defaultdict(deque)
         self._lock = Lock()
+
+    def bucket(self, key: str) -> Deque[float]:
+        with self._lock:
+            return self._hits[key]
+
+    def drop(self, key: str) -> None:
+        with self._lock:
+            self._hits.pop(key, None)
+
+    def keys(self) -> list[str]:
+        with self._lock:
+            return list(self._hits)
+
+
+RATE_LIMIT_STORE: RateLimitStore = MemoryRateLimitStore()
+
+
+class RateLimiter:
+    """Sliding-window limiter over a `RateLimitStore`.
+
+    `allow()` is the atomic check-and-consume used by login attempts and
+    uploads; `reset()` lets a success clear the bucket (so failures are counted
+    until the first success, then forgotten). There is deliberately no
+    `sleep`-based delay: a failed login returns 429 + `Retry-After` immediately
+    and never occupies a request thread.
+    """
+
+    def __init__(
+        self, limit: int, window_seconds: int, store: RateLimitStore | None = None
+    ) -> None:
+        self.limit = limit
+        self.window = window_seconds
+        self.store = store or RATE_LIMIT_STORE
 
     def _prune(self, bucket: Deque[float], now: float) -> None:
         cutoff = now - self.window
@@ -183,74 +222,71 @@ class RateLimiter:
             bucket.popleft()
 
     def _cleanup(self, now: float) -> None:
-        if len(self._hits) <= 4096:
+        if len(self.store.keys()) <= 4096:
             return
         cutoff = now - self.window
-        for name, values in list(self._hits.items()):
-            if not values or values[-1] <= cutoff:
-                self._hits.pop(name, None)
+        for name in self.store.keys():
+            bucket = self.store.bucket(name)
+            if not bucket or bucket[-1] <= cutoff:
+                self.store.drop(name)
 
     def count(self, key: str) -> int:
         now = time.monotonic()
-        with self._lock:
-            bucket = self._hits.get(key)
-            if not bucket:
-                return 0
-            self._prune(bucket, now)
-            if not bucket:
-                self._hits.pop(key, None)
-                return 0
-            return len(bucket)
+        bucket = self.store.bucket(key)
+        self._prune(bucket, now)
+        return len(bucket)
 
     def is_blocked(self, key: str) -> bool:
         return self.count(key) >= self.limit
 
     def record(self, key: str) -> int:
         now = time.monotonic()
-        with self._lock:
-            bucket = self._hits[key]
-            self._prune(bucket, now)
-            bucket.append(now)
-            self._cleanup(now)
-            return len(bucket)
+        bucket = self.store.bucket(key)
+        self._prune(bucket, now)
+        bucket.append(now)
+        self._cleanup(now)
+        return len(bucket)
 
     def reset(self, key: str) -> None:
-        with self._lock:
-            self._hits.pop(key, None)
+        self.store.drop(key)
 
     def allow(self, key: str) -> bool:
-        """Check and consume one slot atomically (for per-attempt limits)."""
+        """Check and consume one slot atomically.
+
+        This is the only correct primitive for per-attempt limits: a separate
+        `is_blocked()` + `record()` pair lets concurrent requests pass between
+        the two calls.
+        """
         now = time.monotonic()
-        with self._lock:
-            bucket = self._hits[key]
-            self._prune(bucket, now)
-            if len(bucket) >= self.limit:
-                return False
-            bucket.append(now)
-            self._cleanup(now)
-            return True
+        bucket = self.store.bucket(key)
+        self._prune(bucket, now)
+        if len(bucket) >= self.limit:
+            return False
+        bucket.append(now)
+        self._cleanup(now)
+        return True
+
+    def retry_after(self, key: str) -> int:
+        """Seconds until the oldest hit leaves the window (minimum 1)."""
+        now = time.monotonic()
+        bucket = self.store.bucket(key)
+        self._prune(bucket, now)
+        if not bucket:
+            return 1
+        return max(1, int(self.window - (now - bucket[0])) + 1)
 
 
-# Login limits. The pair limiter is the hard stop for password guessing from
-# one source, while the per-account limiter adds exponential delay and a high
-# ceiling so that an attacker cannot trivially lock a real administrator out.
+# Login limits stay in the application (the ingress is operator-maintained and
+# cannot be relied on for security): per-IP and per-IP+account attempt limits,
+# plus a high-ceiling per-account throttle so one source cannot cheaply lock a
+# real administrator out.
 login_ip_limiter = RateLimiter(limit=30, window_seconds=300)
 login_pair_limiter = RateLimiter(limit=6, window_seconds=300)
 login_account_limiter = RateLimiter(limit=60, window_seconds=900)
 
-comment_limiter = RateLimiter(limit=5, window_seconds=600)
-
 # Editor previews are debounced client-side, but a misbehaving client (or a
-# held-down key in split view) could still hammer the Markdown renderer. The
-# limit is generous for normal writing and stops runaway request loops.
+# held-down key in split view) could still hammer the Markdown renderer.
 preview_limiter = RateLimiter(limit=60, window_seconds=60)
-
-
-def login_backoff_seconds(failures: int) -> float:
-    """Exponential delay after repeated failures, capped to keep threads free."""
-    if failures < 6:
-        return 0.0
-    return min(3.0, 0.25 * (2 ** min(failures - 6, 5)))
 
 
 def clear_login_failures(ip: str, username: str) -> None:

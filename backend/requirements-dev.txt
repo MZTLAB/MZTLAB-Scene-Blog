@@ -1,0 +1,10 @@
+# Development / CI tooling for the FastAPI backend.
+# Runtime dependencies stay in requirements.txt; install both in development:
+#   backend/.venv/Scripts/python.exe -m pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+#
+# Keep these pins in sync with the versions exercised by CI (.github/workflows/ci.yml).
+ruff==0.17.1
+mypy==2.4.0
+pytest==9.1.1
+httpx==0.28.1
+pytest-asyncio==1.4.0

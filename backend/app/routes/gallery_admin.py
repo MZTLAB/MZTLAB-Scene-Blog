@@ -1,4 +1,10 @@
-"""Admin API for Scene photography: galleries and the photos inside them."""
+"""Admin API for Scene photography: galleries and the photos inside them.
+
+Ownership uses the single 3.0.0 rule: galleries carry `owner_id`, photos inherit
+their gallery's owner. Every check goes through `app.services.authz` instead of
+a local helper. Updates are PATCH-style (omitted fields are kept, an explicit
+`null` clears a nullable value).
+"""
 
 from __future__ import annotations
 
@@ -7,6 +13,16 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..api.models import (
+    AdminGalleryDetail,
+    AdminGalleryListResponse,
+    GalleryDeleteResponse,
+    GalleryPhotosAddedResponse,
+    GalleryReorderResponse,
+    PhotoDeleteResponse,
+    PhotoImage,
+    PhotoListResponse,
+)
 from ..content import slugify
 from ..db import db, now_iso
 from ..deps import require_permission, require_staff
@@ -22,19 +38,14 @@ from ..galleries import (
     photo_dict,
     touch_gallery,
 )
-from ..permissions import can, owns
+from ..permissions import can
 from ..posts import pagination
 from ..schemas import GalleryIn, PhotoBatchIn, PhotoIn, PhotoUpdateIn, ReorderIn
+from ..services.authz import authorize, authorize_photo
 
 router = APIRouter(prefix="/admin", tags=["galleries"], dependencies=[Depends(require_staff)])
 
 RESERVED_GALLERY_SLUGS = {"admin", "api", "media", "photos", "galleries", "new"}
-
-
-def _ensure_owner(user: dict[str, Any], row: Any) -> None:
-    if can(user, "content.others") or owns(user, row):
-        return
-    raise HTTPException(status_code=403, detail="只能管理自己创建的相册")
 
 
 def _unique_gallery_slug(
@@ -61,7 +72,6 @@ def _unique_gallery_slug(
 def _get_photo(conn: sqlite3.Connection, photo_id: int) -> sqlite3.Row | None:
     return conn.execute(
         """SELECT ph.*, g.slug AS gallery_slug, g.title AS gallery_title,
-                  m.owner_id AS media_owner_id, m.uploaded_by AS media_uploaded_by,
                   m.exif AS media_exif
            FROM photos ph
            LEFT JOIN galleries g ON g.id = ph.gallery_id
@@ -71,26 +81,6 @@ def _get_photo(conn: sqlite3.Connection, photo_id: int) -> sqlite3.Row | None:
     ).fetchone()
 
 
-def _ensure_photo_owner(
-    conn: sqlite3.Connection, user: dict[str, Any], row: sqlite3.Row
-) -> None:
-    """A photo belongs to its gallery; a loose photo belongs to its media owner."""
-    if can(user, "content.others"):
-        return
-    if row["gallery_id"] is not None:
-        _ensure_owner(user, _gallery_row_or_404(conn, int(row["gallery_id"])))
-        return
-    if owns(
-        user,
-        {
-            "owner_id": row["media_owner_id"],
-            "uploaded_by": row["media_uploaded_by"],
-        },
-    ):
-        return
-    raise HTTPException(status_code=403, detail="只能管理自己相册里的照片")
-
-
 def _gallery_row_or_404(conn: sqlite3.Connection, gallery_id: int) -> sqlite3.Row:
     row = get_gallery(conn, gallery_id=gallery_id)
     if not row:
@@ -98,7 +88,67 @@ def _gallery_row_or_404(conn: sqlite3.Connection, gallery_id: int) -> sqlite3.Ro
     return row
 
 
-@router.get("/galleries")
+def _apply_columns(
+    conn: sqlite3.Connection, table: str, row_id: int, columns: dict[str, Any]
+) -> None:
+    """Run the dynamic partial UPDATE built from a fixed column mapping."""
+    if not columns:
+        return
+    assignments = ", ".join(f"{name} = ?" for name in columns)
+    conn.execute(
+        f"UPDATE {table} SET {assignments} WHERE id = ?",
+        [*columns.values(), row_id],
+    )
+
+
+def _photo_patch_columns(payload: PhotoUpdateIn) -> dict[str, Any]:
+    """Map only the fields the client actually sent to `photos` columns.
+
+    Omitted field → absent from the mapping (kept); explicit JSON `null` → a
+    cleared value (photo removed from its gallery, text emptied, EXIF list
+    emptied, download reset to allowed).
+    """
+    provided = payload.model_dump(exclude_unset=True)
+    columns: dict[str, Any] = {}
+    for field in ("title", "caption", "location", "camera", "lens", "taken_at"):
+        if field in provided:
+            columns[field] = str(provided[field] or "")
+    if "gallery_id" in provided:
+        columns["gallery_id"] = provided["gallery_id"]
+    if "exif_fields" in provided:
+        columns["exif_fields"] = dump_exif_fields(provided["exif_fields"])
+    if "featured" in provided:
+        columns["featured"] = 1 if provided["featured"] else 0
+    if "status" in provided:
+        columns["status"] = str(provided["status"])
+    if "sort_order" in provided:
+        columns["sort_order"] = int(provided["sort_order"] or 0)
+    if "allow_download" in provided:
+        value = provided["allow_download"]
+        columns["allow_download"] = 1 if value is None else (1 if value else 0)
+    return columns
+
+
+def _gallery_patch_columns(payload: GalleryIn) -> dict[str, Any]:
+    """Map only the fields the client sent to `galleries` columns."""
+    provided = payload.model_dump(exclude_unset=True)
+    columns: dict[str, Any] = {}
+    if "title" in provided:
+        columns["title"] = str(provided["title"] or "")
+    if "description" in provided:
+        columns["description"] = str(provided["description"] or "")
+    if "status" in provided:
+        columns["status"] = str(provided["status"])
+    if "featured" in provided:
+        columns["featured"] = 1 if provided["featured"] else 0
+    if "slug" in provided and str(provided["slug"] or "").strip():
+        columns["slug"] = str(provided["slug"])
+    if "cover_photo_id" in provided:
+        columns["cover_photo_id"] = provided["cover_photo_id"]
+    return columns
+
+
+@router.get("/galleries", response_model=AdminGalleryListResponse)
 def admin_galleries(
     page: int = Query(1, ge=1),
     per_page: int = Query(24, ge=1, le=60),
@@ -106,7 +156,7 @@ def admin_galleries(
     status: str | None = Query(None, max_length=20),
     user: dict = Depends(require_staff),
 ) -> dict[str, Any]:
-    author_id = None if can(user, "content.others") else int(user["id"])
+    owner_id = None if can(user, "content.others") else int(user["id"])
     with db() as conn:
         rows, total = fetch_galleries(
             conn,
@@ -115,14 +165,14 @@ def admin_galleries(
             per_page=per_page,
             q=q,
             status=status,
-            author_id=author_id,
+            owner_id=owner_id,
         )
         items = [gallery_dict(conn, row, admin=True) for row in rows]
         counts_sql = "SELECT status, COUNT(*) AS n FROM galleries"
         counts_args: list[Any] = []
-        if author_id is not None:
-            counts_sql += " WHERE author_id = ?"
-            counts_args.append(author_id)
+        if owner_id is not None:
+            counts_sql += " WHERE owner_id = ?"
+            counts_args.append(owner_id)
         counts = {
             row["status"]: int(row["n"])
             for row in conn.execute(counts_sql + " GROUP BY status", counts_args)
@@ -135,18 +185,16 @@ def admin_galleries(
     }
 
 
-@router.get("/galleries/{gallery_id}")
-def admin_gallery(
-    gallery_id: int, user: dict = Depends(require_staff)
-) -> dict[str, Any]:
+@router.get("/galleries/{gallery_id}", response_model=AdminGalleryDetail)
+def admin_gallery(gallery_id: int, user: dict = Depends(require_staff)) -> dict[str, Any]:
     with db() as conn:
         row = _gallery_row_or_404(conn, gallery_id)
-        _ensure_owner(user, row)
+        authorize(user, row, "write")
         item = gallery_dict(conn, row, detail=True, admin=True)
     return item
 
 
-@router.post("/galleries", status_code=201)
+@router.post("/galleries", status_code=201, response_model=AdminGalleryDetail)
 def create_gallery(
     payload: GalleryIn,
     user: dict = Depends(require_permission("gallery.manage")),
@@ -156,8 +204,8 @@ def create_gallery(
         slug = _unique_gallery_slug(conn, payload.slug or payload.title)
         cur = conn.execute(
             """INSERT INTO galleries(title, slug, description, status, featured,
-                                     cover_photo_id, author_id, view_count, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)""",
+                                     cover_photo_id, owner_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 payload.title,
                 slug,
@@ -175,58 +223,63 @@ def create_gallery(
     return item
 
 
-@router.put("/galleries/{gallery_id}")
+@router.put("/galleries/{gallery_id}", response_model=AdminGalleryDetail)
+@router.patch("/galleries/{gallery_id}", response_model=AdminGalleryDetail)
 def update_gallery(
     gallery_id: int,
     payload: GalleryIn,
     user: dict = Depends(require_permission("gallery.manage")),
 ) -> dict[str, Any]:
+    """Partial update: only fields present in the request body are written.
+
+    `GalleryIn.title` stays required by the shared request model, so a true
+    PATCH that omits the title still returns 422; a dedicated `GalleryPatchIn`
+    (all fields optional) is the schema change the Lead would need to lift that.
+    """
     with db() as conn:
         row = _gallery_row_or_404(conn, gallery_id)
-        _ensure_owner(user, row)
-        slug = _unique_gallery_slug(
-            conn, payload.slug or row["slug"], gallery_id=gallery_id
-        )
-        if payload.cover_photo_id is not None:
-            cover = conn.execute(
-                "SELECT 1 FROM photos WHERE id = ? AND gallery_id = ?",
-                (payload.cover_photo_id, gallery_id),
-            ).fetchone()
-            if not cover:
-                payload.cover_photo_id = None
-        conn.execute(
-            """UPDATE galleries SET title = ?, slug = ?, description = ?, status = ?,
-                   featured = ?, cover_photo_id = ?, updated_at = ? WHERE id = ?""",
-            (
-                payload.title,
-                slug,
-                payload.description,
-                payload.status,
-                1 if payload.featured else 0,
-                payload.cover_photo_id,
-                now_iso(),
-                gallery_id,
-            ),
-        )
+        authorize(user, row, "write")
+        columns = _gallery_patch_columns(payload)
+        if "slug" in columns:
+            columns["slug"] = _unique_gallery_slug(
+                conn, str(columns["slug"] or row["slug"]), gallery_id=gallery_id
+            )
+        if "cover_photo_id" in columns:
+            cover_id = columns["cover_photo_id"]
+            if cover_id is not None:
+                cover = conn.execute(
+                    "SELECT 1 FROM photos WHERE id = ? AND gallery_id = ?",
+                    (cover_id, gallery_id),
+                ).fetchone()
+                if not cover:
+                    # Same behaviour as 2.x: a cover that is not part of the
+                    # gallery silently clears instead of failing the update.
+                    columns["cover_photo_id"] = None
+        columns["updated_at"] = now_iso()
+        _apply_columns(conn, "galleries", gallery_id, columns)
         fresh = _gallery_row_or_404(conn, gallery_id)
         item = gallery_dict(conn, fresh, detail=True, admin=True)
     return item
 
 
-@router.delete("/galleries/{gallery_id}")
+@router.delete("/galleries/{gallery_id}", response_model=GalleryDeleteResponse)
 def delete_gallery(
     gallery_id: int,
     user: dict = Depends(require_permission("gallery.manage")),
 ) -> dict[str, Any]:
     with db() as conn:
         row = _gallery_row_or_404(conn, gallery_id)
-        _ensure_owner(user, row)
+        authorize(user, row, "write")
         conn.execute("DELETE FROM photos WHERE gallery_id = ?", (gallery_id,))
         conn.execute("DELETE FROM galleries WHERE id = ?", (gallery_id,))
     return {"ok": True, "deleted": gallery_id, "title": row["title"]}
 
 
-@router.post("/galleries/{gallery_id}/photos", status_code=201)
+@router.post(
+    "/galleries/{gallery_id}/photos",
+    status_code=201,
+    response_model=GalleryPhotosAddedResponse,
+)
 def add_photos(
     gallery_id: int,
     payload: PhotoBatchIn,
@@ -234,7 +287,7 @@ def add_photos(
 ) -> dict[str, Any]:
     with db() as conn:
         row = _gallery_row_or_404(conn, gallery_id)
-        _ensure_owner(user, row)
+        authorize(user, row, "write")
         media_rows = []
         for media_id in dict.fromkeys(payload.media_ids):
             media = conn.execute(
@@ -242,8 +295,7 @@ def add_photos(
             ).fetchone()
             if not media:
                 continue
-            if not (can(user, "content.others") or owns(user, media)):
-                raise HTTPException(status_code=403, detail="只能使用自己上传的媒体")
+            authorize(user, media, "write")
             media_rows.append(media)
         if not media_rows:
             raise HTTPException(status_code=400, detail="没有找到可用的图片")
@@ -283,7 +335,7 @@ def add_photos(
     return {"ok": True, "added": added, "gallery": item}
 
 
-@router.post("/galleries/{gallery_id}/reorder")
+@router.post("/galleries/{gallery_id}/reorder", response_model=GalleryReorderResponse)
 def reorder_photos(
     gallery_id: int,
     payload: ReorderIn,
@@ -291,11 +343,8 @@ def reorder_photos(
 ) -> dict[str, Any]:
     with db() as conn:
         row = _gallery_row_or_404(conn, gallery_id)
-        _ensure_owner(user, row)
-        existing = {
-            int(item["id"])
-            for item in gallery_photo_rows(conn, gallery_id, public=False)
-        }
+        authorize(user, row, "write")
+        existing = {int(item["id"]) for item in gallery_photo_rows(conn, gallery_id, public=False)}
         order = 10
         for photo_id in payload.ids:
             if photo_id not in existing:
@@ -311,7 +360,7 @@ def reorder_photos(
     return {"ok": True, "gallery": item}
 
 
-@router.get("/photos")
+@router.get("/photos", response_model=PhotoListResponse)
 def admin_photos(
     page: int = Query(1, ge=1),
     per_page: int = Query(48, ge=1, le=120),
@@ -319,7 +368,7 @@ def admin_photos(
     q: str | None = Query(None, max_length=80),
     user: dict = Depends(require_staff),
 ) -> dict[str, Any]:
-    author_id = None if can(user, "content.others") else int(user["id"])
+    owner_id = None if can(user, "content.others") else int(user["id"])
     with db() as conn:
         rows, total = fetch_photos(
             conn,
@@ -329,13 +378,13 @@ def admin_photos(
             per_page=per_page,
             q=q,
             order="manual",
-            author_id=author_id,
+            owner_id=owner_id,
         )
         items = [photo_dict(row) for row in rows]
     return {"items": items, **pagination(page, per_page, total)}
 
 
-@router.post("/photos", status_code=201)
+@router.post("/photos", status_code=201, response_model=PhotoImage)
 def create_photo(
     payload: PhotoIn,
     user: dict = Depends(require_permission("gallery.manage")),
@@ -346,10 +395,9 @@ def create_photo(
         ).fetchone()
         if not media:
             raise HTTPException(status_code=404, detail="图片不存在")
-        if not (can(user, "content.others") or owns(user, media)):
-            raise HTTPException(status_code=403, detail="只能使用自己上传的媒体")
+        authorize(user, media, "write")
         if payload.gallery_id is not None:
-            _ensure_owner(user, _gallery_row_or_404(conn, payload.gallery_id))
+            authorize(user, _gallery_row_or_404(conn, payload.gallery_id), "write")
         defaults = photo_defaults(parse_stored(media["exif"]))
         cur = conn.execute(
             """INSERT INTO photos(gallery_id, media_id, filename, title, caption,
@@ -387,51 +435,36 @@ def create_photo(
     return item
 
 
-@router.put("/photos/{photo_id}")
+@router.put("/photos/{photo_id}", response_model=PhotoImage)
+@router.patch("/photos/{photo_id}", response_model=PhotoImage)
 def update_photo(
     photo_id: int,
     payload: PhotoUpdateIn,
     user: dict = Depends(require_permission("gallery.manage")),
 ) -> dict[str, Any]:
+    """Partial update: omitted fields are kept, explicit null clears.
+
+    `gallery_id: null` is the documented way to remove a photo from its gallery;
+    omitting `gallery_id` now keeps the photo where it is (the 2.x data bug).
+    """
     with db() as conn:
         row = _get_photo(conn, photo_id)
         if not row:
             raise HTTPException(status_code=404, detail="照片不存在")
-        _ensure_photo_owner(conn, user, row)
-        if payload.gallery_id is not None and payload.gallery_id != row["gallery_id"]:
-            _ensure_owner(user, _gallery_row_or_404(conn, payload.gallery_id))
-        conn.execute(
-            """UPDATE photos SET gallery_id = ?, title = ?, caption = ?, location = ?,
-                   camera = ?, lens = ?, taken_at = ?, exif_fields = COALESCE(?, exif_fields),
-                   featured = ?, status = ?, sort_order = COALESCE(?, sort_order),
-                   allow_download = COALESCE(?, allow_download)
-               WHERE id = ?""",
-            (
-                payload.gallery_id,
-                payload.title,
-                payload.caption,
-                payload.location,
-                payload.camera,
-                payload.lens,
-                payload.taken_at,
-                dump_exif_fields(payload.exif_fields) if payload.exif_fields is not None else None,
-                1 if payload.featured else 0,
-                payload.status,
-                payload.sort_order,
-                None
-                if payload.allow_download is None
-                else (1 if payload.allow_download else 0),
-                photo_id,
-            ),
-        )
-        touch_gallery(conn, payload.gallery_id)
-        touch_gallery(conn, int(row["gallery_id"]) if row["gallery_id"] else None)
+        authorize_photo(user, conn, row, "write")
+        columns = _photo_patch_columns(payload)
+        if columns.get("gallery_id") is not None and (columns["gallery_id"] != row["gallery_id"]):
+            authorize(user, _gallery_row_or_404(conn, int(columns["gallery_id"])), "write")
+        _apply_columns(conn, "photos", photo_id, columns)
+        touch_gallery(conn, columns.get("gallery_id"))
+        old_gallery_id = int(row["gallery_id"]) if row["gallery_id"] else None
+        touch_gallery(conn, old_gallery_id)
         updated = _get_photo(conn, photo_id)
         item = photo_dict(updated) if updated else {}
     return item
 
 
-@router.delete("/photos/{photo_id}")
+@router.delete("/photos/{photo_id}", response_model=PhotoDeleteResponse)
 def delete_photo(
     photo_id: int,
     user: dict = Depends(require_permission("gallery.manage")),
@@ -440,7 +473,7 @@ def delete_photo(
         row = _get_photo(conn, photo_id)
         if not row:
             raise HTTPException(status_code=404, detail="照片不存在")
-        _ensure_photo_owner(conn, user, row)
+        authorize_photo(user, conn, row, "write")
         conn.execute("DELETE FROM photos WHERE id = ?", (photo_id,))
         if row["gallery_id"] is not None:
             gallery_id = int(row["gallery_id"])

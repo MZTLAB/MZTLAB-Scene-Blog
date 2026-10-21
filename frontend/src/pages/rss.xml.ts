@@ -14,15 +14,10 @@ function escapeXml(value: string): string {
 
 export const GET: APIRoute = async ({ url }) => {
   const site = await getSite();
-  const settings = site.settings;
+  const settings = site.settings.site;
   const base = (settings.site_url || url.origin).replace(/\/$/, '');
-  let items: PostSummary[] = [];
-  try {
-    const data = await apiServer<Paginated<PostSummary>>('/api/posts?per_page=40');
-    items = data.items;
-  } catch {
-    items = [];
-  }
+  const data = await apiServer<Paginated<PostSummary>>('/api/posts?per_page=40');
+  const items = data.items;
   const now = items[0]?.published_at ? new Date(items[0].published_at) : new Date();
   const entries = items
     .map((post) => {

@@ -42,9 +42,7 @@ class StorageSyncTests(unittest.TestCase):
         self.assertEqual(result.failed, 0)
         self.assertTrue(self.remote.exists("2026/05/a.jpg"))
         self.assertTrue(self.remote.exists("_derived/1/token/tile/720.avif"))
-        self.assertEqual(
-            self.remote.read("_derived/1/token/tile/720.avif"), b"derived-a"
-        )
+        self.assertEqual(self.remote.read("_derived/1/token/tile/720.avif"), b"derived-a")
 
     def test_non_force_skips_identical_and_refreshes_different_files(self):
         # Identical copy on both sides → skipped.
@@ -57,9 +55,7 @@ class StorageSyncTests(unittest.TestCase):
         self.assertEqual(self.remote.read("2026/05/b.mp3"), b"audio-b")
 
     def test_scope_limits_what_is_synced(self):
-        result = sync_local_to_remote(
-            self.local, self.remote, force=True, scope="derivatives"
-        )
+        result = sync_local_to_remote(self.local, self.remote, force=True, scope="derivatives")
         self.assertEqual(result.total, 2)
         self.assertTrue(self.remote.exists("_derived/1/token/tile/720.avif"))
         self.assertFalse(self.remote.exists("2026/05/a.jpg"))

@@ -1,7 +1,6 @@
 import type { AstroGlobal } from 'astro';
 import type { AdminUser, SiteStatus } from '../types';
 import { apiServer } from './api';
-import { hasPermission } from './permissions';
 
 export function requestCookie(astro: AstroGlobal): string {
   return astro.request.headers.get('cookie') || '';
@@ -26,6 +25,9 @@ export async function currentAdmin(astro: AstroGlobal): Promise<AdminUser | null
 /**
  * Page-level guard. Returns the signed-in member, or a redirect Response that
  * the caller should return immediately.
+ *
+ * Permissions come from the session user (the backend is the single source of
+ * truth); the frontend no longer mirrors a role matrix.
  */
 export async function guardAdmin(
   astro: AstroGlobal,
@@ -36,7 +38,7 @@ export async function guardAdmin(
     const next = encodeURIComponent(astro.url.pathname + astro.url.search);
     return astro.redirect(`/admin/login?next=${next}`);
   }
-  if (permission && !hasPermission(user, permission)) {
+  if (permission && !user.permissions?.includes(permission)) {
     return astro.redirect(`/admin?denied=${encodeURIComponent(permission)}`);
   }
   return user;

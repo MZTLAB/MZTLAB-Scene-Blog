@@ -2,18 +2,17 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import Icon from '../../components/Icon.astro';
 import { guardAdmin } from '../../lib/auth';
-import { hasPermission } from '../../lib/permissions';
 
 const guard = await guardAdmin(Astro);
 if (guard instanceof Response) return guard;
 const user = guard;
-const canGallery = hasPermission(user, 'gallery.manage');
+const can = (permission: string) => user.permissions?.includes(permission) ?? false;
+const canGallery = can('gallery.manage');
 const denied = Astro.url.searchParams.get('denied') || '';
 const permissionLabels: Record<string, string> = {
   'content.write': '创建与编辑内容',
   'gallery.manage': '管理影像画廊',
   'media.manage': '管理媒体库',
-  'comment.moderate': '审核评论',
   'taxonomy.manage': '管理分类与标签',
   'settings.manage': '修改站点设置与外观',
   'users.manage': '管理用户与权限',
@@ -48,7 +47,7 @@ const permissionLabels: Record<string, string> = {
         {canGallery && (
           <a class="a-btn" href="/admin/galleries"><Icon name="camera" size={14} /> 相册</a>
         )}
-        {hasPermission(user, 'content.write') && (
+        {can('content.write') && (
           <a class="a-btn a-btn--primary" href="/admin/posts/new"><Icon name="plus" size={14} /> 写文章</a>
         )}
       </div>
@@ -70,10 +69,10 @@ const permissionLabels: Record<string, string> = {
         <div class="stat-card__value" data-value>—</div>
         <div class="stat-card__hint" data-hint>文章与草稿</div>
       </div>
-      <div class="stat-card" data-stat="comments">
-        <span class="stat-card__label"><Icon name="message" size={13} /> To review</span>
+      <div class="stat-card" data-stat="pages">
+        <span class="stat-card__label"><Icon name="book" size={13} /> Pages</span>
         <div class="stat-card__value" data-value>—</div>
-        <div class="stat-card__hint" data-hint>待审核留言</div>
+        <div class="stat-card__hint" data-hint>独立页面</div>
       </div>
     </div>
 
@@ -109,24 +108,11 @@ const permissionLabels: Record<string, string> = {
 
       <div class="dashboard-stack">
         <div class="admin-card">
-          <div class="admin-card__head">
-            <h3>待审核留言</h3>
-            <a href="/admin/comments">管理 →</a>
-          </div>
-          <div data-pending-comments>
-            <div class="admin-loading" style="padding: 18px">
-              <div class="skeleton" style="height: 44px"></div>
-              <div class="skeleton" style="height: 44px"></div>
-            </div>
-          </div>
-        </div>
-
-        <div class="admin-card">
           <div class="admin-card__head"><h3>快捷操作</h3></div>
           <div class="admin-card__body">
             <div class="quick-actions">
               {
-                hasPermission(user, 'content.write') && (
+                can('content.write') && (
                   <a class="quick-action" href="/admin/posts/new"><Icon name="file" /> 写文章</a>
                 )
               }
@@ -136,17 +122,17 @@ const permissionLabels: Record<string, string> = {
                 )
               }
               {
-                hasPermission(user, 'media.manage') && (
+                can('media.manage') && (
                   <a class="quick-action" href="/admin/media"><Icon name="upload" /> 上传图片</a>
                 )
               }
               {
-                hasPermission(user, 'settings.manage') && (
+                can('settings.manage') && (
                   <a class="quick-action" href="/admin/appearance"><Icon name="palette" /> 调整外观</a>
                 )
               }
               {
-                hasPermission(user, 'users.manage') && (
+                can('users.manage') && (
                   <a class="quick-action" href="/admin/users"><Icon name="users" /> 邀请成员</a>
                 )
               }

@@ -14,33 +14,29 @@ function escapeXml(value: string): string {
 
 export const GET: APIRoute = async ({ url }) => {
   const site = await getSite();
-  const base = (site.settings.site_url || url.origin).replace(/\/$/, '');
+  const base = (site.settings.site.site_url || url.origin).replace(/\/$/, '');
   const entries: Array<{ loc: string; lastmod?: string }> = [
     { loc: '/' },
     { loc: '/photos' },
     { loc: '/projects' },
     { loc: '/archive' },
   ];
-  try {
-    const archive = await apiServer<{ items: PostSummary[] }>('/api/archive');
-    archive.items.forEach((post) => {
-      entries.push({ loc: post.url, lastmod: post.updated_at });
-    });
-    const projects = await apiServer<Paginated<PostSummary>>('/api/projects?per_page=60');
-    projects.items.forEach((project) => {
-      entries.push({ loc: project.url, lastmod: project.updated_at });
-    });
-    const galleries = await apiServer<Paginated<Gallery>>('/api/galleries?per_page=60');
-    galleries.items.forEach((gallery) => {
-      entries.push({ loc: gallery.url, lastmod: gallery.updated_at });
-    });
-    const pages = await apiServer<{ items: PostSummary[] }>('/api/pages');
-    pages.items.forEach((page) => {
-      entries.push({ loc: page.url, lastmod: page.updated_at });
-    });
-  } catch {
-    // Keep the static entries; the index route will still work.
-  }
+  const archive = await apiServer<{ items: PostSummary[] }>('/api/archive');
+  archive.items.forEach((post) => {
+    entries.push({ loc: post.url, lastmod: post.updated_at });
+  });
+  const projects = await apiServer<Paginated<PostSummary>>('/api/projects?per_page=60');
+  projects.items.forEach((project) => {
+    entries.push({ loc: project.url, lastmod: project.updated_at });
+  });
+  const galleries = await apiServer<Paginated<Gallery>>('/api/galleries?per_page=60');
+  galleries.items.forEach((gallery) => {
+    entries.push({ loc: gallery.url, lastmod: gallery.updated_at });
+  });
+  const pages = await apiServer<{ items: PostSummary[] }>('/api/pages');
+  pages.items.forEach((page) => {
+    entries.push({ loc: page.url, lastmod: page.updated_at });
+  });
   site.categories
     .filter((category) => (category.count || 0) > 0)
     .forEach((category) => entries.push({ loc: `/categories/${category.slug}` }));

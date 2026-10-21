@@ -8,6 +8,7 @@ import '../styles/index.css';
 import '../styles/audio-player.css';
 import { absoluteUrl, stripStyleClose } from '../lib/format';
 import { isValidImage, srcset as imageSrcset } from '../lib/images';
+import { copyReader, themeTokens } from '../lib/site';
 import type { SiteInfo } from '../types';
 
 interface Props {
@@ -33,59 +34,37 @@ const {
   author = '',
 } = Astro.props;
 
-const settings = site.settings;
-const copy = (key: keyof typeof settings, fallback: string) => {
-  const value = settings[key];
-  return typeof value === 'string' && value.trim() ? value : fallback;
-};
-const siteTitle = settings.site_title || 'MZTLAB';
-const pageTitle = title ? `${title} — ${siteTitle}` : `${siteTitle} · ${settings.site_subtitle || 'Scene'}`;
-const metaDescription = description || settings.seo_description || settings.description || '';
-const canonical = absoluteUrl(settings.site_url, Astro.url.pathname);
-const ogImage = image || settings.og_image || '';
-const accent = /^#[0-9a-f]{6}$/i.test(settings.accent || '') ? settings.accent : '#e8481d';
-const width = Math.min(1600, Math.max(720, Number(settings.layout_width) || 1400));
-const radius = Math.min(40, Math.max(0, Number(settings.radius) || 0));
-const columns = Math.min(4, Math.max(2, Number(settings.gallery_columns) || 3));
-const favicon = settings.favicon || '/favicon.svg';
-const css = stripStyleClose(settings.custom_css || '');
-const heroImage = (settings.hero_image || '').replace(/["'\\]/g, encodeURIComponent);
+const { site: siteSettings, appearance } = site.settings;
+const copy = copyReader(site.settings);
+const tokens = themeTokens(appearance, siteSettings);
+const siteTitle = siteSettings.site_title;
+const pageTitle = title ? `${title} — ${siteTitle}` : `${siteTitle} · ${siteSettings.site_subtitle}`;
+const metaDescription = description || siteSettings.seo_description || siteSettings.description;
+const canonical = absoluteUrl(siteSettings.site_url, Astro.url.pathname);
+const ogImage = image || siteSettings.og_image;
+const favicon = siteSettings.favicon || '/favicon.svg';
+const css = stripStyleClose(appearance.custom_css || '');
+const heroImage = (appearance.hero_image || '').replace(/["'\\]/g, encodeURIComponent);
 const rootStyle = [
-  `--accent:${accent}`,
-  `--layout-width:${width}px`,
-  `--radius:${radius}px`,
-  `--photo-columns:${columns}`,
+  `--accent:${tokens.accent}`,
+  `--layout-width:${tokens.width}px`,
+  `--radius:${tokens.radius}px`,
+  `--photo-columns:${tokens.columns}`,
   heroImage ? `--hero-image:url("${heroImage}")` : '',
 ].filter(Boolean).join(';');
-const colorMode = ['light', 'dark', 'system'].includes(String(settings.color_mode))
-  ? String(settings.color_mode)
-  : 'light';
-const paletteAliases: Record<string, string> = {
-  paper: 'scene',
-  graphite: 'stone',
-  forest: 'sand',
-  ocean: 'stone',
-};
-const rawPalette = String(settings.theme || 'scene');
-const palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
-  ? rawPalette
-  : paletteAliases[rawPalette] || 'scene';
-const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
-  ? String(settings.font_pair)
-  : 'mono';
 // Preload the first-screen hero (AVIF) instead of waiting for HTML parsing.
 const heroInfo = isValidImage(site.hero_image_info) ? site.hero_image_info : null;
 const heroPreload =
-  settings.hero_show !== false && heroInfo && heroInfo.formats.includes('avif')
+  appearance.hero_show && heroInfo && heroInfo.formats.includes('avif')
     ? imageSrcset(heroInfo, 'hero', 'avif')
     : '';
 ---
 <!doctype html>
 <html
   lang="zh-CN"
-  data-color-mode={colorMode}
-  data-palette={palette}
-  data-font={fontPair}
+  data-color-mode={tokens.colorMode}
+  data-palette={tokens.palette}
+  data-font={tokens.fontPair}
   data-theme="scene"
   style={rootStyle}
 >
@@ -94,9 +73,9 @@ const heroPreload =
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{pageTitle}</title>
     <meta name="description" content={metaDescription} />
-    {settings.seo_keywords && <meta name="keywords" content={settings.seo_keywords} />}
+    {siteSettings.seo_keywords && <meta name="keywords" content={siteSettings.seo_keywords} />}
     <meta name="author" content={author || siteTitle} />
-    <meta name="theme-color" content={accent} />
+    <meta name="theme-color" content={tokens.accent} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href={favicon} />
     {heroPreload && (
@@ -118,7 +97,7 @@ const heroPreload =
     <meta property="og:type" content={type} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content="zh_CN" />
-    {ogImage && <meta property="og:image" content={absoluteUrl(settings.site_url, ogImage)} />}
+    {ogImage && <meta property="og:image" content={absoluteUrl(siteSettings.site_url, ogImage)} />}
     <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
     <meta name="twitter:title" content={pageTitle} />
     <meta name="twitter:description" content={metaDescription} />
@@ -141,15 +120,15 @@ const heroPreload =
       })();
     </script>
 
-    {settings.head_html && <Fragment set:html={settings.head_html} />}
+    {appearance.head_html && <Fragment set:html={appearance.head_html} />}
     <slot name="head" />
   </head>
 
   <body class:list={['site-body', bodyClass]} id="top">
-    <a class="skip-link" href="#main">{copy('copy_skip_link', '跳到正文')}</a>
-    {settings.announcement && (
+    <a class="skip-link" href="#main">{copy('skip_link', '跳到正文')}</a>
+    {siteSettings.announcement && (
       <div class="announcement">
-        <div class="container">{settings.announcement}</div>
+        <div class="container">{siteSettings.announcement}</div>
       </div>
     )}
     <SiteHeader site={site} />

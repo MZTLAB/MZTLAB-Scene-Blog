@@ -4,9 +4,8 @@ import '../styles/global.css';
 import '../styles/admin.css';
 import '../styles/audio-player.css';
 import { getSite } from '../lib/api';
-import { fallbackSite } from '../config';
 import { initial } from '../lib/format';
-import { hasPermission } from '../lib/permissions';
+import { themeTokens } from '../lib/site';
 import type { AdminUser, SiteInfo } from '../types';
 
 interface Props {
@@ -19,35 +18,12 @@ interface Props {
 
 const { user, title, subtitle = '', active, showCompose = true } = Astro.props;
 
-let site: SiteInfo = fallbackSite as unknown as SiteInfo;
-try {
-  site = await getSite();
-} catch {
-  // Keep the admin usable with fallback visual tokens.
-}
-const settings = site.settings;
-const markSrc = settings.favicon || '/favicon.svg';
-const accent = /^#[0-9a-f]{6}$/i.test(settings.accent || '') ? settings.accent : '#e8481d';
-const width = Math.min(1600, Math.max(720, Number(settings.layout_width) || 1400));
-const radius = Math.min(40, Math.max(0, Number(settings.radius) || 0));
-const colorMode = ['light', 'dark', 'system'].includes(String(settings.color_mode))
-  ? String(settings.color_mode)
-  : 'light';
-const paletteAliases: Record<string, string> = {
-  paper: 'scene',
-  graphite: 'stone',
-  forest: 'sand',
-  ocean: 'stone',
-};
-const rawPalette = String(settings.theme || 'scene');
-const palette = ['scene', 'stone', 'sand', 'night'].includes(rawPalette)
-  ? rawPalette
-  : paletteAliases[rawPalette] || 'scene';
-const fontPair = ['sans', 'serif', 'mono'].includes(String(settings.font_pair))
-  ? String(settings.font_pair)
-  : 'mono';
+const site: SiteInfo = await getSite();
+const { site: siteSettings, appearance } = site.settings;
+const tokens = themeTokens(appearance, siteSettings);
+const markSrc = siteSettings.favicon || '/favicon.svg';
 
-const can = (permission: string) => hasPermission(user, permission);
+const can = (permission: string) => user.permissions?.includes(permission) ?? false;
 const canCompose = can('content.write');
 const nav = [
   { key: 'dashboard', label: '概览', href: '/admin', icon: 'dashboard', show: true },
@@ -56,7 +32,6 @@ const nav = [
   { key: 'posts', label: '文章', href: '/admin/posts', icon: 'file', show: true },
   { key: 'pages', label: '页面', href: '/admin/pages', icon: 'book', show: can('content.others') },
   { key: 'media', label: '媒体库', href: '/admin/media', icon: 'image', show: can('media.manage') },
-  { key: 'comments', label: '评论', href: '/admin/comments', icon: 'message', show: can('comment.moderate') },
   { key: 'taxonomy', label: '分类与标签', href: '/admin/taxonomy', icon: 'folder', show: can('taxonomy.manage') },
 ].filter((item) => item.show);
 const siteNav = [
@@ -70,19 +45,19 @@ const composeHref = '/admin/posts/new';
 <!doctype html>
 <html
   lang="zh-CN"
-  data-color-mode={colorMode}
-  data-palette={palette}
-  data-font={fontPair}
+  data-color-mode={tokens.colorMode}
+  data-palette={tokens.palette}
+  data-font={tokens.fontPair}
   data-theme="scene"
-  style={`--accent:${accent};--layout-width:${width}px;--radius:${radius}px`}
+  style={`--accent:${tokens.accent};--layout-width:${tokens.width}px;--radius:${tokens.radius}px`}
 >
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="theme-color" content={accent} />
-    <title>{title} · {settings.site_title} · Scene</title>
-    <link rel="icon" href={settings.favicon || '/favicon.svg'} />
+    <meta name="theme-color" content={tokens.accent} />
+    <title>{title} · {siteSettings.site_title} · Scene</title>
+    <link rel="icon" href={markSrc} />
     <script is:inline>
       (() => {
         const root = document.documentElement;
@@ -106,7 +81,7 @@ const composeHref = '/admin/posts/new';
         <a class="admin-brand" href="/admin">
           <img class="brand-mark" src={markSrc} alt="" width="22" height="22" aria-hidden="true" />
           <span class="admin-brand__text">
-            <strong>{settings.site_title}</strong>
+            <strong>{siteSettings.site_title}</strong>
             <span>mono studio</span>
           </span>
         </a>
@@ -118,7 +93,6 @@ const composeHref = '/admin/posts/new';
               <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
                 <Icon name={item.icon} size={17} />
                 {item.label}
-                {item.key === 'comments' && <span class="nav-count" data-pending-count hidden>0</span>}
               </a>
             ))
           }

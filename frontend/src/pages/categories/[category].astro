@@ -10,9 +10,7 @@ const { category: slug } = Astro.params;
 const site: SiteInfo = await getSite();
 let category = site.categories.find((item) => item.slug === slug);
 if (!category) {
-  const taxonomy = await apiServer<{ categories: Term[] }>('/api/taxonomy').catch(() => ({
-    categories: [],
-  }));
+  const taxonomy = await apiServer<{ categories: Term[] }>('/api/taxonomy');
   category = taxonomy.categories.find((item) => item.slug === slug);
 }
 if (!category) return Astro.rewrite('/404');
@@ -47,7 +45,7 @@ const others = site.categories.filter((item) => item.slug !== slug && (item.coun
       data.items.length ? (
         <div class="story-grid">
           {data.items.map((post, index) => (
-            <StoryCard post={post} site={site} label={site.settings.site_title} eager={index === 0} />
+            <StoryCard post={post} site={site} label={site.settings.site.site_title} eager={index === 0} />
           ))}
         </div>
       ) : (

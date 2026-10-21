@@ -5,6 +5,7 @@ import SmartImage from './SmartImage.astro';
 import type { Gallery, SiteInfo } from '../types';
 import { exifFieldVisible } from '../lib/photo';
 import { formatMonth } from '../lib/format';
+import { copyReader } from '../lib/site';
 
 interface Props {
   site: SiteInfo;
@@ -12,28 +13,26 @@ interface Props {
 }
 
 const { site, featuredGallery } = Astro.props;
-const settings = site.settings;
-const copy = (key: keyof typeof settings, fallback: string) => {
-  const value = settings[key];
-  return typeof value === 'string' && value.trim() ? value : fallback;
-};
+const siteSettings = site.settings.site;
+const appearance = site.settings.appearance;
+const copy = copyReader(site.settings);
 
 const defaultTitle = '光落下，\n场景生成。';
-const titleLines = String(settings.hero_title || defaultTitle)
+const titleLines = String(appearance.hero_title || defaultTitle)
   .split('\n')
   .map((line) => line.trim())
   .filter(Boolean);
-const firstLine = titleLines[0] || settings.site_title;
+const firstLine = titleLines[0] || siteSettings.site_title;
 const restLines = titleLines.slice(1);
-const style = ['split', 'minimal', 'image'].includes(String(settings.hero_style))
-  ? settings.hero_style
+const style = ['split', 'minimal', 'image'].includes(String(appearance.hero_style))
+  ? appearance.hero_style
   : 'split';
 const heroClass =
   style === 'minimal' ? 'masthead masthead--minimal' : style === 'image' ? 'masthead masthead--image' : 'masthead';
-const lead = settings.hero_subtitle || settings.description;
+const lead = appearance.hero_subtitle || siteSettings.description;
 const frame = featuredGallery?.cover || null;
-const image = settings.hero_image || frame?.url || '';
-const imageInfo = settings.hero_image
+const image = appearance.hero_image || frame?.url || '';
+const imageInfo = appearance.hero_image
   ? (site.hero_image_info ?? null)
   : (frame?.image ?? null);
 const captionMeta = frame
@@ -47,21 +46,21 @@ const captionMeta = frame
     ]
       .filter(Boolean)
       .join(' / ')
-  : settings.tagline;
+  : siteSettings.tagline;
 const stats = [
-  { value: site.photo_count, label: copy('copy_stat_photos', 'PHOTOS'), href: '/photos' },
-  { value: site.project_count, label: copy('copy_stat_projects', 'PROJECTS'), href: '/projects' },
-  { value: site.post_count, label: copy('copy_stat_texts', 'TEXTS'), href: '/archive' },
+  { value: site.photo_count, label: copy('stat_photos', 'PHOTOS'), href: '/photos' },
+  { value: site.project_count, label: copy('stat_projects', 'PROJECTS'), href: '/projects' },
+  { value: site.post_count, label: copy('stat_texts', 'TEXTS'), href: '/archive' },
 ];
 const galleryHref = featuredGallery?.url || '/photos';
-const primaryUrl = copy('copy_hero_primary_url', '/photos');
-const secondaryUrl = copy('copy_hero_secondary_url', '/projects');
+const primaryUrl = copy('hero_primary_url', '/photos');
+const secondaryUrl = copy('hero_secondary_url', '/projects');
 ---
 <section class:list={['container', heroClass]} data-hero>
   <div class="masthead__copy">
     <p class="masthead__eyebrow">
       <span class="mark" aria-hidden="true">//</span>
-      <span>{settings.hero_eyebrow || 'MZTLAB // SCENE'}</span>
+      <span>{appearance.hero_eyebrow || 'MZTLAB // SCENE'}</span>
     </p>
     <h1 class="masthead__title">
       {firstLine}
@@ -77,11 +76,11 @@ const secondaryUrl = copy('copy_hero_secondary_url', '/projects');
     <p class="masthead__lead">{lead}</p>
     <div class="masthead__actions">
       <a class="btn" href={primaryUrl}>
-        {copy('copy_hero_primary_label', '浏览影像')}
+        {copy('hero_primary_label', '浏览影像')}
         <Icon name="arrowRight" size={14} />
       </a>
       <a class="text-link" href={secondaryUrl}>
-        {copy('copy_hero_secondary_label', '查看项目')} <Icon name="arrowUpRight" size={13} />
+        {copy('hero_secondary_label', '查看项目')} <Icon name="arrowUpRight" size={13} />
       </a>
     </div>
     <div class="masthead__stats">
@@ -116,16 +115,16 @@ const secondaryUrl = copy('copy_hero_secondary_url', '/projects');
             />
           ) : (
             <CoverArt
-              title={settings.tagline || settings.site_title}
+              title={siteSettings.tagline || siteSettings.site_title}
               slug="hero"
-              category={settings.site_subtitle || 'Scene'}
-              label={settings.site_title}
+              category={siteSettings.site_subtitle || 'Scene'}
+              label={siteSettings.site_title}
               eager
             />
           )}
         </a>
         <div class="masthead__caption">
-          <span>{featuredGallery?.title || settings.site_title}</span>
+          <span>{featuredGallery?.title || siteSettings.site_title}</span>
           <span>{captionMeta || 'NO EXIF'}</span>
         </div>
       </div>
