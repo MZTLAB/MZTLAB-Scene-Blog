@@ -13,6 +13,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..avatars import clean_avatar_url
 from ..db import db, now_iso, setting_flag
 from ..deps import require_permission, require_staff, revoke_user_sessions
 from ..permissions import (
@@ -52,7 +53,7 @@ def _serialize(
         "display_name": row["display_name"],
         "email": row["email"],
         "bio": row["bio"],
-        "avatar": row["avatar"],
+        "avatar": clean_avatar_url(row["avatar"]),
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
         "is_active": bool(row["is_active"]),

@@ -11,6 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from .avatars import AVATAR_ERROR, avatar_url_error
 from .photo_exif import normalize_exif_fields
 from .security import MIN_PASSWORD_LENGTH, password_policy_error
 
@@ -213,6 +214,15 @@ class ProfileIn(StrippedModel):
     def valid_email(cls, value: str) -> str:
         if value and not EMAIL_RE.match(value):
             raise ValueError("邮箱格式不正确")
+        return value
+
+    @field_validator("avatar")
+    @classmethod
+    def valid_avatar(cls, value: str) -> str:
+        # Avatars end up in <img src> on public pages; only raster image links
+        # are allowed so an SVG/HTML/data: URL can never be stored there.
+        if avatar_url_error(value):
+            raise ValueError(AVATAR_ERROR)
         return value
 
     @model_validator(mode="after")

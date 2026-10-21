@@ -9,6 +9,7 @@ from typing import Any, Callable
 
 from fastapi import HTTPException, Request, Response, status
 
+from .avatars import clean_avatar_url
 from .config import (
     COOKIE_SECURE,
     PROXY_SECRET,
@@ -73,7 +74,7 @@ def user_public(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         "display_name": row["display_name"],
         "email": row["email"],
         "bio": row["bio"],
-        "avatar": row["avatar"],
+        "avatar": clean_avatar_url(row["avatar"]),
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
         "is_active": bool(row["is_active"]),

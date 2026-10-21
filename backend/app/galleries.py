@@ -11,6 +11,7 @@ from __future__ import annotations
 import sqlite3
 from typing import Any
 
+from .avatars import clean_avatar_url
 from .content import quote_slug
 from .db import load_settings_cached, now_iso
 from .exif import parse_stored
@@ -207,7 +208,7 @@ def gallery_dict(
         "updated_at": data["updated_at"],
         "author": {
             "name": data.get("author_name") or "MZTLAB",
-            "avatar": data.get("author_avatar") or "",
+            "avatar": clean_avatar_url(data.get("author_avatar") or ""),
         },
     }
     if admin:

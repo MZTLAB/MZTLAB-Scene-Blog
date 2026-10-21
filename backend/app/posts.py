@@ -6,6 +6,7 @@ import math
 import sqlite3
 from typing import Any, Iterable
 
+from .avatars import clean_avatar_url
 from .content import extract_toc, quote_slug, reading_time
 from .db import load_settings_cached, now_iso
 from .images import image_payload, rewrite_inline_images, url_to_filename
@@ -122,7 +123,7 @@ def serialize_post(
     author = {
         "name": data.get("author_name") or "MZTLAB",
         "username": data.get("author_username") or "",
-        "avatar": data.get("author_avatar") or "",
+        "avatar": clean_avatar_url(data.get("author_avatar") or ""),
         "bio": data.get("author_bio") or "",
     }
     item: dict[str, Any] = {
@@ -217,7 +218,7 @@ def _list_item(data: dict[str, Any], *, admin: bool) -> dict[str, Any]:
         "comment_count": data["comment_count"],
         "author": {
             "name": data.get("author_name") or "MZTLAB",
-            "avatar": data.get("author_avatar") or "",
+            "avatar": clean_avatar_url(data.get("author_avatar") or ""),
         },
         "categories": data["categories"],
         "tags": data["tags"],

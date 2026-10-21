@@ -42,7 +42,7 @@ const user = guard;
         <textarea name="bio" rows="3" maxlength="500">{user.bio}</textarea>
       </div>
       <div class="a-field" style="margin-top:12px">
-        <label>头像 URL <small>可粘贴媒体库里的图片地址</small></label>
+        <label>头像 URL <small>JPG / PNG / WebP / GIF / AVIF 图片地址</small></label>
         <input type="text" name="avatar" value={user.avatar} maxlength="500" placeholder="/media/... 或 https://" />
       </div>
       <div class="a-field--row" style="margin-top:18px">

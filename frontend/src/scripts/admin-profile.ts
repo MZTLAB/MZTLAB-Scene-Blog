@@ -10,9 +10,17 @@ const refreshAdminIdentity = (user: AdminUser) => {
   if (nameNode) nameNode.textContent = user.display_name;
   const avatarNode = document.querySelector<HTMLElement>('.admin-user .avatar');
   if (avatarNode) {
-    avatarNode.innerHTML = user.avatar
-      ? `<img src="${user.avatar}" alt="" />`
-      : (user.display_name || 'M').slice(0, 1);
+    avatarNode.replaceChildren();
+    if (user.avatar) {
+      // DOM APIs instead of innerHTML: the avatar URL is validated server-side,
+      // but it must never be able to inject markup into the admin shell.
+      const image = document.createElement('img');
+      image.src = user.avatar;
+      image.alt = '';
+      avatarNode.append(image);
+    } else {
+      avatarNode.textContent = (user.display_name || 'M').slice(0, 1);
+    }
   }
 };
 

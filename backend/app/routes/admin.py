@@ -14,6 +14,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
+from ..avatars import clean_avatar_url
 from ..config import VERSION
 from ..content import (
     make_excerpt,
@@ -1082,7 +1083,7 @@ def update_profile(
         "display_name": updated["display_name"],
         "email": updated["email"],
         "bio": updated["bio"],
-        "avatar": updated["avatar"],
+        "avatar": clean_avatar_url(updated["avatar"]),
         "role": updated["role"],
     }
     return {"ok": True, "user": result}

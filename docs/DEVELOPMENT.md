@@ -491,7 +491,7 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 | `GalleryIn` / `PhotoIn` / `PhotoUpdateIn` / `PhotoBatchIn` / `ReorderIn` | 相册与照片 | 状态枚举、EXIF 字段白名单、日期格式 `YYYY-MM(-DD)` |
 | `MediaExifIn` / `MediaAltIn` | 媒体 | ISO ≤ 409600、焦距 ≤ 2000 |
 | `AppearanceIn` | 外观 | 主题/明暗/字体/布局枚举、accent `#RRGGBB`、宽度 720–1600、圆角 0–40 |
-| `UserCreateIn` / `UserUpdateIn` / `ProfileIn` | 成员 | 角色枚举、密码强度策略、改密需旧密码 |
+| `UserCreateIn` / `UserUpdateIn` / `ProfileIn` | 成员 | 角色枚举、密码强度策略、改密需旧密码；头像仅允许 JPG/PNG/WebP/GIF/AVIF 图片链接 |
 
 新增字段时，**先把校验写进 schema**，再改路由与序列化——这样错误信息（422）由 Pydantic 统一产出。
 
@@ -634,7 +634,7 @@ EXIF 合并规则（`galleries.py:64` 起）：`media.exif` 是权威来源，`p
 - `DEFAULT_SETTINGS`（`defaults.py:14`）是设置项的**唯一真相**：`update_settings` 只接受这里存在的键（`admin.py`），`public_settings()` 也只返回这里的键。
 - **主题文案**：`copy_*` 开头的键是 Scene 主题的可见文字（主视觉按钮、三列标题/说明、空状态、404、页脚等）。后台 → 外观 → 首页文案 / 场景文案 / 页面文案直接编辑；前端用 `copy(key, fallback)` 读取，空值回退内置默认。默认值取自当前线上外观配置（2.2 版）。
 - **上传设置**：`upload_max_mb`、`upload_image_formats`、`upload_audio_formats` 在 设置 → 上传与媒体 编辑，`media.py` 逐次校验，详见 4.11。
-- **作者资料不在设置里**：旧的 `author_name` / `author_bio` / `author_avatar` 已移除（启动时从 settings 删除）。文章、页面、项目、相册的署名统一读取 `users.display_name / bio / avatar`；成员在 `/admin/profile` 自助修改。
+- **作者资料不在设置里**：旧的 `author_name` / `author_bio` / `author_avatar` 已移除（启动时从 settings 删除）。文章、页面、项目、相册的署名统一读取 `users.display_name / bio / avatar`；成员在 `/admin/profile` 自助修改。头像会直接进入 `<img src>`，因此 `app/avatars.py` 只放行 JPG/PNG/WebP/GIF/AVIF 图片链接（站内 `/...` 或 http(s)://，拒绝 SVG/HTML/data:/javascript:），输入校验与所有序列化出口的清洗同时生效，旧数据里的非法值会退化为首字母头像。
 - `PRIVATE_SETTING_KEYS = {"editor_manage_others"}`：存库但不通过 `/api/site` 与导出泄露。
 - `seed_demo_content()`（`seed.py`）：用 `settings.demo_seed_version` 标记幂等；首次插入分类/标签/3 篇文章/关于页/3 个相册（Pillow 程序生成色块图，写入 `uploads/seed/`）、4 个项目（3 代码 + 1 视频介绍）与示例评论。`DEMO_SEED_VERSION = 5` 会在已有项目的旧库上只补视频项目、不重复。
 - `ensure_bootstrap_admin()`（`seed.py`）：`BLOG_ADMIN_USER` + `BLOG_ADMIN_PASSWORD` 且无用户时创建管理员。
