@@ -2,15 +2,14 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
 import Icon from '../../components/Icon.astro';
-import { apiServer, getSite } from '../../lib/api';
+import { getBootstrap } from '../../lib/api';
 import { copyReader } from '../../lib/site';
-import type { Paginated, PostSummary, SiteInfo } from '../../types';
 
-const site: SiteInfo = await getSite();
+const { site, page: projectPage } = await getBootstrap({ route: 'projects' });
+if (projectPage.kind !== 'projects') throw new Error('unexpected bootstrap payload for /projects');
 const copy = copyReader(site.settings);
 
-const data = await apiServer<Paginated<PostSummary>>('/api/projects?per_page=60');
-const projects = data.items;
+const projects = projectPage.items;
 const two = (value: number) => String(value).padStart(2, '0');
 // Types are free-form; show the three most common values.
 const kindCounts = new Map<string, number>();

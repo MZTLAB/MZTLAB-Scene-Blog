@@ -1,9 +1,11 @@
-"""Image derivative pipeline: typed settings, URL hashing and encoding."""
+"""Image pipeline: immutable pipeline constants, artifact tokens, read-only payloads."""
 
 from __future__ import annotations
 
 import io
+import json
 import unittest
+from unittest.mock import patch
 
 from PIL import Image, ImageCms
 
@@ -19,15 +21,68 @@ def settings_with(**image_overrides: object) -> Settings:
     return settings
 
 
-class SettingsModelTests(unittest.TestCase):
-    def test_defaults_are_typed(self) -> None:
-        settings = Settings()
-        self.assertEqual(settings.advanced.image.widths, [720, 2560])
-        self.assertTrue(settings.advanced.image.avif_enabled)
-        self.assertTrue(settings.advanced.image.webp_enabled)
-        self.assertEqual(settings.advanced.image.avif_speed, 6)
-        self.assertEqual(settings.upload.max_mb, 12)
-        self.assertEqual(settings.advanced.storage.backend, "local")
+def row(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "id": 42,
+        "filename": "2026/05/abc.jpg",
+        "mime": "image/jpeg",
+        "size": 1_000_000,
+        "width": 6000,
+        "height": 4000,
+        "source_sha1": "a" * 40,
+        "derivative_set": "",
+        "placeholder": "#112233",
+    }
+    value.update(overrides)
+    return value
+
+
+def ready_derivative_set() -> str:
+    media_id = 42
+    source = "a" * 40
+    artifacts: dict[str, dict[str, dict[str, str]]] = {}
+    for scene, width, fmt in (
+        ("card", 720, "avif"),
+        ("card", 720, "jpeg"),
+        ("viewer", 2560, "avif"),
+        ("viewer", 2560, "jpeg"),
+        ("prose", 720, "avif"),
+        ("prose", 2560, "avif"),
+        ("prose", 2560, "jpeg"),
+    ):
+        quality = images.quality_for(scene, fmt)
+        token = images.artifact_token(media_id, source, scene, width, fmt, quality)
+        artifacts.setdefault(scene, {}).setdefault(str(width), {})[fmt] = token
+    return json.dumps(
+        {
+            "ready": True,
+            "pipeline_version": images.PIPELINE_VERSION,
+            "s": 720,
+            "l": 2560,
+            "f": 6000,
+            "artifacts": artifacts,
+        }
+    )
+
+
+class PipelineDefaultsTests(unittest.TestCase):
+    def test_quality_parameters_are_code_constants(self) -> None:
+        # ADR-10: quality is not user data; it lives in PIPELINE_DEFAULTS.
+        self.assertEqual(images.scene_quality("tile"), 50)
+        self.assertEqual(images.scene_quality("full"), 70)
+        self.assertEqual(images.quality_for("tile", "avif"), 50)
+        self.assertEqual(images.quality_for("tile", "webp"), 80)
+        self.assertEqual(images.quality_for("tile", "jpeg"), 82)
+        # The settings model no longer exposes encoding knobs.
+        self.assertNotIn("avif_speed", Settings().advanced.image.model_fields)
+        self.assertNotIn("quality_tile", Settings().advanced.image.model_fields)
+
+    def test_runtime_settings_only_carry_ladder_and_format_switches(self) -> None:
+        image = Settings().advanced.image
+        self.assertEqual(image.widths, [720, 2560])
+        self.assertTrue(image.avif_enabled)
+        self.assertTrue(image.webp_enabled)
+        self.assertEqual(set(type(image).model_fields), {"widths", "avif_enabled", "webp_enabled"})
 
 
 class LadderTests(unittest.TestCase):
@@ -42,42 +97,20 @@ class LadderTests(unittest.TestCase):
     def test_scene_widths_follow_the_ladder_and_original(self) -> None:
         settings = settings_with(widths=[720, 2560])
         self.assertEqual(images.scene_widths("tile", 4000, settings), [720])
-        self.assertEqual(images.scene_widths("card", 4000, settings), [720])
         self.assertEqual(images.scene_widths("hero", 4000, settings), [2560])
-        self.assertEqual(images.scene_widths("viewer", 4000, settings), [2560])
         self.assertEqual(images.scene_widths("prose", 4000, settings), [720, 2560])
         self.assertEqual(images.scene_widths("full", 4000, settings), [4000])
         # A smaller original is never upscaled.
         self.assertEqual(images.scene_widths("hero", 1280, settings), [1280])
         self.assertEqual(images.scene_widths("tile", 500, settings), [500])
-        self.assertEqual(images.scene_widths("full", 500, settings), [500])
 
-    def test_max_width_caps_the_full_tier_only(self) -> None:
-        settings = settings_with(max_width=3000)
-        self.assertEqual(images.scene_widths("full", 6000, settings), [3000])
-        self.assertEqual(images.scene_widths("hero", 6000, settings), [2560])
-
-    def test_per_scene_quality_override(self) -> None:
-        settings = settings_with(quality_tile=35, quality_hero=62)
-        self.assertEqual(images.scene_quality("tile", settings), 35)
-        self.assertEqual(images.scene_quality("hero", settings), 62)
-        self.assertEqual(images.scene_quality("tile", settings_with(quality_tile=500)), 100)
-
-    def test_manual_quality_switch_overrides_scene_quality(self) -> None:
-        settings = settings_with(quality_tile=50, webp_quality=77)
-        manual = {"avif_quality_auto": 0, "avif_quality": 33}
-        auto = {"avif_quality_auto": 1, "avif_quality": 33}
-        self.assertEqual(images.quality_for("tile", "avif", settings, manual), 33)
-        self.assertEqual(images.quality_for("hero", "avif", settings, manual), 33)
-        self.assertEqual(images.quality_for("tile", "avif", settings, auto), 50)
-        # WebP/JPEG always use their global quality, whatever the override says.
-        self.assertEqual(images.quality_for("tile", "webp", settings, manual), 77)
-        self.assertIsNone(images.media_quality_override(auto))
-        self.assertEqual(images.media_quality_override(manual), 33)
-        # A malformed stored value falls back to the scene setting.
-        self.assertIsNone(
-            images.media_quality_override({"avif_quality_auto": 0, "avif_quality": 0})
-        )
+    def test_full_tier_cap_is_a_pipeline_constant(self) -> None:
+        settings = settings_with()
+        with patch.dict(images.PIPELINE_DEFAULTS, {"max_width": 3000}):
+            self.assertEqual(images.scene_widths("full", 6000, settings), [3000])
+            self.assertEqual(images.full_width(6000), 3000)
+            self.assertEqual(images.scene_widths("hero", 6000, settings), [2560])
+        self.assertEqual(images.full_width(6000), 6000)
 
     def test_generation_formats_follow_the_typed_switches(self) -> None:
         both = images.generation_formats(settings_with())
@@ -89,62 +122,67 @@ class LadderTests(unittest.TestCase):
         self.assertNotIn("avif", images.source_formats(no_avif))
 
 
-class PayloadTests(unittest.TestCase):
-    def _row(self, **overrides: object) -> dict[str, object]:
-        row: dict[str, object] = {
-            "id": 42,
-            "filename": "2026/05/abc.jpg",
-            "mime": "image/jpeg",
-            "size": 1_000_000,
-            "width": 6000,
-            "height": 4000,
-            "avif_quality": 55,
-            "avif_quality_auto": 1,
-            "ready_hash": "",
-        }
-        row.update(overrides)
-        return row
+class ArtifactTokenTests(unittest.TestCase):
+    def test_token_is_stable_and_covers_every_input(self) -> None:
+        base = images.artifact_token(42, "a" * 40, "card", 720, "avif", 55)
+        self.assertEqual(base, images.artifact_token(42, "a" * 40, "card", 720, "avif", 55))
+        self.assertEqual(len(base), 10)
+        self.assertNotEqual(base, images.artifact_token(42, "b" * 40, "card", 720, "avif", 55))
+        self.assertNotEqual(base, images.artifact_token(42, "a" * 40, "card", 800, "avif", 55))
+        self.assertNotEqual(base, images.artifact_token(42, "a" * 40, "card", 720, "webp", 80))
+        self.assertNotEqual(base, images.artifact_token(42, "a" * 40, "card", 720, "avif", 60))
+        with patch.object(images, "PIPELINE_VERSION", images.PIPELINE_VERSION + 1):
+            self.assertNotEqual(
+                base, images.artifact_token(42, "a" * 40, "card", 720, "avif", 55)
+            )
 
-    def test_payload_shape_and_urls(self) -> None:
-        settings = settings_with(widths=[720, 2560])
-        payload = images.image_payload(self._row(), settings)
-        self.assertIsNotNone(payload)
+
+class PayloadTests(unittest.TestCase):
+    def test_not_ready_payload_advertises_no_derivatives(self) -> None:
+        payload = images.image_payload(row(), settings_with(widths=[720, 2560]))
         assert payload is not None
-        self.assertEqual(payload["width"], 6000)
-        self.assertEqual(payload["height"], 4000)
-        self.assertEqual(payload["s"], 720)
-        self.assertEqual(payload["l"], 2560)
-        self.assertEqual(payload["f"], 6000)
+        self.assertEqual(payload["id"], 42)
+        self.assertEqual((payload["width"], payload["height"]), (6000, 4000))
+        self.assertEqual((payload["s"], payload["l"], payload["f"]), (720, 2560, 6000))
+        self.assertFalse(payload["ready"])
+        self.assertEqual(payload["formats"], [])
+        self.assertEqual(payload["artifacts"], [])
+        self.assertEqual(payload["base"], "/media/_v/42")
+        self.assertIsNone(payload["direct_base"])
+        self.assertEqual(payload["placeholder"], "#112233")
+
+    def test_ready_payload_exposes_tokens_and_urls(self) -> None:
+        payload = images.image_payload(
+            row(derivative_set=ready_derivative_set()), settings_with(widths=[720, 2560])
+        )
+        assert payload is not None
+        self.assertTrue(payload["ready"])
         self.assertIn("avif", payload["formats"])
-        self.assertTrue(payload["base"].startswith("/media/_v/42/"))
-        self.assertIsNone(payload["direct"])
-        prose_widths = images.payload_widths("prose", payload)
-        self.assertEqual(prose_widths, [720, 2560])
+        self.assertTrue(payload["artifacts"])
+        token = next(
+            artifact["token"]
+            for artifact in payload["artifacts"]
+            if artifact["scene"] == "prose"
+            and artifact["width"] == 2560
+            and artifact["format"] == "avif"
+        )
+        self.assertEqual(
+            images.artifact_url(payload, "prose", 2560, "avif"),
+            f"/media/_v/42/{token}/prose/2560.avif",
+        )
+        self.assertEqual(
+            images.artifact_url(payload, "prose", 720, "webp"),
+            "",
+            "a missing artifact must not fabricate a URL",
+        )
+        self.assertEqual(images.payload_widths("prose", payload), [720, 2560])
 
     def test_gif_and_missing_dimensions_have_no_payload(self) -> None:
-        self.assertIsNone(images.image_payload(self._row(mime="image/gif"), settings_with()))
-        self.assertIsNone(images.image_payload(self._row(width=0), settings_with()))
-        self.assertIsNone(images.image_payload(self._row(mime="audio/mpeg"), settings_with()))
+        self.assertIsNone(images.image_payload(row(mime="image/gif"), settings_with()))
+        self.assertIsNone(images.image_payload(row(width=0), settings_with()))
+        self.assertIsNone(images.image_payload(row(mime="audio/mpeg"), settings_with()))
 
-    def test_hash_changes_when_quality_or_ladder_changes(self) -> None:
-        row = self._row()
-        base = images.variants_hash(row, settings_with())
-        self.assertEqual(base, images.variants_hash(row, settings_with()))
-        self.assertNotEqual(base, images.variants_hash(row, settings_with(quality_full=40)))
-        self.assertNotEqual(base, images.variants_hash(row, settings_with(widths=[640, 1920])))
-        manual = self._row(avif_quality_auto=0, avif_quality=70)
-        self.assertNotEqual(base, images.variants_hash(manual, settings_with()))
-        self.assertNotEqual(
-            images.variants_hash(manual, settings_with()),
-            images.variants_hash(self._row(avif_quality_auto=0, avif_quality=60), settings_with()),
-        )
-
-    def test_url_helpers(self) -> None:
-        settings = settings_with(widths=[720, 2560])
-        payload = images.image_payload(self._row(), settings)
-        assert payload is not None
-        url = images.derivative_url(payload, "tile", 720, "avif")
-        self.assertTrue(url.endswith("/tile/720.avif"))
+    def test_url_to_filename(self) -> None:
         self.assertEqual(images.url_to_filename("/media/2026/05/abc.jpg"), "2026/05/abc.jpg")
         self.assertIsNone(images.url_to_filename("https://example.com/a.jpg"))
 
@@ -167,7 +205,7 @@ class EncodeTests(unittest.TestCase):
         profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
         image = self._image()
         image.info["icc_profile"] = profile
-        try:  # 720 < 1600 so the resize/convert path is exercised too
+        try:
             data, _, _ = images._encode(image, 720, "avif", 55, 8)
         finally:
             image.close()
@@ -203,26 +241,24 @@ class EncodeTests(unittest.TestCase):
 
 
 class PictureHtmlTests(unittest.TestCase):
-    def test_picture_uses_proxy_handles_for_the_fallback(self) -> None:
-        settings = settings_with(widths=[720, 2560])
-        row: dict[str, object] = {
-            "id": 7,
-            "filename": "2026/05/x.jpg",
-            "mime": "image/jpeg",
-            "size": 500,
-            "width": 3000,
-            "height": 2000,
-            "avif_quality": 0,
-            "ready_hash": "",
-        }
-        payload = images.image_payload(row, settings)
+    def test_picture_uses_ready_artifacts_and_a_proxy_fallback(self) -> None:
+        payload = images.image_payload(
+            row(derivative_set=ready_derivative_set()), settings_with(widths=[720, 2560])
+        )
         assert payload is not None
         markup = images.picture_html(payload, scene="prose", alt="测试", sizes="820px")
         self.assertIn("<picture>", markup)
         self.assertIn('type="image/avif"', markup)
-        self.assertIn('type="image/webp"', markup)
+        self.assertIn("/prose/2560.avif", markup)
         self.assertIn("/prose/2560.jpg", markup)
         self.assertIn('loading="lazy"', markup)
+
+    def test_not_ready_payload_renders_no_picture(self) -> None:
+        payload = images.image_payload(row(), settings_with())
+        assert payload is not None
+        self.assertEqual(
+            images.picture_html(payload, scene="prose", alt="x", sizes="820px"), ""
+        )
 
 
 if __name__ == "__main__":

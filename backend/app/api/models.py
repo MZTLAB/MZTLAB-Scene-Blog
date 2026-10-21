@@ -7,7 +7,7 @@ types are generated from it. Admin routes reuse the same building blocks.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
@@ -18,17 +18,36 @@ class Model(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
-class ImagePayload(Model):
-    """Resolved derivative metadata for one media row (see images.image_payload)."""
+class ImageArtifact(Model):
+    """One generated derivative; the token is the immutable artifact address."""
 
+    scene: str
+    width: int
+    format: str
+    token: str
+
+
+class ImagePayload(Model):
+    """Resolved derivative metadata for one media row (see images.image_payload).
+
+    `ready: false` means the artifact set has not been generated yet; the
+    frontend then renders the original file. `artifacts` is a flat list (typed
+    for OpenAPI) of the derivatives that actually exist.
+    """
+
+    id: int = 0
     width: int
     height: int
     s: int
     l: int
     f: int
-    formats: list[str]
-    base: str
-    direct: str | None = None
+    ready: bool = False
+    formats: list[str] = Field(default_factory=list)
+    base: str = ""
+    direct_base: str | None = None
+    artifacts: list[ImageArtifact] = Field(default_factory=list)
+    placeholder: str = ""
+    pipeline_version: int | None = None
 
 
 class AuthorBrief(Model):
@@ -329,7 +348,9 @@ class PhotoImage(Model):
     exif_fields: list[str] = Field(default_factory=list)
     exif: PublicExif | None = None
     image: ImagePayload | None = None
-    allow_download: bool
+    # 0/1 semantics: the media itself is public; this only hides the download
+    # affordance (formerly `allow_download`, which implied access control).
+    hide_download_link: bool
     download_name: str
     download_url: str
     width: int
@@ -784,66 +805,9 @@ class ExifPayload(Model):
     raw: dict[str, JsonValue] = Field(default_factory=dict)
 
 
-class MediaOwner(Model):
-    id: int
-    name: str
-    username: str = ""
-
-
-class MediaItem(Model):
-    id: int
-    filename: str
-    original_name: str
-    mime: str
-    size: int
-    width: int = 0
-    height: int = 0
-    alt: str = ""
-    owner_id: int
-    exif: ExifPayload | None = None
-    avif_quality: int
-    avif_quality_auto: bool
-    placeholder: str = ""
-    created_at: str
-    owner: MediaOwner
-    url: str
-    kind: Literal["image", "audio", "file"]
-    image: ImagePayload | None = None
-
-
-class MediaUploadResponse(MediaItem):
-    exif_summary: str = ""
-
-
-class MediaListResponse(Pagination):
-    items: list[MediaItem]
-
-
 class MediaDeleteResponse(Model):
     ok: bool
     deleted: int
-
-
-class OptimizeStatusResponse(Model):
-    running: bool
-    total: int
-    done: int
-    failed: int
-    started_at: str
-    finished_at: str
-    error: str = ""
-
-
-class OptimizeStartResponse(Model):
-    ok: bool
-    started: bool
-    message: str = ""
-
-
-class OptimizeQueuedResponse(Model):
-    ok: bool
-    queued: bool
-    media_id: int
 
 
 class MediaExifResponse(Model):
@@ -895,30 +859,6 @@ class StorageTestResponse(Model):
     ok: bool
     backend: str = ""
     message: str
-
-
-class StorageSyncStatusResponse(Model):
-    running: bool
-    total: int = 0
-    uploaded: int = 0
-    skipped: int = 0
-    failed: int = 0
-    bytes: int = 0
-    current: str = ""
-    force: bool = False
-    scope: str = "all"
-    started_at: str = ""
-    finished_at: str = ""
-    error: str = ""
-    errors: list[str] = Field(default_factory=list)
-
-
-class StorageSyncStartResponse(Model):
-    ok: bool
-    started: bool
-    message: str = ""
-    force: bool = False
-    scope: str = "all"
 
 
 # --- Data export (3.0.0 backup format) -------------------------------------
@@ -998,7 +938,7 @@ class ExportPhoto(Model):
     width: int
     height: int
     exif_fields: str
-    allow_download: int
+    hide_download_link: int
     featured: int
     status: str
     sort_order: int
@@ -1017,11 +957,43 @@ class ExportMedia(Model):
     owner_id: int
     # Stored as the raw JSON TEXT column, not the parsed object.
     exif: str
-    avif_quality: int
-    avif_quality_auto: int
+    # SHA-1 of the original bytes and the cached artifact set (schema v2).
+    source_sha1: str
+    derivative_set: str
     placeholder: str
-    ready_hash: str
     created_at: str
+
+
+class ExportMediaDerivative(Model):
+    id: int
+    media_id: int
+    token: str
+    pipeline_version: int
+    scene: str
+    width: int
+    format: str
+    quality: int
+    height: int
+    size: int
+    key: str
+    created_at: str
+
+
+class ExportUser(Model):
+    """One `users` row; password hashes travel with the backup for restore."""
+
+    id: int
+    username: str
+    password_hash: str
+    display_name: str
+    email: str
+    bio: str
+    avatar: str
+    role: str
+    is_active: int
+    last_login_at: str
+    created_at: str
+    updated_at: str
 
 
 class ExportRevision(Model):
@@ -1038,12 +1010,150 @@ class ExportV3Response(Model):
     format: Literal["mztlab-scene-export"]
     version: Literal[3]
     exported_at: str
-    settings: PublicSettings
+    # The complete grouped settings document (no secrets are stored in settings:
+    # S3 credentials are environment-only).
+    settings: Settings
+    users: list[ExportUser]
     posts: list[ExportPost]
     project_details: list[ExportProjectDetail]
     taxonomy_terms: list[ExportTaxonomyTerm]
     post_terms: list[ExportPostTerm]
+    revisions: list[ExportRevision]
     galleries: list[ExportGallery]
     photos: list[ExportPhoto]
     media: list[ExportMedia]
-    revisions: list[ExportRevision]
+    media_derivatives: list[ExportMediaDerivative]
+
+
+class ImportCounts(Model):
+    """Rows written by one restore, per table."""
+
+    users: int = 0
+    settings: int = 0
+    posts: int = 0
+    project_details: int = 0
+    taxonomy_terms: int = 0
+    post_terms: int = 0
+    revisions: int = 0
+    galleries: int = 0
+    photos: int = 0
+    media: int = 0
+    media_derivatives: int = 0
+
+
+class ImportV3Response(Model):
+    ok: bool
+    imported: ImportCounts
+    # Media binaries are not part of the JSON; these names were absent from the
+    # configured storage backend after the restore (the import itself succeeded).
+    missing_media_files: list[str] = Field(default_factory=list)
+
+
+# --- Data import (3.x restore only; request body) ---------------------------
+
+
+class ImportV3Request(Model):
+    """A v3 export document plus an explicit destructive-restore confirmation.
+
+    The list defaults (and permissive `format`/`version` types) keep the body
+    accepted so the route can reject an unsupported document with a stable
+    `import.*` error code instead of a generic 422 schema failure.
+    """
+
+    format: str = ""
+    version: int = 0
+    exported_at: str = ""
+    confirm: bool = False
+    settings: Settings | None = None
+    users: list[ExportUser] = Field(default_factory=list)
+    posts: list[ExportPost] = Field(default_factory=list)
+    project_details: list[ExportProjectDetail] = Field(default_factory=list)
+    taxonomy_terms: list[ExportTaxonomyTerm] = Field(default_factory=list)
+    post_terms: list[ExportPostTerm] = Field(default_factory=list)
+    revisions: list[ExportRevision] = Field(default_factory=list)
+    galleries: list[ExportGallery] = Field(default_factory=list)
+    photos: list[ExportPhoto] = Field(default_factory=list)
+    media: list[ExportMedia] = Field(default_factory=list)
+    media_derivatives: list[ExportMediaDerivative] = Field(default_factory=list)
+
+# --- Aggregated page data (R1: /api/bootstrap) ------------------------------
+# One request per public route. The same payload is what a future SSG build
+# would fetch at build time; nothing here depends on cookies/UA/request state.
+
+
+class BootstrapHomePage(Model):
+    kind: Literal["home"]
+    posts: list[ContentListItem]
+    projects: list[ContentListItem]
+    galleries: list[GallerySummary]
+
+
+class BootstrapArchivePage(Model):
+    kind: Literal["archive"]
+    items: list[ContentListItem]
+    total: int
+    years: list[ArchiveYear]
+
+
+class BootstrapContentPage(Model):
+    """A single article / page / project detail payload."""
+
+    kind: Literal["post", "page", "project"]
+    item: ContentDetail
+
+
+class BootstrapProjectsPage(Pagination):
+    kind: Literal["projects"]
+    items: list[ContentListItem]
+
+
+class BootstrapGalleriesPage(Pagination):
+    kind: Literal["galleries"]
+    items: list[GallerySummary]
+
+
+class BootstrapGalleryPage(Model):
+    kind: Literal["gallery"]
+    item: GalleryDetail
+
+
+class BootstrapTaxonomyPage(Model):
+    kind: Literal["taxonomy"]
+    categories: list[TaxonomyTerm]
+    tags: list[TaxonomyTerm]
+    term: TaxonomyTerm | None = None
+    items: list[ContentListItem] = Field(default_factory=list)
+    page: int = 1
+    per_page: int = 9
+    total: int = 0
+    pages: int = 1
+    has_prev: bool = False
+    has_next: bool = False
+
+
+class BootstrapSearchPage(Model):
+    kind: Literal["search"]
+    query: str
+    articles: list[ContentListItem]
+    projects: list[ContentListItem]
+    galleries: list[GallerySummary]
+    photos: list[PhotoImage]
+
+
+BootstrapPage = Annotated[
+    BootstrapHomePage
+    | BootstrapArchivePage
+    | BootstrapContentPage
+    | BootstrapProjectsPage
+    | BootstrapGalleriesPage
+    | BootstrapGalleryPage
+    | BootstrapTaxonomyPage
+    | BootstrapSearchPage,
+    Field(discriminator="kind"),
+]
+
+
+class BootstrapResponse(Model):
+    site: SiteInfoResponse
+    page: BootstrapPage
+

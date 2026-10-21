@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import ipaddress
 import sqlite3
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from fastapi import HTTPException, Request, Response, status
 
@@ -61,7 +62,8 @@ def user_public(conn: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         "role": role,
         "role_label": ROLE_LABELS.get(role, role),
         "is_active": bool(row["is_active"]),
-        "last_login_at": row["last_login_at"] if "last_login_at" in row.keys() else "",
+        # sqlite3.Row is not a dict; `.keys()` is its membership API.
+        "last_login_at": row["last_login_at"] if "last_login_at" in row.keys() else "",  # noqa: SIM118
         "permissions": permissions,
         "can_manage_others": "content.others" in permissions,
         "created_at": row["created_at"],

@@ -2815,6 +2815,20 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
   font-size: 14.5px;
 }
 
+.notfound h1 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.notfound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
 /* ==========================================================================
    Responsive
    ========================================================================== */

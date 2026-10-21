@@ -14,13 +14,16 @@ The rest of the application only ever deals with relative keys:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import mimetypes
 import os
+import shutil
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator, Protocol
+from typing import Any, Protocol
 
 from .config import (
     IMAGE_CACHE_DIR,
@@ -135,14 +138,22 @@ class StorageConfig:
 
 
 class Storage(Protocol):
+    """The narrow storage contract 3.0.0 code is allowed to use.
+
+    There is deliberately no `local_path()` and no backend branch: readers use
+    `size()` + `stream()` only, so local disk, S3 and the mirror wrapper are
+    served by exactly the same code path (ADR / P-J1). `save_file()` streams an
+    already-written temporary file into storage (upload path).
+    """
+
     def save(self, key: str, data: bytes, content_type: str) -> None: ...
+    def save_file(self, key: str, source: Path, content_type: str) -> None: ...
     def read(self, key: str) -> bytes: ...
     def exists(self, key: str) -> bool: ...
     def delete(self, key: str) -> None: ...
     def delete_prefix(self, prefix: str) -> int: ...
     def public_url(self, key: str) -> str | None: ...
-    def derived_base(self, media_id: int, token: str) -> str | None: ...
-    def local_path(self, key: str) -> Path | None: ...
+    def derived_public_prefix(self, media_id: int) -> str | None: ...
     def stream(self, key: str) -> Iterator[bytes]: ...
     def health(self) -> dict[str, Any]: ...
     def size(self, key: str) -> int: ...
@@ -162,7 +173,7 @@ class LocalStorage:
         is_derived = key == derived_root or key.startswith(DERIVED_PREFIX)
         return self.cache_dir if is_derived else self.upload_dir
 
-    def local_path(self, key: str) -> Path:
+    def _path(self, key: str) -> Path:
         root = self._root(key).resolve()
         path = (root / key).resolve()
         if not path.is_relative_to(root):
@@ -170,15 +181,28 @@ class LocalStorage:
         return path
 
     def save(self, key: str, data: bytes, content_type: str) -> None:
-        path = self.local_path(key)
+        path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         # Atomic replace so a reader never sees a half-written derivative.
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_bytes(data)
         os.replace(temporary, path)
 
+    def save_file(self, key: str, source: Path, content_type: str) -> None:
+        """Move an already-validated temporary upload into its final key.
+
+        The temporary file is created in `UPLOAD_DIR` (same filesystem), so
+        `os.replace` is atomic: a reader never observes a partial original.
+        """
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            os.replace(source, path)
+        except OSError as error:
+            raise StorageError(f"本地存储写入失败：{error}") from error
+
     def read(self, key: str) -> bytes:
-        path = self.local_path(key)
+        path = self._path(key)
         try:
             return path.read_bytes()
         except FileNotFoundError as error:
@@ -186,13 +210,13 @@ class LocalStorage:
 
     def exists(self, key: str) -> bool:
         try:
-            return self.local_path(key).is_file()
+            return self._path(key).is_file()
         except StorageError:
             return False
 
     def delete(self, key: str) -> None:
         try:
-            self.local_path(key).unlink()
+            self._path(key).unlink()
         except FileNotFoundError:
             return
 
@@ -210,24 +234,28 @@ class LocalStorage:
                 child.unlink(missing_ok=True)
                 removed += 1
             else:
-                try:
+                with contextlib.suppress(OSError):
                     child.rmdir()
-                except OSError:
-                    pass
-        try:
+        with contextlib.suppress(OSError):
             base.rmdir()
-        except OSError:
-            pass
         return removed
 
     def public_url(self, key: str) -> str | None:
         return None
 
-    def derived_base(self, media_id: int, token: str) -> str | None:
+    def derived_public_prefix(self, media_id: int) -> str | None:
+        # Local installs always serve derivatives through the API.
         return None
 
     def stream(self, key: str) -> Iterator[bytes]:
-        raise StorageError("local storage serves files through local_path()")
+        path = self._path(key)
+        try:
+            handle = path.open("rb")
+        except FileNotFoundError as error:
+            raise StorageMissing(key) from error
+        except OSError as error:
+            raise StorageError(f"本地文件读取失败：{error}") from error
+        return _iter_open_file(handle)
 
     def health(self) -> dict[str, Any]:
         if not self.upload_dir.exists() or not self.cache_dir.exists():
@@ -235,7 +263,7 @@ class LocalStorage:
         return {"ok": True, "backend": "local"}
 
     def size(self, key: str) -> int:
-        path = self.local_path(key)
+        path = self._path(key)
         try:
             return path.stat().st_size
         except FileNotFoundError as error:
@@ -332,6 +360,25 @@ class S3Storage:
         except Exception as error:  # boto3 exceptions are not imported at module level
             raise StorageError(f"对象存储写入失败：{error}") from error
 
+    def save_file(self, key: str, source: Path, content_type: str) -> None:
+        """Upload a temporary file without loading it into memory."""
+        cache = DERIVED_CACHE_CONTROL if key.startswith(DERIVED_PREFIX) else ORIGINAL_CACHE_CONTROL
+        try:
+            with source.open("rb") as handle:
+                self.client.put_object(
+                    Bucket=self.config.bucket,
+                    Key=self._key(key),
+                    Body=handle,
+                    ContentType=content_type,
+                    CacheControl=cache,
+                )
+        except StorageError:
+            raise
+        except OSError as error:
+            raise StorageError(f"无法读取临时文件：{error}") from error
+        except Exception as error:  # boto3 exceptions are not imported at module level
+            raise StorageError(f"对象存储写入失败：{error}") from error
+
     def read(self, key: str) -> bytes:
         try:
             response = self.client.get_object(Bucket=self.config.bucket, Key=self._key(key))
@@ -377,13 +424,11 @@ class S3Storage:
             return None
         return f"{base}/{self._key(key)}"
 
-    def derived_base(self, media_id: int, token: str) -> str | None:
+    def derived_public_prefix(self, media_id: int) -> str | None:
+        """Base URL for direct derivative serving, when direct mode is on."""
         if not self.config.direct_enabled:
             return None
-        return self.public_url(f"{DERIVED_PREFIX}{media_id}/{token}")
-
-    def local_path(self, key: str) -> Path | None:
-        return None
+        return self.public_url(f"{DERIVED_PREFIX}{media_id}")
 
     def stream(self, key: str) -> Iterator[bytes]:
         try:
@@ -431,10 +476,13 @@ def _is_missing(error: Exception) -> bool:
     return code in {"NoSuchKey", "404", "NotFound", "NoSuchBucket"}
 
 
-def _iter_file(path: Path):
-    with path.open("rb") as handle:
+def _iter_open_file(handle: Any):
+    """Yield an open binary file in chunks, always closing it."""
+    try:
         while chunk := handle.read(64 * 1024):
             yield chunk
+    finally:
+        handle.close()
 
 
 class MirrorStorage:
@@ -485,6 +533,27 @@ class MirrorStorage:
         except Exception:
             logger.warning("local backup write failed for %s", key, exc_info=True)
 
+    def save_file(self, key: str, source: Path, content_type: str) -> None:
+        # Copy first: a local primary consumes (moves) the temporary file.
+        temporary = source.with_name(source.name + ".backup")
+        try:
+            shutil.copyfile(source, temporary)
+        except OSError:
+            temporary.unlink(missing_ok=True)
+            self.primary.save_file(key, source, content_type)
+            return
+        try:
+            self.primary.save_file(key, source, content_type)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
+        try:
+            self.backup.save_file(key, temporary, content_type)
+        except Exception:
+            logger.warning("local backup write failed for %s", key, exc_info=True)
+        finally:
+            temporary.unlink(missing_ok=True)
+
     def read(self, key: str) -> bytes:
         try:
             return self.primary.read(key)
@@ -518,28 +587,20 @@ class MirrorStorage:
     def public_url(self, key: str) -> str | None:
         return self.primary.public_url(key)
 
-    def derived_base(self, media_id: int, token: str) -> str | None:
-        return self.primary.derived_base(media_id, token)
-
-    def local_path(self, key: str) -> Path | None:
-        return self.primary.local_path(key)
+    def derived_public_prefix(self, media_id: int) -> str | None:
+        return self.primary.derived_public_prefix(media_id)
 
     def stream(self, key: str) -> Iterator[bytes]:
         try:
             return self.primary.stream(key)
         except StorageMissing:
-            path = self.backup.local_path(key)
-            if path is not None and path.is_file():
-                return _iter_file(path)
+            if self.backup.exists(key):
+                return self.backup.stream(key)
             raise
 
     def presigned_url(self, key: str, expires: int = 300) -> str | None:
         presign = getattr(self.primary, "presigned_url", None)
         return presign(key, expires) if presign else None
-
-    def backup_path(self, key: str) -> Path | None:
-        """Local copy location, if the backup backend is local."""
-        return self.backup.local_path(key)
 
 
 def _storage_settings() -> StorageSettings:
@@ -611,7 +672,7 @@ def reset_storage() -> None:
         _STORAGE_CACHE = None
 
 
-def get_remote_storage() -> "S3Storage | None":
+def get_remote_storage() -> S3Storage | None:
     """Build a direct S3 client for sync/migration tasks.
 
     Does not require `storage_backend=s3`: as long as a bucket (and an

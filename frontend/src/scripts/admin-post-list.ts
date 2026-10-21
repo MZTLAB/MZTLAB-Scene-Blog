@@ -1,5 +1,6 @@
 import { api, qs } from '../lib/api';
-import { debounce, errorMessage, escapeHtml, statusBadge, toast } from '../lib/admin-client';
+import { debounce, errorMessage, statusBadge, toast } from '../lib/admin-client';
+import { html, setHTML, type RawHtml } from '../lib/dom';
 import { formatDate } from '../lib/format';
 import type { Paginated, PostSummary } from '../types';
 
@@ -40,16 +41,19 @@ if (root) {
 
   const renderLoading = () => {
     if (!tableHost) return;
-    tableHost.innerHTML = `<div class="admin-loading">
+    setHTML(
+      tableHost,
+      html`<div class="admin-loading">
       <div class="skeleton" style="width: 45%; height: 18px"></div>
       <div class="skeleton" style="width: 100%; height: 12px"></div>
       <div class="skeleton" style="width: 80%; height: 12px"></div>
-    </div>`;
+    </div>`,
+    );
   };
 
-  const publicLink = (post: PostSummary) =>
+  const publicLink = (post: PostSummary): RawHtml | '' =>
     post.status === 'published'
-      ? `<a href="${escapeHtml(post.url)}" target="_blank" rel="noopener" title="查看"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a>`
+      ? html`<a href="${post.url}" target="_blank" rel="noopener" title="查看"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></a>`
       : '';
 
   const load = async () => {
@@ -60,13 +64,18 @@ if (root) {
       );
       updateCounts(data.counts);
       if (!data.items.length) {
-        tableHost!.innerHTML = `<div class="admin-empty">
+        setHTML(
+          tableHost,
+          html`<div class="admin-empty">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M9 13h6M9 17h4"/></svg>
           <p>${state.q ? '没有匹配的内容。' : emptyWord}</p>
           <a class="a-btn a-btn--sm" style="margin-top:12px" href="${base}/new">立即创建</a>
-        </div>`;
+        </div>`,
+        );
       } else {
-        tableHost!.innerHTML = `
+        setHTML(
+          tableHost,
+          html`
           <table class="admin-table">
             <thead>
               <tr>
@@ -78,43 +87,46 @@ if (root) {
               </tr>
             </thead>
             <tbody>
-              ${data.items
-                .map(
-                  (post) => `<tr>
+              ${data.items.map(
+                (post) => html`<tr>
                     <td>
                       <div class="table-title">
                         <span class="table-title__text">
-                          <strong><a href="${base}/${post.id}">${escapeHtml(post.title)}</a></strong>
-                          <span>/${escapeHtml(post.slug)} · ${escapeHtml(post.categories?.[0]?.name || (isPage ? 'Page' : '未分类'))}</span>
+                          <strong><a href="${base}/${post.id}">${post.title}</a></strong>
+                          <span>/${post.slug} · ${post.categories?.[0]?.name || (isPage ? 'Page' : '未分类')}</span>
                         </span>
                       </div>
                     </td>
-                    <td><span style="color:var(--ink-soft);font-size:11px">${escapeHtml(post.author?.name || '—')}</span></td>
+                    <td><span style="color:var(--ink-soft);font-size:11px">${post.author?.name || '—'}</span></td>
                     <td>${statusBadge(post.raw_status || post.status)}</td>
-                    <td><span style="color:var(--ink-faint);font-size:10px">${escapeHtml(
-                      formatDate(isPage ? post.updated_at : post.published_at || post.updated_at, 'short'),
+                    <td><span style="color:var(--ink-faint);font-size:10px">${formatDate(
+                      isPage ? post.updated_at : post.published_at || post.updated_at,
+                      'short',
                     )}</span></td>
                     <td>
                       <div class="table-actions">
                         ${publicLink(post)}
                         <a href="${base}/${post.id}" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></a>
-                        <button class="danger" type="button" data-delete="${post.id}" data-title="${escapeHtml(post.title)}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></svg></button>
+                        <button class="danger" type="button" data-delete="${post.id}" data-title="${post.title}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></svg></button>
                       </div>
                     </td>
                   </tr>`,
-                )
-                .join('')}
+              )}
             </tbody>
-          </table>`;
-        tableHost!.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => {
+          </table>`,
+        );
+        tableHost?.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((button) => {
           button.addEventListener('click', () => remove(Number(button.dataset.delete), button.dataset.title || ''));
         });
       }
       renderPagination(data);
       syncUrl();
     } catch (error) {
-      tableHost!.innerHTML = `<div class="admin-empty"><p>${escapeHtml(errorMessage(error))}</p><button class="a-btn a-btn--sm" style="margin-top:12px" data-retry>重试</button></div>`;
-      tableHost!.querySelector('[data-retry]')?.addEventListener('click', load);
+      setHTML(
+        tableHost,
+        html`<div class="admin-empty"><p>${errorMessage(error)}</p><button class="a-btn a-btn--sm" style="margin-top:12px" data-retry>重试</button></div>`,
+      );
+      tableHost?.querySelector('[data-retry]')?.addEventListener('click', load);
     }
   };
 
@@ -147,15 +159,18 @@ if (root) {
   const renderPagination = (data: ListResponse) => {
     if (!paginationHost) return;
     if (data.pages <= 1) {
-      paginationHost.innerHTML = `<span class="number-label">${data.total} ITEMS</span>`;
+      setHTML(paginationHost, html`<span class="number-label">${data.total} ITEMS</span>`);
       return;
     }
-    paginationHost.innerHTML = `
+    setHTML(
+      paginationHost,
+      html`
       <span class="number-label">PAGE ${data.page} / ${data.pages} · ${data.total} ITEMS</span>
       <div class="toolbar-group">
         <button class="a-btn a-btn--sm" data-page="${data.page - 1}" ${data.has_prev ? '' : 'disabled'}>上一页</button>
         <button class="a-btn a-btn--sm" data-page="${data.page + 1}" ${data.has_next ? '' : 'disabled'}>下一页</button>
-      </div>`;
+      </div>`,
+    );
     paginationHost.querySelectorAll<HTMLButtonElement>('[data-page]').forEach((button) => {
       button.addEventListener('click', () => {
         state.page = Number(button.dataset.page);

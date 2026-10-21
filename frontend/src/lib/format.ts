@@ -101,14 +101,8 @@ export function plainText(value: string): string {
     .trim();
 }
 
-export function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+// Single implementation lives in ./dom; re-exported here for back-compat.
+export { escapeHtml } from './dom';
 
 export function stripStyleClose(css: string): string {
   return (css || '').replace(/<\/style/gi, '<\\/style');

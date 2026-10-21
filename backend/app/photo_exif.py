@@ -7,7 +7,8 @@ photographer chose to hide every EXIF field.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 EXIF_FIELDS: tuple[str, ...] = (
     "camera",

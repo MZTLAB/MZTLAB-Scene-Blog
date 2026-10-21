@@ -699,7 +699,61 @@
         "title": "AdminContentListResponse",
         "type": "object"
       },
-      "AdminGalleryDetail": {
+      "AdminGalleryListPayload": {
+        "properties": {
+          "counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "object"
+          },
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_prev": {
+            "title": "Has Prev",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminGalleryPayload"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "per_page": {
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "per_page",
+          "total",
+          "pages",
+          "has_prev",
+          "has_next",
+          "items",
+          "counts"
+        ],
+        "title": "AdminGalleryListPayload",
+        "type": "object"
+      },
+      "AdminGalleryPayload": {
         "properties": {
           "author": {
             "$ref": "#/components/schemas/AdminAuthorBrief"
@@ -707,7 +761,7 @@
           "cover": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/PhotoImage"
+                "$ref": "#/components/schemas/PhotoPayload"
               },
               {
                 "type": "null"
@@ -758,7 +812,7 @@
           },
           "photos": {
             "items": {
-              "$ref": "#/components/schemas/PhotoImage"
+              "$ref": "#/components/schemas/PhotoPayload"
             },
             "title": "Photos",
             "type": "array"
@@ -797,155 +851,7 @@
           "updated_at",
           "author"
         ],
-        "title": "AdminGalleryDetail",
-        "type": "object"
-      },
-      "AdminGalleryListResponse": {
-        "properties": {
-          "counts": {
-            "additionalProperties": {
-              "type": "integer"
-            },
-            "title": "Counts",
-            "type": "object"
-          },
-          "has_next": {
-            "title": "Has Next",
-            "type": "boolean"
-          },
-          "has_prev": {
-            "title": "Has Prev",
-            "type": "boolean"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/AdminGallerySummary"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "page": {
-            "title": "Page",
-            "type": "integer"
-          },
-          "pages": {
-            "title": "Pages",
-            "type": "integer"
-          },
-          "per_page": {
-            "title": "Per Page",
-            "type": "integer"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "page",
-          "per_page",
-          "total",
-          "pages",
-          "has_prev",
-          "has_next",
-          "items",
-          "counts"
-        ],
-        "title": "AdminGalleryListResponse",
-        "type": "object"
-      },
-      "AdminGallerySummary": {
-        "properties": {
-          "author": {
-            "$ref": "#/components/schemas/AdminAuthorBrief"
-          },
-          "cover": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/PhotoImage"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "cover_photo_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cover Photo Id"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "description": {
-            "title": "Description",
-            "type": "string"
-          },
-          "featured": {
-            "title": "Featured",
-            "type": "boolean"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "owner_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Owner Id"
-          },
-          "photo_count": {
-            "title": "Photo Count",
-            "type": "integer"
-          },
-          "slug": {
-            "title": "Slug",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "updated_at": {
-            "title": "Updated At",
-            "type": "string"
-          },
-          "url": {
-            "title": "Url",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "title",
-          "slug",
-          "url",
-          "description",
-          "status",
-          "featured",
-          "photo_count",
-          "created_at",
-          "updated_at",
-          "author"
-        ],
-        "title": "AdminGallerySummary",
+        "title": "AdminGalleryPayload",
         "type": "object"
       },
       "AdminSettingsResponse": {
@@ -954,7 +860,7 @@
             "$ref": "#/components/schemas/SettingsMeta"
           },
           "settings": {
-            "$ref": "#/components/schemas/Settings"
+            "$ref": "#/components/schemas/Settings-Output"
           },
           "storage_secrets": {
             "$ref": "#/components/schemas/StorageSecrets"
@@ -978,7 +884,7 @@
             "type": "boolean"
           },
           "settings": {
-            "$ref": "#/components/schemas/Settings"
+            "$ref": "#/components/schemas/Settings-Output"
           },
           "storage_secrets": {
             "$ref": "#/components/schemas/StorageSecrets"
@@ -1779,6 +1685,409 @@
           "file"
         ],
         "title": "Body_upload_media_api_admin_media_post",
+        "type": "object"
+      },
+      "BootstrapArchivePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "archive",
+            "title": "Kind",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "years": {
+            "items": {
+              "$ref": "#/components/schemas/ArchiveYear"
+            },
+            "title": "Years",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "items",
+          "total",
+          "years"
+        ],
+        "title": "BootstrapArchivePage",
+        "type": "object"
+      },
+      "BootstrapContentPage": {
+        "description": "A single article / page / project detail payload.",
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/ContentDetail"
+          },
+          "kind": {
+            "enum": [
+              "post",
+              "page",
+              "project"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "item"
+        ],
+        "title": "BootstrapContentPage",
+        "type": "object"
+      },
+      "BootstrapGalleriesPage": {
+        "properties": {
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_prev": {
+            "title": "Has Prev",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GallerySummary"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "galleries",
+            "title": "Kind",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "per_page": {
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "per_page",
+          "total",
+          "pages",
+          "has_prev",
+          "has_next",
+          "kind",
+          "items"
+        ],
+        "title": "BootstrapGalleriesPage",
+        "type": "object"
+      },
+      "BootstrapGalleryPage": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/GalleryDetail"
+          },
+          "kind": {
+            "const": "gallery",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "item"
+        ],
+        "title": "BootstrapGalleryPage",
+        "type": "object"
+      },
+      "BootstrapHomePage": {
+        "properties": {
+          "galleries": {
+            "items": {
+              "$ref": "#/components/schemas/GallerySummary"
+            },
+            "title": "Galleries",
+            "type": "array"
+          },
+          "kind": {
+            "const": "home",
+            "title": "Kind",
+            "type": "string"
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Posts",
+            "type": "array"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Projects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "posts",
+          "projects",
+          "galleries"
+        ],
+        "title": "BootstrapHomePage",
+        "type": "object"
+      },
+      "BootstrapProjectsPage": {
+        "properties": {
+          "has_next": {
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_prev": {
+            "title": "Has Prev",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "projects",
+            "title": "Kind",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "per_page": {
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "per_page",
+          "total",
+          "pages",
+          "has_prev",
+          "has_next",
+          "kind",
+          "items"
+        ],
+        "title": "BootstrapProjectsPage",
+        "type": "object"
+      },
+      "BootstrapResponse": {
+        "properties": {
+          "page": {
+            "discriminator": {
+              "mapping": {
+                "archive": "#/components/schemas/BootstrapArchivePage",
+                "galleries": "#/components/schemas/BootstrapGalleriesPage",
+                "gallery": "#/components/schemas/BootstrapGalleryPage",
+                "home": "#/components/schemas/BootstrapHomePage",
+                "page": "#/components/schemas/BootstrapContentPage",
+                "post": "#/components/schemas/BootstrapContentPage",
+                "project": "#/components/schemas/BootstrapContentPage",
+                "projects": "#/components/schemas/BootstrapProjectsPage",
+                "search": "#/components/schemas/BootstrapSearchPage",
+                "taxonomy": "#/components/schemas/BootstrapTaxonomyPage"
+              },
+              "propertyName": "kind"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BootstrapHomePage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapArchivePage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapContentPage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapProjectsPage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapGalleriesPage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapGalleryPage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapTaxonomyPage"
+              },
+              {
+                "$ref": "#/components/schemas/BootstrapSearchPage"
+              }
+            ],
+            "title": "Page"
+          },
+          "site": {
+            "$ref": "#/components/schemas/SiteInfoResponse"
+          }
+        },
+        "required": [
+          "site",
+          "page"
+        ],
+        "title": "BootstrapResponse",
+        "type": "object"
+      },
+      "BootstrapSearchPage": {
+        "properties": {
+          "articles": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Articles",
+            "type": "array"
+          },
+          "galleries": {
+            "items": {
+              "$ref": "#/components/schemas/GallerySummary"
+            },
+            "title": "Galleries",
+            "type": "array"
+          },
+          "kind": {
+            "const": "search",
+            "title": "Kind",
+            "type": "string"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/PhotoImage"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "projects": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "query",
+          "articles",
+          "projects",
+          "galleries",
+          "photos"
+        ],
+        "title": "BootstrapSearchPage",
+        "type": "object"
+      },
+      "BootstrapTaxonomyPage": {
+        "properties": {
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyTerm"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "has_next": {
+            "default": false,
+            "title": "Has Next",
+            "type": "boolean"
+          },
+          "has_prev": {
+            "default": false,
+            "title": "Has Prev",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ContentListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "taxonomy",
+            "title": "Kind",
+            "type": "string"
+          },
+          "page": {
+            "default": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "pages": {
+            "default": 1,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "per_page": {
+            "default": 9,
+            "title": "Per Page",
+            "type": "integer"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/TaxonomyTerm"
+            },
+            "title": "Tags",
+            "type": "array"
+          },
+          "term": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TaxonomyTerm"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "categories",
+          "tags"
+        ],
+        "title": "BootstrapTaxonomyPage",
         "type": "object"
       },
       "ContentAuthor": {
@@ -4148,16 +4457,12 @@
             "title": "Alt",
             "type": "string"
           },
-          "avif_quality": {
-            "title": "Avif Quality",
-            "type": "integer"
-          },
-          "avif_quality_auto": {
-            "title": "Avif Quality Auto",
-            "type": "integer"
-          },
           "created_at": {
             "title": "Created At",
+            "type": "string"
+          },
+          "derivative_set": {
+            "title": "Derivative Set",
             "type": "string"
           },
           "exif": {
@@ -4192,13 +4497,13 @@
             "title": "Placeholder",
             "type": "string"
           },
-          "ready_hash": {
-            "title": "Ready Hash",
-            "type": "string"
-          },
           "size": {
             "title": "Size",
             "type": "integer"
+          },
+          "source_sha1": {
+            "title": "Source Sha1",
+            "type": "string"
           },
           "width": {
             "title": "Width",
@@ -4216,21 +4521,84 @@
           "alt",
           "owner_id",
           "exif",
-          "avif_quality",
-          "avif_quality_auto",
+          "source_sha1",
+          "derivative_set",
           "placeholder",
-          "ready_hash",
           "created_at"
         ],
         "title": "ExportMedia",
         "type": "object"
       },
-      "ExportPhoto": {
+      "ExportMediaDerivative": {
         "properties": {
-          "allow_download": {
-            "title": "Allow Download",
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "height": {
+            "title": "Height",
             "type": "integer"
           },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "media_id": {
+            "title": "Media Id",
+            "type": "integer"
+          },
+          "pipeline_version": {
+            "title": "Pipeline Version",
+            "type": "integer"
+          },
+          "quality": {
+            "title": "Quality",
+            "type": "integer"
+          },
+          "scene": {
+            "title": "Scene",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "media_id",
+          "token",
+          "pipeline_version",
+          "scene",
+          "width",
+          "format",
+          "quality",
+          "height",
+          "size",
+          "key",
+          "created_at"
+        ],
+        "title": "ExportMediaDerivative",
+        "type": "object"
+      },
+      "ExportPhoto": {
+        "properties": {
           "camera": {
             "title": "Camera",
             "type": "string"
@@ -4268,6 +4636,10 @@
           },
           "height": {
             "title": "Height",
+            "type": "integer"
+          },
+          "hide_download_link": {
+            "title": "Hide Download Link",
             "type": "integer"
           },
           "id": {
@@ -4326,7 +4698,7 @@
           "width",
           "height",
           "exif_fields",
-          "allow_download",
+          "hide_download_link",
           "featured",
           "status",
           "sort_order",
@@ -4588,6 +4960,75 @@
         "title": "ExportTaxonomyTerm",
         "type": "object"
       },
+      "ExportUser": {
+        "description": "One `users` row; password hashes travel with the backup for restore.",
+        "properties": {
+          "avatar": {
+            "title": "Avatar",
+            "type": "string"
+          },
+          "bio": {
+            "title": "Bio",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "integer"
+          },
+          "last_login_at": {
+            "title": "Last Login At",
+            "type": "string"
+          },
+          "password_hash": {
+            "title": "Password Hash",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "username",
+          "password_hash",
+          "display_name",
+          "email",
+          "bio",
+          "avatar",
+          "role",
+          "is_active",
+          "last_login_at",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ExportUser",
+        "type": "object"
+      },
       "ExportV3Response": {
         "properties": {
           "exported_at": {
@@ -4611,6 +5052,13 @@
               "$ref": "#/components/schemas/ExportMedia"
             },
             "title": "Media",
+            "type": "array"
+          },
+          "media_derivatives": {
+            "items": {
+              "$ref": "#/components/schemas/ExportMediaDerivative"
+            },
+            "title": "Media Derivatives",
             "type": "array"
           },
           "photos": {
@@ -4649,13 +5097,20 @@
             "type": "array"
           },
           "settings": {
-            "$ref": "#/components/schemas/PublicSettings"
+            "$ref": "#/components/schemas/Settings-Output"
           },
           "taxonomy_terms": {
             "items": {
               "$ref": "#/components/schemas/ExportTaxonomyTerm"
             },
             "title": "Taxonomy Terms",
+            "type": "array"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/ExportUser"
+            },
+            "title": "Users",
             "type": "array"
           },
           "version": {
@@ -4669,14 +5124,16 @@
           "version",
           "exported_at",
           "settings",
+          "users",
           "posts",
           "project_details",
           "taxonomy_terms",
           "post_terms",
+          "revisions",
           "galleries",
           "photos",
           "media",
-          "revisions"
+          "media_derivatives"
         ],
         "title": "ExportV3Response",
         "type": "object"
@@ -4916,7 +5373,7 @@
         "title": "GalleryListResponse",
         "type": "object"
       },
-      "GalleryPhotosAddedResponse": {
+      "GalleryPhotosAddedPayload": {
         "properties": {
           "added": {
             "items": {
@@ -4926,7 +5383,7 @@
             "type": "array"
           },
           "gallery": {
-            "$ref": "#/components/schemas/AdminGalleryDetail"
+            "$ref": "#/components/schemas/AdminGalleryPayload"
           },
           "ok": {
             "title": "Ok",
@@ -4938,13 +5395,13 @@
           "added",
           "gallery"
         ],
-        "title": "GalleryPhotosAddedResponse",
+        "title": "GalleryPhotosAddedPayload",
         "type": "object"
       },
-      "GalleryReorderResponse": {
+      "GalleryReorderPayload": {
         "properties": {
           "gallery": {
-            "$ref": "#/components/schemas/AdminGalleryDetail"
+            "$ref": "#/components/schemas/AdminGalleryPayload"
           },
           "ok": {
             "title": "Ok",
@@ -4955,7 +5412,7 @@
           "ok",
           "gallery"
         ],
-        "title": "GalleryReorderResponse",
+        "title": "GalleryReorderPayload",
         "type": "object"
       },
       "GallerySummary": {
@@ -5061,14 +5518,51 @@
         "title": "HealthResponse",
         "type": "object"
       },
-      "ImagePayload": {
-        "description": "Resolved derivative metadata for one media row (see images.image_payload).",
+      "ImageArtifact": {
+        "description": "One generated derivative; the token is the immutable artifact address.",
         "properties": {
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "scene": {
+            "title": "Scene",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scene",
+          "width",
+          "format",
+          "token"
+        ],
+        "title": "ImageArtifact",
+        "type": "object"
+      },
+      "ImagePayload": {
+        "description": "Resolved derivative metadata for one media row (see images.image_payload).\n\n`ready: false` means the artifact set has not been generated yet; the\nfrontend then renders the original file. `artifacts` is a flat list (typed\nfor OpenAPI) of the derivatives that actually exist.",
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ImageArtifact"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
           "base": {
+            "default": "",
             "title": "Base",
             "type": "string"
           },
-          "direct": {
+          "direct_base": {
             "anyOf": [
               {
                 "type": "string"
@@ -5077,7 +5571,7 @@
                 "type": "null"
               }
             ],
-            "title": "Direct"
+            "title": "Direct Base"
           },
           "f": {
             "title": "F",
@@ -5094,9 +5588,35 @@
             "title": "Height",
             "type": "integer"
           },
+          "id": {
+            "default": 0,
+            "title": "Id",
+            "type": "integer"
+          },
           "l": {
             "title": "L",
             "type": "integer"
+          },
+          "pipeline_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pipeline Version"
+          },
+          "placeholder": {
+            "default": "",
+            "title": "Placeholder",
+            "type": "string"
+          },
+          "ready": {
+            "default": false,
+            "title": "Ready",
+            "type": "boolean"
           },
           "s": {
             "title": "S",
@@ -5112,120 +5632,24 @@
           "height",
           "s",
           "l",
-          "f",
-          "formats",
-          "base"
+          "f"
         ],
         "title": "ImagePayload",
         "type": "object"
       },
       "ImagePipelineSettings": {
         "additionalProperties": false,
-        "description": "Image pipeline knobs.\n\nWidth ladder and format switches are runtime settings; encoding quality is\nan intentional code constant (`PIPELINE_DEFAULTS`, Phase 3) because changing\nit used to invalidate every derivative URL.",
+        "description": "Image pipeline runtime switches.\n\n3.0.0 intentionally keeps this tiny: only the width ladder and the format\nswitches are user data. Encoding quality/parameters are code constants in\n`app.images.PIPELINE_DEFAULTS` (ADR-10) — changing them requires bumping\n`PIPELINE_VERSION` and running a manual `reencode` job, and never rewrites\nexisting artifacts automatically (decision D5).",
         "properties": {
           "avif_enabled": {
             "default": true,
             "title": "Avif Enabled",
             "type": "boolean"
           },
-          "avif_speed": {
-            "default": 6,
-            "maximum": 10.0,
-            "minimum": 0.0,
-            "title": "Avif Speed",
-            "type": "integer"
-          },
-          "cache_days": {
-            "default": 365,
-            "maximum": 3650.0,
-            "minimum": 1.0,
-            "title": "Cache Days",
-            "type": "integer"
-          },
-          "jpeg_quality": {
-            "default": 82,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Jpeg Quality",
-            "type": "integer"
-          },
-          "lazy": {
-            "default": true,
-            "title": "Lazy",
-            "type": "boolean"
-          },
-          "max_width": {
-            "default": 0,
-            "maximum": 8192.0,
-            "minimum": 0.0,
-            "title": "Max Width",
-            "type": "integer"
-          },
-          "prewarm": {
-            "default": true,
-            "title": "Prewarm",
-            "type": "boolean"
-          },
-          "quality_card": {
-            "default": 55,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Card",
-            "type": "integer"
-          },
-          "quality_full": {
-            "default": 70,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Full",
-            "type": "integer"
-          },
-          "quality_hero": {
-            "default": 67,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Hero",
-            "type": "integer"
-          },
-          "quality_prose": {
-            "default": 60,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Prose",
-            "type": "integer"
-          },
-          "quality_thumb": {
-            "default": 45,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Thumb",
-            "type": "integer"
-          },
-          "quality_tile": {
-            "default": 50,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Tile",
-            "type": "integer"
-          },
-          "quality_viewer": {
-            "default": 65,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Quality Viewer",
-            "type": "integer"
-          },
           "webp_enabled": {
             "default": true,
             "title": "Webp Enabled",
             "type": "boolean"
-          },
-          "webp_quality": {
-            "default": 80,
-            "maximum": 100.0,
-            "minimum": 1.0,
-            "title": "Webp Quality",
-            "type": "integer"
           },
           "widths": {
             "items": {
@@ -5252,171 +5676,6 @@
             ],
             "title": "Avif Enabled"
           },
-          "avif_speed": {
-            "anyOf": [
-              {
-                "maximum": 10.0,
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avif Speed"
-          },
-          "cache_days": {
-            "anyOf": [
-              {
-                "maximum": 3650.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Cache Days"
-          },
-          "jpeg_quality": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Jpeg Quality"
-          },
-          "lazy": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Lazy"
-          },
-          "max_width": {
-            "anyOf": [
-              {
-                "maximum": 8192.0,
-                "minimum": 0.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Max Width"
-          },
-          "prewarm": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prewarm"
-          },
-          "quality_card": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Card"
-          },
-          "quality_full": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Full"
-          },
-          "quality_hero": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Hero"
-          },
-          "quality_prose": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Prose"
-          },
-          "quality_thumb": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Thumb"
-          },
-          "quality_tile": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Tile"
-          },
-          "quality_viewer": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Quality Viewer"
-          },
           "webp_enabled": {
             "anyOf": [
               {
@@ -5427,19 +5686,6 @@
               }
             ],
             "title": "Webp Enabled"
-          },
-          "webp_quality": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Webp Quality"
           },
           "widths": {
             "anyOf": [
@@ -5457,6 +5703,369 @@
           }
         },
         "title": "ImagePipelineSettingsPatch",
+        "type": "object"
+      },
+      "ImportCounts": {
+        "description": "Rows written by one restore, per table.",
+        "properties": {
+          "galleries": {
+            "default": 0,
+            "title": "Galleries",
+            "type": "integer"
+          },
+          "media": {
+            "default": 0,
+            "title": "Media",
+            "type": "integer"
+          },
+          "media_derivatives": {
+            "default": 0,
+            "title": "Media Derivatives",
+            "type": "integer"
+          },
+          "photos": {
+            "default": 0,
+            "title": "Photos",
+            "type": "integer"
+          },
+          "post_terms": {
+            "default": 0,
+            "title": "Post Terms",
+            "type": "integer"
+          },
+          "posts": {
+            "default": 0,
+            "title": "Posts",
+            "type": "integer"
+          },
+          "project_details": {
+            "default": 0,
+            "title": "Project Details",
+            "type": "integer"
+          },
+          "revisions": {
+            "default": 0,
+            "title": "Revisions",
+            "type": "integer"
+          },
+          "settings": {
+            "default": 0,
+            "title": "Settings",
+            "type": "integer"
+          },
+          "taxonomy_terms": {
+            "default": 0,
+            "title": "Taxonomy Terms",
+            "type": "integer"
+          },
+          "users": {
+            "default": 0,
+            "title": "Users",
+            "type": "integer"
+          }
+        },
+        "title": "ImportCounts",
+        "type": "object"
+      },
+      "ImportV3Request": {
+        "description": "A v3 export document plus an explicit destructive-restore confirmation.\n\nThe list defaults (and permissive `format`/`version` types) keep the body\naccepted so the route can reject an unsupported document with a stable\n`import.*` error code instead of a generic 422 schema failure.",
+        "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
+          "exported_at": {
+            "default": "",
+            "title": "Exported At",
+            "type": "string"
+          },
+          "format": {
+            "default": "",
+            "title": "Format",
+            "type": "string"
+          },
+          "galleries": {
+            "items": {
+              "$ref": "#/components/schemas/ExportGallery"
+            },
+            "title": "Galleries",
+            "type": "array"
+          },
+          "media": {
+            "items": {
+              "$ref": "#/components/schemas/ExportMedia"
+            },
+            "title": "Media",
+            "type": "array"
+          },
+          "media_derivatives": {
+            "items": {
+              "$ref": "#/components/schemas/ExportMediaDerivative"
+            },
+            "title": "Media Derivatives",
+            "type": "array"
+          },
+          "photos": {
+            "items": {
+              "$ref": "#/components/schemas/ExportPhoto"
+            },
+            "title": "Photos",
+            "type": "array"
+          },
+          "post_terms": {
+            "items": {
+              "$ref": "#/components/schemas/ExportPostTerm"
+            },
+            "title": "Post Terms",
+            "type": "array"
+          },
+          "posts": {
+            "items": {
+              "$ref": "#/components/schemas/ExportPost"
+            },
+            "title": "Posts",
+            "type": "array"
+          },
+          "project_details": {
+            "items": {
+              "$ref": "#/components/schemas/ExportProjectDetail"
+            },
+            "title": "Project Details",
+            "type": "array"
+          },
+          "revisions": {
+            "items": {
+              "$ref": "#/components/schemas/ExportRevision"
+            },
+            "title": "Revisions",
+            "type": "array"
+          },
+          "settings": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Settings-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "taxonomy_terms": {
+            "items": {
+              "$ref": "#/components/schemas/ExportTaxonomyTerm"
+            },
+            "title": "Taxonomy Terms",
+            "type": "array"
+          },
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/ExportUser"
+            },
+            "title": "Users",
+            "type": "array"
+          },
+          "version": {
+            "default": 0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "title": "ImportV3Request",
+        "type": "object"
+      },
+      "ImportV3Response": {
+        "properties": {
+          "imported": {
+            "$ref": "#/components/schemas/ImportCounts"
+          },
+          "missing_media_files": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Media Files",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "imported"
+        ],
+        "title": "ImportV3Response",
+        "type": "object"
+      },
+      "JobActionResponse": {
+        "properties": {
+          "job": {
+            "$ref": "#/components/schemas/JobStatusResponse"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "job"
+        ],
+        "title": "JobActionResponse",
+        "type": "object"
+      },
+      "JobCreateRequest": {
+        "properties": {
+          "force": {
+            "default": false,
+            "title": "Force",
+            "type": "boolean"
+          },
+          "gallery_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallery Id"
+          },
+          "kind": {
+            "enum": [
+              "prewarm",
+              "reencode",
+              "gc_derivatives",
+              "rerender_content",
+              "storage_sync",
+              "export",
+              "rebuild_site"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Id"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "JobCreateRequest",
+        "type": "object"
+      },
+      "JobListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobStatusResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "JobListResponse",
+        "type": "object"
+      },
+      "JobQueuedPayload": {
+        "properties": {
+          "job_id": {
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "job_id"
+        ],
+        "title": "JobQueuedPayload",
+        "type": "object"
+      },
+      "JobStatusResponse": {
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "default": "",
+            "title": "Error",
+            "type": "string"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "progress": {
+            "title": "Progress",
+            "type": "integer"
+          },
+          "result": {
+            "default": "",
+            "title": "Result",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "progress",
+          "created_at"
+        ],
+        "title": "JobStatusResponse",
         "type": "object"
       },
       "JsonValue": {},
@@ -5505,7 +6114,7 @@
         "type": "object"
       },
       "MediaAltIn": {
-        "description": "PATCH /api/admin/media/{id}: omitted fields keep their value.",
+        "description": "PATCH /api/admin/media/{id}: omitted fields keep their value.\n\nPer-image AVIF quality was removed with ADR-10: quality is an immutable\npipeline constant, so the only editable media field is the alt text.",
         "properties": {
           "alt": {
             "anyOf": [
@@ -5518,30 +6127,6 @@
               }
             ],
             "title": "Alt"
-          },
-          "avif_quality": {
-            "anyOf": [
-              {
-                "maximum": 100.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avif Quality"
-          },
-          "avif_quality_auto": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Avif Quality Auto"
           }
         },
         "title": "MediaAltIn",
@@ -5671,20 +6256,102 @@
         "title": "MediaExifResponse",
         "type": "object"
       },
-      "MediaItem": {
+      "MediaImageInfo": {
+        "description": "Read-only derivative metadata (mirror of `images.image_payload`).",
+        "properties": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ImageArtifact"
+            },
+            "title": "Artifacts",
+            "type": "array"
+          },
+          "base": {
+            "default": "",
+            "title": "Base",
+            "type": "string"
+          },
+          "direct_base": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direct Base"
+          },
+          "f": {
+            "title": "F",
+            "type": "integer"
+          },
+          "formats": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Formats",
+            "type": "array"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "id": {
+            "default": 0,
+            "title": "Id",
+            "type": "integer"
+          },
+          "l": {
+            "title": "L",
+            "type": "integer"
+          },
+          "pipeline_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pipeline Version"
+          },
+          "placeholder": {
+            "default": "",
+            "title": "Placeholder",
+            "type": "string"
+          },
+          "ready": {
+            "default": false,
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "s": {
+            "title": "S",
+            "type": "integer"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "s",
+          "l",
+          "f"
+        ],
+        "title": "MediaImageInfo",
+        "type": "object"
+      },
+      "MediaItemPayload": {
         "properties": {
           "alt": {
             "default": "",
             "title": "Alt",
             "type": "string"
-          },
-          "avif_quality": {
-            "title": "Avif Quality",
-            "type": "integer"
-          },
-          "avif_quality_auto": {
-            "title": "Avif Quality Auto",
-            "type": "boolean"
           },
           "created_at": {
             "title": "Created At",
@@ -5716,7 +6383,7 @@
           "image": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ImagePayload"
+                "$ref": "#/components/schemas/MediaImageInfo"
               },
               {
                 "type": "null"
@@ -5741,7 +6408,7 @@
             "type": "string"
           },
           "owner": {
-            "$ref": "#/components/schemas/MediaOwner"
+            "$ref": "#/components/schemas/MediaOwnerInfo"
           },
           "owner_id": {
             "title": "Owner Id",
@@ -5773,17 +6440,15 @@
           "mime",
           "size",
           "owner_id",
-          "avif_quality",
-          "avif_quality_auto",
           "created_at",
           "owner",
           "url",
           "kind"
         ],
-        "title": "MediaItem",
+        "title": "MediaItemPayload",
         "type": "object"
       },
-      "MediaListResponse": {
+      "MediaListPayload": {
         "properties": {
           "has_next": {
             "title": "Has Next",
@@ -5795,7 +6460,7 @@
           },
           "items": {
             "items": {
-              "$ref": "#/components/schemas/MediaItem"
+              "$ref": "#/components/schemas/MediaItemPayload"
             },
             "title": "Items",
             "type": "array"
@@ -5826,10 +6491,10 @@
           "has_next",
           "items"
         ],
-        "title": "MediaListResponse",
+        "title": "MediaListPayload",
         "type": "object"
       },
-      "MediaOwner": {
+      "MediaOwnerInfo": {
         "properties": {
           "id": {
             "title": "Id",
@@ -5849,23 +6514,15 @@
           "id",
           "name"
         ],
-        "title": "MediaOwner",
+        "title": "MediaOwnerInfo",
         "type": "object"
       },
-      "MediaUploadResponse": {
+      "MediaUploadPayload": {
         "properties": {
           "alt": {
             "default": "",
             "title": "Alt",
             "type": "string"
-          },
-          "avif_quality": {
-            "title": "Avif Quality",
-            "type": "integer"
-          },
-          "avif_quality_auto": {
-            "title": "Avif Quality Auto",
-            "type": "boolean"
           },
           "created_at": {
             "title": "Created At",
@@ -5902,7 +6559,7 @@
           "image": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ImagePayload"
+                "$ref": "#/components/schemas/MediaImageInfo"
               },
               {
                 "type": "null"
@@ -5927,7 +6584,7 @@
             "type": "string"
           },
           "owner": {
-            "$ref": "#/components/schemas/MediaOwner"
+            "$ref": "#/components/schemas/MediaOwnerInfo"
           },
           "owner_id": {
             "title": "Owner Id",
@@ -5959,14 +6616,12 @@
           "mime",
           "size",
           "owner_id",
-          "avif_quality",
-          "avif_quality_auto",
           "created_at",
           "owner",
           "url",
           "kind"
         ],
-        "title": "MediaUploadResponse",
+        "title": "MediaUploadPayload",
         "type": "object"
       },
       "NavLink-Input": {
@@ -6005,93 +6660,22 @@
         "title": "OkResponse",
         "type": "object"
       },
-      "OptimizeQueuedResponse": {
+      "OptimizeScopeIn": {
+        "description": "Optional scope for `POST /media/optimize-all` (omit = every image).",
         "properties": {
-          "media_id": {
-            "title": "Media Id",
-            "type": "integer"
-          },
-          "ok": {
-            "title": "Ok",
-            "type": "boolean"
-          },
-          "queued": {
-            "title": "Queued",
-            "type": "boolean"
+          "gallery_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallery Id"
           }
         },
-        "required": [
-          "ok",
-          "queued",
-          "media_id"
-        ],
-        "title": "OptimizeQueuedResponse",
-        "type": "object"
-      },
-      "OptimizeStartResponse": {
-        "properties": {
-          "message": {
-            "default": "",
-            "title": "Message",
-            "type": "string"
-          },
-          "ok": {
-            "title": "Ok",
-            "type": "boolean"
-          },
-          "started": {
-            "title": "Started",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "ok",
-          "started"
-        ],
-        "title": "OptimizeStartResponse",
-        "type": "object"
-      },
-      "OptimizeStatusResponse": {
-        "properties": {
-          "done": {
-            "title": "Done",
-            "type": "integer"
-          },
-          "error": {
-            "default": "",
-            "title": "Error",
-            "type": "string"
-          },
-          "failed": {
-            "title": "Failed",
-            "type": "integer"
-          },
-          "finished_at": {
-            "title": "Finished At",
-            "type": "string"
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "started_at": {
-            "title": "Started At",
-            "type": "string"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "running",
-          "total",
-          "done",
-          "failed",
-          "started_at",
-          "finished_at"
-        ],
-        "title": "OptimizeStatusResponse",
+        "title": "OptimizeScopeIn",
         "type": "object"
       },
       "PageIn": {
@@ -6419,13 +7003,37 @@
         "title": "PhotoDeleteResponse",
         "type": "object"
       },
+      "PhotoGalleryBrief": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "slug",
+          "url"
+        ],
+        "title": "PhotoGalleryBrief",
+        "type": "object"
+      },
       "PhotoImage": {
         "description": "Photo payload: image metadata plus EXIF projection and download links.",
         "properties": {
-          "allow_download": {
-            "title": "Allow Download",
-            "type": "boolean"
-          },
           "alt": {
             "title": "Alt",
             "type": "string"
@@ -6530,6 +7138,10 @@
             "title": "Height",
             "type": "integer"
           },
+          "hide_download_link": {
+            "title": "Hide Download Link",
+            "type": "boolean"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -6615,7 +7227,7 @@
           "camera",
           "lens",
           "taken_at",
-          "allow_download",
+          "hide_download_link",
           "download_name",
           "download_url",
           "width",
@@ -6631,11 +7243,6 @@
       },
       "PhotoIn": {
         "properties": {
-          "allow_download": {
-            "default": true,
-            "title": "Allow Download",
-            "type": "boolean"
-          },
           "camera": {
             "default": "",
             "maxLength": 120,
@@ -6678,6 +7285,11 @@
               }
             ],
             "title": "Gallery Id"
+          },
+          "hide_download_link": {
+            "default": false,
+            "title": "Hide Download Link",
+            "type": "boolean"
           },
           "lens": {
             "default": "",
@@ -6724,7 +7336,7 @@
         "title": "PhotoIn",
         "type": "object"
       },
-      "PhotoListResponse": {
+      "PhotoListPayload": {
         "properties": {
           "has_next": {
             "title": "Has Next",
@@ -6736,7 +7348,7 @@
           },
           "items": {
             "items": {
-              "$ref": "#/components/schemas/PhotoImage"
+              "$ref": "#/components/schemas/PhotoPayload"
             },
             "title": "Items",
             "type": "array"
@@ -6767,23 +7379,221 @@
           "has_next",
           "items"
         ],
-        "title": "PhotoListResponse",
+        "title": "PhotoListPayload",
         "type": "object"
       },
-      "PhotoUpdateIn": {
-        "description": "PATCH: omitted fields keep their value; explicit null clears.",
+      "PhotoPayload": {
         "properties": {
-          "allow_download": {
+          "alt": {
+            "title": "Alt",
+            "type": "string"
+          },
+          "aperture": {
+            "default": "",
+            "title": "Aperture",
+            "type": "string"
+          },
+          "aspect": {
+            "title": "Aspect",
+            "type": "number"
+          },
+          "camera": {
+            "title": "Camera",
+            "type": "string"
+          },
+          "caption": {
+            "title": "Caption",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "download_name": {
+            "title": "Download Name",
+            "type": "string"
+          },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
+          "exif": {
             "anyOf": [
               {
-                "type": "boolean"
+                "$ref": "#/components/schemas/PublicExif"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exif_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Exif Fields",
+            "type": "array"
+          },
+          "exposure": {
+            "default": "",
+            "title": "Exposure",
+            "type": "string"
+          },
+          "featured": {
+            "title": "Featured",
+            "type": "boolean"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "focal_length": {
+            "default": "",
+            "title": "Focal Length",
+            "type": "string"
+          },
+          "focal_length_35mm": {
+            "anyOf": [
+              {
+                "type": "integer"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Allow Download"
+            "title": "Focal Length 35Mm"
           },
+          "gallery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PhotoGalleryBrief"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gallery_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gallery Id"
+          },
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "hide_download_link": {
+            "title": "Hide Download Link",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImagePayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "iso": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iso"
+          },
+          "lens": {
+            "title": "Lens",
+            "type": "string"
+          },
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "media_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Id"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "taken_at": {
+            "title": "Taken At",
+            "type": "string"
+          },
+          "taken_at_raw": {
+            "default": "",
+            "title": "Taken At Raw",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "url",
+          "filename",
+          "title",
+          "caption",
+          "alt",
+          "location",
+          "camera",
+          "lens",
+          "taken_at",
+          "hide_download_link",
+          "download_name",
+          "download_url",
+          "width",
+          "height",
+          "aspect",
+          "featured",
+          "status",
+          "sort_order",
+          "created_at"
+        ],
+        "title": "PhotoPayload",
+        "type": "object"
+      },
+      "PhotoUpdateIn": {
+        "description": "PATCH: omitted fields keep their value; explicit null clears.",
+        "properties": {
           "camera": {
             "anyOf": [
               {
@@ -6844,6 +7654,17 @@
               }
             ],
             "title": "Gallery Id"
+          },
+          "hide_download_link": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hide Download Link"
           },
           "lens": {
             "anyOf": [
@@ -8123,7 +8944,7 @@
         "title": "SessionUser",
         "type": "object"
       },
-      "Settings": {
+      "Settings-Input": {
         "additionalProperties": false,
         "description": "The complete, validated settings document.",
         "properties": {
@@ -8137,7 +8958,30 @@
             "$ref": "#/components/schemas/CopySettings"
           },
           "site": {
-            "$ref": "#/components/schemas/SiteSettings"
+            "$ref": "#/components/schemas/SiteSettings-Input"
+          },
+          "upload": {
+            "$ref": "#/components/schemas/UploadSettings"
+          }
+        },
+        "title": "Settings",
+        "type": "object"
+      },
+      "Settings-Output": {
+        "additionalProperties": false,
+        "description": "The complete, validated settings document.",
+        "properties": {
+          "advanced": {
+            "$ref": "#/components/schemas/AdvancedSettings"
+          },
+          "appearance": {
+            "$ref": "#/components/schemas/AppearanceSettings"
+          },
+          "copy": {
+            "$ref": "#/components/schemas/CopySettings"
+          },
+          "site": {
+            "$ref": "#/components/schemas/SiteSettings-Output"
           },
           "upload": {
             "$ref": "#/components/schemas/UploadSettings"
@@ -8454,7 +9298,138 @@
         "title": "SiteInfoResponse",
         "type": "object"
       },
-      "SiteSettings": {
+      "SiteSettings-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "announcement": {
+            "default": "",
+            "maxLength": 300,
+            "title": "Announcement",
+            "type": "string"
+          },
+          "description": {
+            "default": "MZTLAB 是一间以影像、项目与文字为媒介的独立工作室档案。",
+            "maxLength": 300,
+            "title": "Description",
+            "type": "string"
+          },
+          "editor_manage_others": {
+            "default": true,
+            "title": "Editor Manage Others",
+            "type": "boolean"
+          },
+          "favicon": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Favicon",
+            "type": "string"
+          },
+          "footer_links": {
+            "items": {
+              "$ref": "#/components/schemas/NavLink-Input"
+            },
+            "title": "Footer Links",
+            "type": "array"
+          },
+          "footer_note": {
+            "default": "MZTLAB // ASTRO × FASTAPI",
+            "maxLength": 200,
+            "title": "Footer Note",
+            "type": "string"
+          },
+          "footer_text": {
+            "default": "影像、项目与文字。",
+            "maxLength": 200,
+            "title": "Footer Text",
+            "type": "string"
+          },
+          "gallery_columns": {
+            "default": 3,
+            "maximum": 4.0,
+            "minimum": 2.0,
+            "title": "Gallery Columns",
+            "type": "integer"
+          },
+          "icp": {
+            "default": "",
+            "maxLength": 80,
+            "title": "Icp",
+            "type": "string"
+          },
+          "logo": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Logo",
+            "type": "string"
+          },
+          "nav": {
+            "items": {
+              "$ref": "#/components/schemas/NavLink-Input"
+            },
+            "title": "Nav",
+            "type": "array"
+          },
+          "og_image": {
+            "default": "",
+            "maxLength": 500,
+            "title": "Og Image",
+            "type": "string"
+          },
+          "posts_per_page": {
+            "default": 9,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Posts Per Page",
+            "type": "integer"
+          },
+          "seo_description": {
+            "default": "MZTLAB：影像、项目与文字。",
+            "maxLength": 300,
+            "title": "Seo Description",
+            "type": "string"
+          },
+          "seo_keywords": {
+            "default": "摄影, 影像, 相册, 项目, 代码, 文字, MZTLAB",
+            "maxLength": 200,
+            "title": "Seo Keywords",
+            "type": "string"
+          },
+          "site_subtitle": {
+            "default": "Scene",
+            "maxLength": 60,
+            "title": "Site Subtitle",
+            "type": "string"
+          },
+          "site_title": {
+            "default": "MZTLAB",
+            "maxLength": 60,
+            "title": "Site Title",
+            "type": "string"
+          },
+          "site_url": {
+            "default": "http://127.0.0.1:4321",
+            "maxLength": 200,
+            "title": "Site Url",
+            "type": "string"
+          },
+          "social": {
+            "items": {
+              "$ref": "#/components/schemas/NavLink-Input"
+            },
+            "title": "Social",
+            "type": "array"
+          },
+          "tagline": {
+            "default": "影像、项目与文字。",
+            "maxLength": 160,
+            "title": "Tagline",
+            "type": "string"
+          }
+        },
+        "title": "SiteSettings",
+        "type": "object"
+      },
+      "SiteSettings-Output": {
         "additionalProperties": false,
         "properties": {
           "announcement": {
@@ -9337,114 +10312,6 @@
         "title": "StorageSyncIn",
         "type": "object"
       },
-      "StorageSyncStartResponse": {
-        "properties": {
-          "force": {
-            "default": false,
-            "title": "Force",
-            "type": "boolean"
-          },
-          "message": {
-            "default": "",
-            "title": "Message",
-            "type": "string"
-          },
-          "ok": {
-            "title": "Ok",
-            "type": "boolean"
-          },
-          "scope": {
-            "default": "all",
-            "title": "Scope",
-            "type": "string"
-          },
-          "started": {
-            "title": "Started",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "ok",
-          "started"
-        ],
-        "title": "StorageSyncStartResponse",
-        "type": "object"
-      },
-      "StorageSyncStatusResponse": {
-        "properties": {
-          "bytes": {
-            "default": 0,
-            "title": "Bytes",
-            "type": "integer"
-          },
-          "current": {
-            "default": "",
-            "title": "Current",
-            "type": "string"
-          },
-          "error": {
-            "default": "",
-            "title": "Error",
-            "type": "string"
-          },
-          "errors": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Errors",
-            "type": "array"
-          },
-          "failed": {
-            "default": 0,
-            "title": "Failed",
-            "type": "integer"
-          },
-          "finished_at": {
-            "default": "",
-            "title": "Finished At",
-            "type": "string"
-          },
-          "force": {
-            "default": false,
-            "title": "Force",
-            "type": "boolean"
-          },
-          "running": {
-            "title": "Running",
-            "type": "boolean"
-          },
-          "scope": {
-            "default": "all",
-            "title": "Scope",
-            "type": "string"
-          },
-          "skipped": {
-            "default": 0,
-            "title": "Skipped",
-            "type": "integer"
-          },
-          "started_at": {
-            "default": "",
-            "title": "Started At",
-            "type": "string"
-          },
-          "total": {
-            "default": 0,
-            "title": "Total",
-            "type": "integer"
-          },
-          "uploaded": {
-            "default": 0,
-            "title": "Uploaded",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "running"
-        ],
-        "title": "StorageSyncStatusResponse",
-        "type": "object"
-      },
       "StorageTestResponse": {
         "properties": {
           "backend": {
@@ -10051,7 +10918,7 @@
   },
   "info": {
     "title": "MZTLAB API",
-    "version": "3.0.0-beta1"
+    "version": "3.0.0-beta2"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -10183,7 +11050,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminGalleryListResponse"
+                  "$ref": "#/components/schemas/AdminGalleryListPayload"
                 }
               }
             },
@@ -10222,7 +11089,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminGalleryDetail"
+                  "$ref": "#/components/schemas/AdminGalleryPayload"
                 }
               }
             },
@@ -10304,7 +11171,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminGalleryDetail"
+                  "$ref": "#/components/schemas/AdminGalleryPayload"
                 }
               }
             },
@@ -10355,7 +11222,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminGalleryDetail"
+                  "$ref": "#/components/schemas/AdminGalleryPayload"
                 }
               }
             },
@@ -10406,7 +11273,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminGalleryDetail"
+                  "$ref": "#/components/schemas/AdminGalleryPayload"
                 }
               }
             },
@@ -10458,7 +11325,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GalleryPhotosAddedResponse"
+                  "$ref": "#/components/schemas/GalleryPhotosAddedPayload"
                 }
               }
             },
@@ -10510,7 +11377,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GalleryReorderResponse"
+                  "$ref": "#/components/schemas/GalleryReorderPayload"
                 }
               }
             },
@@ -10530,6 +11397,288 @@
         "summary": "Reorder Photos",
         "tags": [
           "galleries"
+        ]
+      }
+    },
+    "/api/admin/import": {
+      "post": {
+        "description": "Replace all site data with a v3 backup document.",
+        "operationId": "import_site_api_admin_import_post",
+        "parameters": [
+          {
+            "description": "Destructive restore confirmation; `replace-all` is equivalent to `confirm: true` in the body.",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Destructive restore confirmation; `replace-all` is equivalent to `confirm: true` in the body.",
+              "title": "Confirm"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportV3Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImportV3Response"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Import Site",
+        "tags": [
+          "export"
+        ]
+      }
+    },
+    "/api/admin/jobs": {
+      "get": {
+        "description": "List jobs, newest first, optionally filtered by status/kind.",
+        "operationId": "jobs_list_api_admin_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "done",
+                    "failed",
+                    "cancelled"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "prewarm",
+                    "reencode",
+                    "gc_derivatives",
+                    "rerender_content",
+                    "storage_sync",
+                    "export",
+                    "rebuild_site"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Jobs List",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "post": {
+        "description": "Enqueue one job; the response is the persisted row (status `queued`).",
+        "operationId": "create_job_api_admin_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCreateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/admin/jobs/{job_id}": {
+      "get": {
+        "description": "Poll one job (replaces the retired `optimize-status`/`sync-status`).",
+        "operationId": "job_detail_api_admin_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Job Detail",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/api/admin/jobs/{job_id}/cancel": {
+      "post": {
+        "description": "Cancel a *queued* job.\n\nA `running` job cannot be cancelled (409): the worker is mid-handler and\nthere is no safe cancellation point, so the API says so instead of faking\nit. Cancelled jobs stay queryable with `status='cancelled'`.",
+        "operationId": "cancel_api_admin_jobs__job_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "title": "Job Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel",
+        "tags": [
+          "jobs"
         ]
       }
     },
@@ -10600,7 +11749,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaListResponse"
+                  "$ref": "#/components/schemas/MediaListPayload"
                 }
               }
             },
@@ -10623,6 +11772,7 @@
         ]
       },
       "post": {
+        "description": "Streamed upload: temp file → validate → atomic move → row + prewarm job.\n\nSynchronous on purpose: `Pillow.verify()`, EXIF parsing and the storage write\nare CPU/IO heavy and must run in the thread pool, never on the event loop.",
         "operationId": "upload_media_api_admin_media_post",
         "requestBody": {
           "content": {
@@ -10639,7 +11789,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaUploadResponse"
+                  "$ref": "#/components/schemas/MediaUploadPayload"
                 }
               }
             },
@@ -10664,41 +11814,48 @@
     },
     "/api/admin/media/optimize-all": {
       "post": {
+        "description": "Queue a `reencode` job for every image (or one gallery's images).",
         "operationId": "optimize_all_api_admin_media_optimize_all_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/OptimizeScopeIn"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OptimizeStartResponse"
+                  "$ref": "#/components/schemas/JobQueuedPayload"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "summary": "Optimize All",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/api/admin/media/optimize-status": {
-      "get": {
-        "operationId": "optimize_status_api_admin_media_optimize_status_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OptimizeStatusResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Optimize Status",
         "tags": [
           "media"
         ]
@@ -10763,7 +11920,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaItem"
+                  "$ref": "#/components/schemas/MediaItemPayload"
                 }
               }
             },
@@ -10786,7 +11943,7 @@
         ]
       },
       "patch": {
-        "description": "Partial update: omitted fields are untouched, explicit null clears.",
+        "description": "Partial update: omitted fields are untouched.",
         "operationId": "update_media_api_admin_media__media_id__patch",
         "parameters": [
           {
@@ -10814,7 +11971,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaItem"
+                  "$ref": "#/components/schemas/MediaItemPayload"
                 }
               }
             },
@@ -10837,7 +11994,7 @@
         ]
       },
       "put": {
-        "description": "Partial update: omitted fields are untouched, explicit null clears.",
+        "description": "Partial update: omitted fields are untouched.",
         "operationId": "update_media_api_admin_media__media_id__put",
         "parameters": [
           {
@@ -10865,7 +12022,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaItem"
+                  "$ref": "#/components/schemas/MediaItemPayload"
                 }
               }
             },
@@ -10890,7 +12047,7 @@
     },
     "/api/admin/media/{media_id}/exif": {
       "get": {
-        "description": "Read EXIF from the original file, caching the result on the media row.\n\nOlder uploads have no cached block; reading on demand means the feature\nworks for images uploaded before this route existed.",
+        "description": "Read EXIF from the original file, caching the result on the media row.\n\nOlder uploads have no cached block; reading on demand means the feature\nworks for images uploaded before the cached block existed.",
         "operationId": "media_exif_api_admin_media__media_id__exif_get",
         "parameters": [
           {
@@ -10958,7 +12115,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MediaItem"
+                  "$ref": "#/components/schemas/MediaItemPayload"
                 }
               }
             },
@@ -10983,6 +12140,7 @@
     },
     "/api/admin/media/{media_id}/optimize": {
       "post": {
+        "description": "Queue a `reencode` job for one image.",
         "operationId": "optimize_media_api_admin_media__media_id__optimize_post",
         "parameters": [
           {
@@ -11000,7 +12158,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OptimizeQueuedResponse"
+                  "$ref": "#/components/schemas/JobQueuedPayload"
                 }
               }
             },
@@ -11349,7 +12507,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PhotoListResponse"
+                  "$ref": "#/components/schemas/PhotoListPayload"
                 }
               }
             },
@@ -11388,7 +12546,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PhotoImage"
+                  "$ref": "#/components/schemas/PhotoPayload"
                 }
               }
             },
@@ -11481,7 +12639,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PhotoImage"
+                  "$ref": "#/components/schemas/PhotoPayload"
                 }
               }
             },
@@ -11532,7 +12690,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PhotoImage"
+                  "$ref": "#/components/schemas/PhotoPayload"
                 }
               }
             },
@@ -12373,7 +13531,7 @@
     },
     "/api/admin/storage/sync": {
       "post": {
-        "description": "Force-upload local originals and/or cached derivatives to the bucket.\n\nRuns in the background; poll `/api/admin/storage/sync-status` for progress.",
+        "description": "Queue a `storage_sync` job (force-upload local files to the bucket).\n\nThe connectivity/config pre-check stays synchronous so a misconfigured\nbucket is a 400 instead of a failed background job; the upload itself runs\nin the worker and its progress lives on the `jobs` row.",
         "operationId": "storage_sync_api_admin_storage_sync_post",
         "requestBody": {
           "content": {
@@ -12390,7 +13548,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/StorageSyncStartResponse"
+                  "$ref": "#/components/schemas/JobQueuedPayload"
                 }
               }
             },
@@ -12408,27 +13566,6 @@
           }
         },
         "summary": "Storage Sync",
-        "tags": [
-          "media"
-        ]
-      }
-    },
-    "/api/admin/storage/sync-status": {
-      "get": {
-        "operationId": "storage_sync_status_api_admin_storage_sync_status_get",
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/StorageSyncStatusResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          }
-        },
-        "summary": "Storage Sync Status",
         "tags": [
           "media"
         ]
@@ -12979,6 +14116,157 @@
         "summary": "Auth Status",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/bootstrap": {
+      "get": {
+        "description": "Everything one public page needs, in one request (SSG reserve R1).\n\nThe payload depends only on route parameters and the database: no cookies,\nsession, user-agent or other request context is read, so a future\n`astro build` can call the same function at build time.",
+        "operationId": "bootstrap_api_bootstrap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "route",
+            "required": false,
+            "schema": {
+              "default": "home",
+              "enum": [
+                "home",
+                "archive",
+                "post",
+                "page",
+                "project",
+                "projects",
+                "galleries",
+                "gallery",
+                "taxonomy",
+                "search"
+              ],
+              "title": "Route",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "slug",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Slug"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 120,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "featured",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Featured"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Bootstrap",
+        "tags": [
+          "public"
         ]
       }
     },
@@ -13613,6 +14901,7 @@
     },
     "/media/_v/{media_id}/{token}/{scene}/{name}": {
       "get": {
+        "description": "Serve an existing derivative row; never generate one on request.",
         "operationId": "image_derivative_media__v__media_id___token___scene___name__get",
         "parameters": [
           {

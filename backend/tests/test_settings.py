@@ -120,8 +120,8 @@ class SettingsStoreTests(unittest.TestCase):
         patch = SettingsPatch(advanced={"image": {"widths": [800, 1600, 3200]}})
         updated = save_settings_patch(patch)
         self.assertEqual(updated.advanced.image.widths, [800, 1600, 3200])
-        # Other image fields keep their defaults.
-        self.assertEqual(updated.advanced.image.avif_speed, 6)
+        # Other image fields keep their defaults (ADR-10: quality is a constant).
+        self.assertTrue(updated.advanced.image.avif_enabled)
         self.assertEqual(updated.advanced.storage.backend, "local")
 
     def test_invalid_values_are_rejected_before_writing(self) -> None:

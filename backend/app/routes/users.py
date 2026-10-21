@@ -110,13 +110,15 @@ def list_users(
         content_counts = {
             row["owner_id"]: int(row["n"])
             for row in conn.execute(
-                "SELECT owner_id, COUNT(*) AS n FROM posts WHERE owner_id IS NOT NULL GROUP BY owner_id"
+                "SELECT owner_id, COUNT(*) AS n FROM posts "
+                "WHERE owner_id IS NOT NULL GROUP BY owner_id"
             )
         }
         gallery_counts = {
             row["owner_id"]: int(row["n"])
             for row in conn.execute(
-                "SELECT owner_id, COUNT(*) AS n FROM galleries WHERE owner_id IS NOT NULL GROUP BY owner_id"
+                "SELECT owner_id, COUNT(*) AS n FROM galleries "
+                "WHERE owner_id IS NOT NULL GROUP BY owner_id"
             )
         }
         media_counts = {
@@ -248,7 +250,11 @@ def delete_user(
         # owner_id is ON DELETE RESTRICT: content must be transferred or removed
         # first, otherwise raw SQLite would surface a 500.
         owned = sum(
-            int(conn.execute(f"SELECT COUNT(*) FROM {table} WHERE owner_id = ?", (user_id,)).fetchone()[0])
+            int(
+                conn.execute(
+                    f"SELECT COUNT(*) FROM {table} WHERE owner_id = ?", (user_id,)
+                ).fetchone()[0]
+            )
             for table in ("posts", "galleries", "media")
         )
         if owned:

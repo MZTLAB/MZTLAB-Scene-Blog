@@ -133,9 +133,8 @@ const user = guard;
           <div>
             <h2>图片与存储</h2>
             <p>
-              上传的原图永不修改；系统按场景生成 AVIF / WebP / JPEG 副本。
-              质量按场景独立设置，分辨率阶梯为「小图 720 / 大图 2560 / 原图」。
-              修改质量或阶梯后会生成新的 URL，旧文件保留在缓存目录。
+              上传的原图永不修改；系统按场景生成 AVIF / WebP / JPEG 副本，质量与编码参数是代码常量，
+              不再提供运行时滑杆。这里只控制分辨率阶梯与格式开关。
             </p>
           </div>
         </div>
@@ -148,74 +147,26 @@ const user = guard;
               <label class="switch" data-switch><input type="checkbox" data-setting="image_avif_enabled" hidden /><span></span></label>
             </div>
             <div class="setting-row">
-              <div class="setting-row__label"><strong>AVIF 编码速度</strong><span>0 最慢最小，10 最快；日常建议 6。</span></div>
-              <div class="a-field" style="max-width:160px"><input type="number" min="0" max="10" data-setting="image_avif_speed" /></div>
-            </div>
-            <div class="setting-row">
               <div class="setting-row__label"><strong>WebP</strong><span>不支持 AVIF 的浏览器使用。</span></div>
               <label class="switch" data-switch><input type="checkbox" data-setting="image_webp_enabled" hidden /><span></span></label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>WebP / JPEG 质量</strong><span>JPEG 为最终兜底格式。</span></div>
-              <div class="a-field" style="display:flex;gap:8px">
-                <input type="number" min="1" max="100" data-setting="image_webp_quality" title="WebP 质量" style="max-width:90px" />
-                <input type="number" min="1" max="100" data-setting="image_jpeg_quality" title="JPEG 质量" style="max-width:90px" />
-              </div>
             </div>
           </div>
         </div>
 
         <div class="admin-card" style="margin-top:16px">
-          <div class="admin-card__head"><h3>按场景控制 AVIF 质量</h3></div>
+          <div class="admin-card__head"><h3>尺寸阶梯与派生图</h3><span>PIPELINE</span></div>
           <div class="admin-card__body">
             <div class="setting-row">
-              <div class="setting-row__label"><strong>缩略 / 网格 / 卡片</strong><span>列表与小图，建议 45–55。</span></div>
-              <div class="a-field" style="display:flex;gap:8px">
-                <input type="number" min="1" max="100" data-setting="image_quality_thumb" title="缩略图" style="max-width:82px" />
-                <input type="number" min="1" max="100" data-setting="image_quality_tile" title="网格" style="max-width:82px" />
-                <input type="number" min="1" max="100" data-setting="image_quality_card" title="卡片" style="max-width:82px" />
-              </div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>首屏 / 大图浏览</strong><span>默认首屏 67、大图 65，建议 60–70。</span></div>
-              <div class="a-field" style="display:flex;gap:8px">
-                <input type="number" min="1" max="100" data-setting="image_quality_hero" title="首屏" style="max-width:82px" />
-                <input type="number" min="1" max="100" data-setting="image_quality_viewer" title="大图浏览" style="max-width:82px" />
-              </div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>正文 / 全屏原图</strong><span>默认正文 60、全屏原图 70；建议 55–75。</span></div>
-              <div class="a-field" style="display:flex;gap:8px">
-                <input type="number" min="1" max="100" data-setting="image_quality_prose" title="正文插图" style="max-width:82px" />
-                <input type="number" min="1" max="100" data-setting="image_quality_full" title="全屏原图" style="max-width:82px" />
-              </div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>尺寸阶梯 / 最大宽度</strong><span>逗号分隔的小图与大图宽度；最大宽度 0 表示全屏使用原图尺寸。</span></div>
-              <div class="a-field" style="display:flex;gap:8px">
-                <input type="text" maxlength="60" data-setting="image_widths" placeholder="720,2560" />
-                <input type="number" min="0" max="8192" data-setting="image_max_width" title="最大宽度，0 = 原图" style="max-width:110px" />
-              </div>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>上传后预热派生图</strong><span>后台生成常用尺寸，首个访客无需等待编码。</span></div>
-              <label class="switch" data-switch><input type="checkbox" data-setting="image_prewarm" hidden /><span></span></label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>懒加载</strong><span>首屏之外使用 loading="lazy"。</span></div>
-              <label class="switch" data-switch><input type="checkbox" data-setting="image_lazy_enabled" hidden /><span></span></label>
-            </div>
-            <div class="setting-row">
-              <div class="setting-row__label"><strong>浏览器缓存天数</strong><span>派生图 URL 带哈希，可长期缓存。</span></div>
-              <div class="a-field" style="max-width:160px"><input type="number" min="1" max="3650" data-setting="image_cache_days" /></div>
+              <div class="setting-row__label"><strong>尺寸阶梯</strong><span>逗号分隔的小图与大图宽度；原图尺寸作为全屏使用。</span></div>
+              <div class="a-field"><input type="text" maxlength="60" data-setting="image_widths" placeholder="720,2560" /></div>
             </div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:14px">
               <button class="a-btn" type="button" data-optimize-all><Icon name="refresh" size={14} /> 重新生成全部图片</button>
               <span class="hint" data-optimize-status style="align-self:center"></span>
             </div>
             <p class="hint" style="margin-top:10px;color:var(--ink-faint);font-size:9.5px">
-              修改质量或阶梯后，现有页面会使用新的哈希 URL 重新生成；旧派生文件可随后用
-              <code>scripts/prune_derivatives.py</code> 清理。
+              调整阶梯或格式开关只影响之后生成/重新生成的派生图；已有图片继续使用当前产物，
+              直到在后台或媒体库手动执行「重新生成」任务。
             </p>
           </div>
         </div>

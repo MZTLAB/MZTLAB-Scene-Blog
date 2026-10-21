@@ -71,6 +71,7 @@ repos:
         entry: >-
           node frontend/node_modules/prettier/bin/prettier.cjs
           --no-config
+          --ignore-path frontend/.prettierignore
           --plugin frontend/node_modules/prettier-plugin-astro/dist/index.js
           --single-quote
           --print-width 100

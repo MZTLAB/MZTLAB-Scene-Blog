@@ -35,12 +35,12 @@ _PHOTO_COLUMNS = """
     ph.id, ph.gallery_id, ph.media_id, ph.filename, ph.title, ph.caption,
     ph.location, ph.camera, ph.lens, ph.taken_at, ph.width, ph.height,
     ph.exif_fields, ph.featured, ph.status, ph.sort_order, ph.created_at,
-    ph.allow_download,
+    ph.hide_download_link,
     g.title AS gallery_title, g.slug AS gallery_slug,
     m.exif AS media_exif, m.size AS media_size, m.mime AS media_mime,
-    m.avif_quality AS media_avif_quality,
-    m.avif_quality_auto AS media_avif_quality_auto,
-    m.ready_hash AS media_ready_hash,
+    m.source_sha1 AS media_source_sha1,
+    m.derivative_set AS media_derivative_set,
+    m.placeholder AS media_placeholder,
     m.width AS media_width, m.height AS media_height,
     m.original_name AS media_original_name
 """
@@ -109,6 +109,8 @@ def photo_dict(
     )
     # Media-library metadata drives the image pipeline. A photo keeps a
     # filename snapshot, so a deleted media row simply falls back to `<img>`.
+    # `image_payload` is read-only: it assembles the already published artifact
+    # set and reports `ready: false` (original-file fallback) when it is empty.
     media_row = {
         "id": data.get("media_id"),
         "filename": data["filename"],
@@ -116,9 +118,9 @@ def photo_dict(
         "size": data.get("media_size") or 0,
         "width": data.get("media_width") or width,
         "height": data.get("media_height") or height,
-        "avif_quality": data.get("media_avif_quality") or 55,
-        "avif_quality_auto": data.get("media_avif_quality_auto", 1),
-        "ready_hash": data.get("media_ready_hash") or "",
+        "source_sha1": data.get("media_source_sha1") or "",
+        "derivative_set": data.get("media_derivative_set") or "",
+        "placeholder": data.get("media_placeholder") or "",
     }
     filename = data["filename"]
     download_name = (
@@ -126,7 +128,9 @@ def photo_dict(
         or str(filename).rsplit("/", 1)[-1]
         or "photo"
     )
-    allow_download = bool(data.get("allow_download", 1))
+    # `hide_download_link` only hides the affordance: media itself stays public,
+    # so this is not an access-control flag.
+    hide_download_link = bool(int(data.get("hide_download_link") or 0))
     return {
         "id": int(data["id"]),
         "gallery_id": int(data["gallery_id"]) if data.get("gallery_id") else None,
@@ -150,9 +154,11 @@ def photo_dict(
         "exif_fields": visible_fields,
         "exif": public_exif,
         "image": image_payload(media_row, resolved),
-        "allow_download": allow_download,
+        "hide_download_link": hide_download_link,
         "download_name": download_name,
-        "download_url": f"{media_url(filename)}?download=1" if allow_download else "",
+        "download_url": (
+            "" if hide_download_link else f"{media_url(filename)}?download=1"
+        ),
         "width": width,
         "height": height,
         "aspect": round(width / height, 4) if width and height else 1.5,
@@ -186,14 +192,14 @@ def gallery_dict(
     cover = None
     cover_id = data.get("cover_photo_id")
     if cover_id:
-        for item in photo_items:
-            if item["id"] == int(cover_id):
-                cover = item
+        for photo_item in photo_items:
+            if photo_item["id"] == int(cover_id):
+                cover = photo_item
                 break
     if cover is None:
         cover = photo_items[0] if photo_items else None
 
-    item: dict[str, Any] = {
+    gallery_item: dict[str, Any] = {
         "id": data["id"],
         "title": data["title"],
         "slug": data["slug"],
@@ -212,13 +218,13 @@ def gallery_dict(
         },
     }
     if admin:
-        item["owner_id"] = data.get("owner_id")
-        item["cover_photo_id"] = cover_id
+        gallery_item["owner_id"] = data.get("owner_id")
+        gallery_item["cover_photo_id"] = cover_id
     else:
-        item["author"].pop("username", None)
+        gallery_item["author"].pop("username", None)
     if detail:
-        item["photos"] = photo_items
-    return item
+        gallery_item["photos"] = photo_items
+    return gallery_item
 
 
 def fetch_galleries(

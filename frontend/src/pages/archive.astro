@@ -2,21 +2,16 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import StoryCard from '../components/StoryCard.astro';
-import { apiServer, getSite } from '../lib/api';
+import { getBootstrap } from '../lib/api';
 import { copyReader } from '../lib/site';
-import type { PostSummary, SiteInfo } from '../types';
 
-const site: SiteInfo = await getSite();
+const { site, page: archivePage } = await getBootstrap({ route: 'archive' });
+if (archivePage.kind !== 'archive') throw new Error('unexpected bootstrap payload for /archive');
 const { site: siteSettings, appearance } = site.settings;
 const copy = copyReader(site.settings);
-const data = await apiServer<{
-  items: PostSummary[];
-  total: number;
-  years: Array<{ year: string; count: number }>;
-}>('/api/archive');
-const groups = data.years.map((year) => ({
+const groups = archivePage.years.map((year) => ({
   ...year,
-  posts: data.items.filter((post) => (post.published_at || '').startsWith(year.year)),
+  posts: archivePage.items.filter((post) => (post.published_at || '').startsWith(year.year)),
 }));
 const layout = appearance.post_layout === 'list' ? 'list' : 'grid';
 ---
@@ -26,7 +21,7 @@ const layout = appearance.post_layout === 'list' ? 'list' : 'grid';
     <h1>{copy('texts_title', '文字')}</h1>
     <p>{copy('texts_lead', '笔墨之痕，以篇章留存。')}</p>
     <div class="page-hero__meta">
-      <span>{String(data.total).padStart(2, '0')} TEXTS</span>
+      <span>{String(archivePage.total).padStart(2, '0')} TEXTS</span>
       <span>/</span>
       <span>{String(groups.length).padStart(2, '0')} YEARS</span>
     </div>
@@ -40,7 +35,7 @@ const layout = appearance.post_layout === 'list' ? 'list' : 'grid';
   <div class="container">
     <div class="archive-toolbar">
       <div class="archive-years" data-year-filter>
-        <button type="button" class="is-active" data-year="all">ALL {data.total}</button>
+        <button type="button" class="is-active" data-year="all">ALL {archivePage.total}</button>
         {
           groups.map((group) => (
             <button type="button" data-year={group.year}>
@@ -50,8 +45,8 @@ const layout = appearance.post_layout === 'list' ? 'list' : 'grid';
         }
       </div>
       <span class="number-label">
-        {data.items.length
-          ? `FROM ${data.items[data.items.length - 1].published_at?.slice(0, 10)}`
+        {archivePage.items.length
+          ? `FROM ${archivePage.items[archivePage.items.length - 1].published_at?.slice(0, 10)}`
           : 'EMPTY'}
       </span>
     </div>

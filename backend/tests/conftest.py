@@ -20,6 +20,9 @@ from app.settings import invalidate_settings_cache
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     monkeypatch.setattr(db_module, "DB_PATH", tmp_path / "blog.db")
+    # Background jobs would race with the test body; jobs tests drive
+    # `jobs.run_once()` explicitly.
+    monkeypatch.setenv("BLOG_DISABLE_JOBS_WORKER", "1")
     invalidate_settings_cache()
     from app.main import app
 

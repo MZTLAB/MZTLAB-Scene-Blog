@@ -12,9 +12,11 @@
 
 import {
   fallbackUrl,
+  hasSrcset,
+  isReady,
   isValidImage,
+  preferredUrl,
   srcset,
-  variantUrl,
   type ImageInfo,
 } from '../lib/images';
 
@@ -95,23 +97,33 @@ if (box) {
   const setSource = (entry: PhotoEntry) => {
     if (!image) return;
     const info = entry.image;
-    if (info) {
-      image.src = fallbackUrl(info, 'full');
-      image.width = info.f;
-      image.height = Math.max(1, Math.round(info.f * (info.height / info.width)));
-      sources.avif?.setAttribute(
-        'srcset',
-        info.formats.includes('avif') ? srcset(info, 'full', 'avif') : '',
-      );
-      sources.webp?.setAttribute(
-        'srcset',
-        info.formats.includes('webp') ? srcset(info, 'full', 'webp') : '',
-      );
+    const readyImage = info && isReady(info) ? info : null;
+    const avif = readyImage && hasSrcset(readyImage, 'full', 'avif')
+      ? srcset(readyImage, 'full', 'avif')
+      : '';
+    const webp = readyImage && hasSrcset(readyImage, 'full', 'webp')
+      ? srcset(readyImage, 'full', 'webp')
+      : '';
+    const fallback = readyImage ? fallbackUrl(readyImage, 'full') : '';
+    if (readyImage && (avif || webp || fallback)) {
+      image.src = fallback || entry.src;
+      image.width = readyImage.width;
+      image.height = readyImage.height;
+      if (avif) sources.avif?.setAttribute('srcset', avif);
+      else sources.avif?.removeAttribute('srcset');
+      if (webp) sources.webp?.setAttribute('srcset', webp);
+      else sources.webp?.removeAttribute('srcset');
     } else {
       sources.avif?.removeAttribute('srcset');
       sources.webp?.removeAttribute('srcset');
-      image.removeAttribute('width');
-      image.removeAttribute('height');
+      if (info) {
+        // Payload present but not generated yet: keep the intrinsic aspect.
+        image.width = info.width;
+        image.height = info.height;
+      } else {
+        image.removeAttribute('width');
+        image.removeAttribute('height');
+      }
       image.src = entry.src;
     }
   };
@@ -119,9 +131,7 @@ if (box) {
   const warmEntry = (entry: PhotoEntry | undefined) => {
     if (!entry) return;
     const preload = new Image();
-    preload.src = entry.image
-      ? variantUrl(entry.image, 'full', entry.image.f, 'avif', true)
-      : entry.src;
+    preload.src = entry.image ? preferredUrl(entry.image, 'full') || entry.src : entry.src;
   };
 
   const render = (nextDirection = 0) => {

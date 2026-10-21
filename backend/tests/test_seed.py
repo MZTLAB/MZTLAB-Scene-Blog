@@ -16,6 +16,8 @@ Nothing here touches `backend/data`.
 
 from __future__ import annotations
 
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -155,6 +157,55 @@ def test_seeding_twice_is_idempotent(
     assert first["taxonomy_terms"] == 13
     assert first["post_terms"] == 12
     assert len(list((isolated_data / "uploads" / "seed").glob("*.jpg"))) == 16
+
+    # Schema v2 media rows cache the source hash but no artifacts: derivatives
+    # are produced by the background prewarm job, not on the seeding path.
+    with db_module.db() as conn:
+        media = conn.execute("SELECT source_sha1, derivative_set FROM media").fetchall()
+        photos = conn.execute("SELECT hide_download_link FROM photos").fetchall()
+    assert len(media) == 16
+    assert all(len(str(row["source_sha1"])) == 40 for row in media)
+    assert all(str(row["derivative_set"]) == "" for row in media)
+    assert len(photos) == 16
+    assert all(int(row["hide_download_link"]) == 0 for row in photos)
+
+    # The second call is a no-op and must not queue duplicate work.
+    assert _count("jobs") == 16
+
+
+def test_seed_queues_one_prewarm_job_per_image(
+    isolated_data: Path, monkeypatch: MonkeyPatch
+) -> None:
+    _create_user()
+    _enable_demo(monkeypatch, True)
+
+    seed_module.seed_demo_content()
+
+    with db_module.db() as conn:
+        media_ids = sorted(int(row["id"]) for row in conn.execute("SELECT id FROM media"))
+        jobs = conn.execute("SELECT kind, payload, status FROM jobs ORDER BY id").fetchall()
+    assert len(jobs) == 16
+    assert all(str(row["kind"]) == "prewarm" for row in jobs)
+    assert all(str(row["status"]) == "queued" for row in jobs)
+    payload_ids = sorted(
+        int(json.loads(str(row["payload"]))["media_id"]) for row in jobs
+    )
+    assert payload_ids == media_ids
+
+
+def test_seed_survives_a_missing_jobs_module(
+    isolated_data: Path, monkeypatch: MonkeyPatch
+) -> None:
+    _create_user()
+    _enable_demo(monkeypatch, True)
+    # `None` in sys.modules makes `from .jobs import ...` raise ImportError.
+    monkeypatch.setitem(sys.modules, "app.jobs", None)
+
+    seed_module.seed_demo_content()
+
+    assert _count("media") == 16
+    assert _count("photos") == 16
+    assert _count("jobs") == 0
 
 
 def test_seeded_rows_are_owned_and_relationally_complete(

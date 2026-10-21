@@ -13,6 +13,8 @@ export interface AudioEmbedOptions {
   artist?: string;
 }
 
+import { escapeHtml } from './dom';
+
 const MIME_BY_EXTENSION: Record<string, string> = {
   mp3: 'audio/mpeg',
   m4a: 'audio/mp4',
@@ -23,18 +25,6 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   flac: 'audio/flac',
   webm: 'audio/webm',
 };
-
-const escapeHtml = (value: string): string =>
-  value.replace(/[&<>"']/g, (character) => {
-    const entities: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    };
-    return entities[character] || character;
-  });
 
 /**
  * Accept http(s) URLs and site-relative media paths. Reject `javascript:`,

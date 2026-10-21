@@ -1,4 +1,9 @@
-"""Storage abstraction: local backend safety, key handling, typed config."""
+"""Storage abstraction: local backend, narrow read interface, typed config.
+
+3.0.0 removed `local_path()` from the Storage contract (P-J1): readers use
+`size()` + `stream()` only, and `derived_public_prefix()` replaced the old
+`derived_base()` helper.
+"""
 
 from __future__ import annotations
 
@@ -12,6 +17,7 @@ from app.settings import Settings
 from app.storage import (
     LocalStorage,
     MirrorStorage,
+    StorageConfig,
     StorageError,
     StorageMissing,
     content_type_for,
@@ -20,23 +26,26 @@ from app.storage import (
 
 
 def local_storage(root: Path) -> LocalStorage:
-    storage = LocalStorage()
-    storage.upload_dir = root / "uploads"
-    storage.cache_dir = root / "cache"
-    storage.upload_dir.mkdir(parents=True, exist_ok=True)
-    storage.cache_dir.mkdir(parents=True, exist_ok=True)
-    return storage
+    instance = LocalStorage()
+    instance.upload_dir = root / "uploads"
+    instance.cache_dir = root / "cache"
+    instance.upload_dir.mkdir(parents=True, exist_ok=True)
+    instance.cache_dir.mkdir(parents=True, exist_ok=True)
+    return instance
+
+
+def _temp_upload(directory: Path, payload: bytes) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=directory, suffix=".tmp", delete=False) as handle:
+        handle.write(payload)
+    return Path(handle.name)
 
 
 class LocalStorageTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
-        root = Path(self._tmp.name)
-        self.storage = LocalStorage()
-        self.storage.upload_dir = root / "uploads"
-        self.storage.cache_dir = root / "cache"
-        self.storage.upload_dir.mkdir()
-        self.storage.cache_dir.mkdir()
+        self.root = Path(self._tmp.name)
+        self.storage = local_storage(self.root)
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -44,27 +53,41 @@ class LocalStorageTests(unittest.TestCase):
     def test_originals_and_derivatives_use_different_roots(self):
         self.storage.save("2026/05/a.jpg", b"original", "image/jpeg")
         self.storage.save("_derived/1/token/tile/720.avif", b"derived", "image/avif")
-        self.assertEqual(
-            self.storage.local_path("2026/05/a.jpg"),
-            self.storage.upload_dir / "2026/05/a.jpg",
-        )
-        self.assertEqual(
-            self.storage.local_path("_derived/1/token/tile/720.avif"),
-            self.storage.cache_dir / "_derived/1/token/tile/720.avif",
-        )
         self.assertEqual(self.storage.read("2026/05/a.jpg"), b"original")
         self.assertTrue(self.storage.exists("_derived/1/token/tile/720.avif"))
+        self.assertTrue((self.root / "uploads/2026/05/a.jpg").is_file())
+        self.assertTrue((self.root / "cache/_derived/1/token/tile/720.avif").is_file())
+
+    def test_stream_yields_the_relevant_bytes(self):
+        self.storage.save("2026/05/a.jpg", b"hello world", "image/jpeg")
+        self.assertEqual(b"".join(self.storage.stream("2026/05/a.jpg")), b"hello world")
+
+    def test_stream_missing_key_raises_storage_missing(self):
+        with self.assertRaises(StorageMissing):
+            self.storage.stream("2026/05/none.jpg")
 
     def test_path_traversal_is_rejected(self):
         with self.assertRaises(StorageError):
-            self.storage.local_path("../outside.jpg")
-        with self.assertRaises(StorageError):
             self.storage.save("../../etc/passwd", b"x", "text/plain")
+        with self.assertRaises(StorageError):
+            self.storage.save("..\\windows.txt", b"x", "text/plain")
+        with self.assertRaises(StorageError):
+            self.storage.size("../outside.jpg")
 
     def test_missing_read_raises_storage_missing(self):
         with self.assertRaises(StorageMissing):
             self.storage.read("2026/05/none.jpg")
         self.assertFalse(self.storage.exists("2026/05/none.jpg"))
+
+    def test_size_reports_the_stored_length(self):
+        self.storage.save("2026/05/a.jpg", b"1234567", "image/jpeg")
+        self.assertEqual(self.storage.size("2026/05/a.jpg"), 7)
+
+    def test_save_file_moves_the_temporary_upload_atomically(self):
+        source = _temp_upload(self.storage.upload_dir, b"streamed")
+        self.storage.save_file("2026/05/moved.jpg", source, "image/jpeg")
+        self.assertFalse(source.exists())
+        self.assertEqual(self.storage.read("2026/05/moved.jpg"), b"streamed")
 
     def test_delete_and_prefix_cleanup(self):
         self.storage.save("_derived/9/t/tile/720.avif", b"a", "image/avif")
@@ -91,18 +114,33 @@ class LocalStorageTests(unittest.TestCase):
 
     def test_local_backend_never_exposes_direct_urls(self):
         self.assertIsNone(self.storage.public_url("_derived/1/x/tile/720.avif"))
-        self.assertIsNone(self.storage.derived_base(1, "token"))
+        self.assertIsNone(self.storage.derived_public_prefix(1))
+
+    def test_local_health_reports_ok(self):
+        self.assertTrue(self.storage.health()["ok"])
 
 
 class _FakeS3Primary:
     """Minimal primary backend used to test MirrorStorage delegation."""
 
-    def __init__(self):
+    def __init__(self, objects: dict[str, bytes] | None = None):
         self.client = object()
         self.config = object()
+        self.objects = dict(objects or {})
 
     def health(self):
         return {"ok": True, "backend": "s3", "bucket": "bucket"}
+
+    def stream(self, key):
+        if key not in self.objects:
+            raise StorageMissing(key)
+        return iter([self.objects[key]])
+
+    def public_url(self, key):
+        return f"https://cdn.example.com/{key}"
+
+    def derived_public_prefix(self, media_id):
+        return f"https://cdn.example.com/_derived/{media_id}"
 
 
 class MirrorHealthTests(unittest.TestCase):
@@ -127,11 +165,6 @@ class MirrorHealthTests(unittest.TestCase):
                     else:
                         child.rmdir()
                 directory.rmdir()
-
-    def test_local_health_reports_ok(self):
-        with tempfile.TemporaryDirectory() as root:
-            storage = local_storage(Path(root))
-            self.assertTrue(storage.health()["ok"])
 
 
 class ContentTypeTests(unittest.TestCase):
@@ -160,11 +193,22 @@ class MirrorStorageTests(unittest.TestCase):
         self.assertEqual(self.primary.read(self.key), b"hello")
         self.assertEqual(self.backup.read(self.key), b"hello")
 
+    def test_save_file_writes_primary_and_backup(self):
+        source = _temp_upload(self.primary.upload_dir, b"hello")
+        self.mirror.save_file(self.key, source, "image/jpeg")
+        self.assertEqual(self.primary.read(self.key), b"hello")
+        self.assertEqual(self.backup.read(self.key), b"hello")
+
     def test_read_prefers_primary_but_falls_back_to_backup(self):
         self.mirror.save(self.key, b"hello", "image/jpeg")
         self.primary.delete(self.key)
         self.assertEqual(self.mirror.read(self.key), b"hello")
         self.assertTrue(self.mirror.exists(self.key))
+
+    def test_stream_falls_back_to_the_local_backup(self):
+        self.mirror.save(self.key, b"hello", "image/jpeg")
+        self.primary.delete(self.key)
+        self.assertEqual(b"".join(self.mirror.stream(self.key)), b"hello")
 
     def test_delete_removes_both_copies(self):
         self.mirror.save(self.key, b"hello", "image/jpeg")
@@ -185,7 +229,38 @@ class MirrorStorageTests(unittest.TestCase):
         self.mirror.save(key, b"avif", "image/avif")
         self.assertTrue(self.primary.exists(key))
         self.assertTrue(self.backup.exists(key))
-        self.assertIsNotNone(self.mirror.backup_path(key))
+
+
+class S3DerivedPrefixTests(unittest.TestCase):
+    def _config(self, **overrides: object) -> StorageConfig:
+        values = dict(
+            backend="s3",
+            serve_mode="direct",
+            public_base_url="https://cdn.example.com",
+            endpoint="https://r2.example.com",
+            bucket="bucket",
+            region="auto",
+            access_key="",
+            secret_key="",
+            prefix="mztlab",
+            path_style=False,
+            backup_local=False,
+        )
+        values.update(overrides)
+        return StorageConfig(**values)  # type: ignore[arg-type]
+
+    def test_direct_mode_yields_the_derivative_prefix(self):
+        backend = storage.S3Storage(self._config())
+        self.assertEqual(
+            backend.derived_public_prefix(42),
+            "https://cdn.example.com/mztlab/_derived/42",
+        )
+
+    def test_proxy_mode_has_no_direct_prefix(self):
+        backend = storage.S3Storage(self._config(serve_mode="proxy"))
+        self.assertIsNone(backend.derived_public_prefix(42))
+        backend = storage.S3Storage(self._config(public_base_url=""))
+        self.assertIsNone(backend.derived_public_prefix(42))
 
 
 class StorageConfigTests(unittest.TestCase):

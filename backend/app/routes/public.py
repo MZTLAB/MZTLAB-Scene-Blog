@@ -7,12 +7,15 @@ uploads.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
 from ..api.models import (
     ArchiveResponse,
+    BootstrapResponse,
     ContentDetail,
     ContentListResponse,
     GalleryDetail,
@@ -44,9 +47,30 @@ from ..posts import (
     serialize_post,
     serialize_posts,
 )
+from ..services.page_data import PageKind, page_data
 from ..settings import load_settings_cached
 
 router = APIRouter(tags=["public"])
+
+# Aggregated page data is the single public read entry point a page needs. It is
+# cacheable at the edge for a short window (R1/R4): no cookies, no request state.
+BOOTSTRAP_CACHE_CONTROL = "public, max-age=0, must-revalidate, s-maxage=60"
+
+
+def _cached_json(
+    request: Request, data: dict[str, Any], *, cache_control: str
+) -> Response:
+    body = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    etag = 'W/"' + hashlib.sha1(body.encode("utf-8")).hexdigest() + '"'
+    headers = {
+        "ETag": etag,
+        "Cache-Control": cache_control,
+        "Vary": "Accept-Encoding",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if request.headers.get("if-none-match") == etag:
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type="application/json", headers=headers)
 
 
 def _taxonomy_rows(conn, kind: str) -> list[dict[str, Any]]:
@@ -107,6 +131,43 @@ def site_info() -> dict:
         "hero_image_info": hero_image_info,
         "og_image_info": og_image_info,
     }
+
+
+@router.get("/bootstrap", response_model=BootstrapResponse)
+def bootstrap(
+    request: Request,
+    route: PageKind = Query("home"),
+    slug: str | None = Query(None, max_length=120),
+    page: int = Query(1, ge=1),
+    tag: str | None = Query(None, max_length=120),
+    category: str | None = Query(None, max_length=120),
+    q: str | None = Query(None, max_length=100),
+    featured: bool | None = Query(None),
+) -> Response:
+    """Everything one public page needs, in one request (SSG reserve R1).
+
+    The payload depends only on route parameters and the database: no cookies,
+    session, user-agent or other request context is read, so a future
+    `astro build` can call the same function at build time.
+    """
+    try:
+        data = page_data(
+            route,
+            slug=slug,
+            page=page,
+            tag=tag,
+            category=category,
+            q=q,
+            featured=featured,
+        )
+    except LookupError:
+        raise HTTPException(status_code=404, detail="内容不存在或尚未发布") from None
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    # Validate through the response model as well, so a handler change cannot
+    # silently drift from the published contract.
+    payload = BootstrapResponse.model_validate(data).model_dump(mode="json")
+    return _cached_json(request, payload, cache_control=BOOTSTRAP_CACHE_CONTROL)
 
 
 @router.get("/posts", response_model=ContentListResponse)

@@ -1,12 +1,13 @@
 ---
 import Icon from '../components/Icon.astro';
+
+import { getSite } from '../lib/api';
+import { initial } from '../lib/format';
+import { normalizeTheme } from '../lib/theme';
+import type { AdminUser, SiteInfo } from '../types';
 import '../styles/global.css';
 import '../styles/admin.css';
 import '../styles/audio-player.css';
-import { getSite } from '../lib/api';
-import { initial } from '../lib/format';
-import { themeTokens } from '../lib/site';
-import type { AdminUser, SiteInfo } from '../types';
 
 interface Props {
   user: AdminUser;
@@ -20,7 +21,7 @@ const { user, title, subtitle = '', active, showCompose = true } = Astro.props;
 
 const site: SiteInfo = await getSite();
 const { site: siteSettings, appearance } = site.settings;
-const tokens = themeTokens(appearance, siteSettings);
+const tokens = normalizeTheme(appearance, siteSettings);
 const markSrc = siteSettings.favicon || '/favicon.svg';
 
 const can = (permission: string) => user.permissions?.includes(permission) ?? false;

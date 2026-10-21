@@ -9,9 +9,9 @@ import re
 import secrets
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from threading import Lock
-from typing import Deque, Protocol
+from typing import Protocol
 
 from .config import SESSION_DAYS
 
@@ -153,12 +153,12 @@ def token_fingerprint(token: str) -> str:
 
 
 def session_expiry() -> datetime:
-    return datetime.now(timezone.utc) + timedelta(days=SESSION_DAYS)
+    return datetime.now(UTC) + timedelta(days=SESSION_DAYS)
 
 
 def iso_utc(value: datetime | None = None) -> str:
-    value = value or datetime.now(timezone.utc)
-    return value.astimezone(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    value = value or datetime.now(UTC)
+    return value.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 class RateLimitStore(Protocol):
@@ -169,7 +169,7 @@ class RateLimitStore(Protocol):
     routes, and so the single-worker requirement is explicit.
     """
 
-    def bucket(self, key: str) -> Deque[float]: ...
+    def bucket(self, key: str) -> deque[float]: ...
 
     def drop(self, key: str) -> None: ...
 
@@ -180,10 +180,10 @@ class MemoryRateLimitStore:
     """In-process sliding-window buckets guarded by a lock."""
 
     def __init__(self) -> None:
-        self._hits: dict[str, Deque[float]] = defaultdict(deque)
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._lock = Lock()
 
-    def bucket(self, key: str) -> Deque[float]:
+    def bucket(self, key: str) -> deque[float]:
         with self._lock:
             return self._hits[key]
 
@@ -216,7 +216,7 @@ class RateLimiter:
         self.window = window_seconds
         self.store = store or RATE_LIMIT_STORE
 
-    def _prune(self, bucket: Deque[float], now: float) -> None:
+    def _prune(self, bucket: deque[float], now: float) -> None:
         cutoff = now - self.window
         while bucket and bucket[0] <= cutoff:
             bucket.popleft()
@@ -225,7 +225,8 @@ class RateLimiter:
         if len(self.store.keys()) <= 4096:
             return
         cutoff = now - self.window
-        for name in self.store.keys():
+        # RateLimitStore exposes `.keys()`, not the mapping protocol.
+        for name in self.store.keys():  # noqa: SIM118
             bucket = self.store.bucket(name)
             if not bucket or bucket[-1] <= cutoff:
                 self.store.drop(name)

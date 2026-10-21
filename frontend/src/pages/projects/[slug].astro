@@ -2,25 +2,27 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
 import Icon from '../../components/Icon.astro';
-import { ApiError, apiServer, getSite } from '../../lib/api';
+import { ApiError, getBootstrap } from '../../lib/api';
 import { absoluteUrl, formatDate, safeJson } from '../../lib/format';
 import { copyReader } from '../../lib/site';
-import type { PostDetail, SiteInfo } from '../../types';
 
 const { slug } = Astro.params;
-const site: SiteInfo = await getSite();
-const { site: siteSettings } = site.settings;
-const copy = copyReader(site.settings);
-
-let project: PostDetail;
+let bootstrap;
 try {
-  project = await apiServer<PostDetail>(`/api/projects/${encodeURIComponent(slug || '')}`);
+  bootstrap = await getBootstrap({ route: 'project', slug: slug || '' });
 } catch (error) {
   if (error instanceof ApiError && error.status === 404) {
     return Astro.rewrite('/404');
   }
   throw error;
 }
+const { site, page: contentPage } = bootstrap;
+if (contentPage.kind !== 'project') {
+  throw new Error('unexpected bootstrap payload for a project slug');
+}
+const project = contentPage.item;
+const { site: siteSettings } = site.settings;
+const copy = copyReader(site.settings);
 
 const description = project.seo_description || project.excerpt;
 const canonical = absoluteUrl(siteSettings.site_url, project.url);

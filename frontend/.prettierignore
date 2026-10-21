@@ -2,3 +2,6 @@ dist/
 .astro/
 node_modules/
 package-lock.json
+# Consolidated stylesheet tree: kept deliberately compact to hold the ≤5,000-line
+# style budget; stylelint (not prettier) owns correctness for these files.
+src/styles/

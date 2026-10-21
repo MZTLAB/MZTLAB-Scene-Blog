@@ -55,7 +55,7 @@ class SetupIn(StrippedModel):
         return value.lower()
 
     @model_validator(mode="after")
-    def strong_password(self) -> "SetupIn":
+    def strong_password(self) -> SetupIn:
         _check_password(self.password, self.username)
         return self
 
@@ -108,7 +108,7 @@ class _ContentFields(StrippedModel):
         return _clean_slug(value)
 
     @model_validator(mode="after")
-    def check_schedule(self) -> "_ContentFields":
+    def check_schedule(self) -> _ContentFields:
         if self.status == "scheduled" and not self.published_at:
             raise ValueError("定时文章需要发布时间")
         return self
@@ -254,13 +254,13 @@ class TaxonomyIn(StrippedModel):
 
 
 class MediaAltIn(PatchModel):
-    """PATCH /api/admin/media/{id}: omitted fields keep their value."""
+    """PATCH /api/admin/media/{id}: omitted fields keep their value.
+
+    Per-image AVIF quality was removed with ADR-10: quality is an immutable
+    pipeline constant, so the only editable media field is the alt text.
+    """
 
     alt: str | None = Field(default=None, max_length=200)
-    # Per-image AVIF quality is removed in Phase 3 (BC-34); until then it stays
-    # an optional override on the media row only.
-    avif_quality_auto: bool | None = None
-    avif_quality: int | None = Field(default=None, ge=1, le=100)
 
 
 class StorageSyncIn(StrippedModel):
@@ -313,7 +313,7 @@ class ProfileIn(StrippedModel):
         return value
 
     @model_validator(mode="after")
-    def password_pair(self) -> "ProfileIn":
+    def password_pair(self) -> ProfileIn:
         if self.new_password:
             _check_password(self.new_password)
         if self.new_password and not self.current_password:
@@ -344,7 +344,7 @@ class UserCreateIn(StrippedModel):
         return value
 
     @model_validator(mode="after")
-    def strong_password(self) -> "UserCreateIn":
+    def strong_password(self) -> UserCreateIn:
         _check_password(self.password, self.username)
         return self
 
@@ -418,7 +418,7 @@ class PhotoIn(StrippedModel):
     exif_fields: list[str] | None = Field(default=None, max_length=8)
     featured: bool = False
     status: Literal["draft", "published"] = "published"
-    allow_download: bool = True
+    hide_download_link: bool = False
 
     @field_validator("exif_fields")
     @classmethod
@@ -447,7 +447,7 @@ class PhotoUpdateIn(PatchModel):
     featured: bool | None = None
     status: Literal["draft", "published"] | None = None
     sort_order: int | None = None
-    allow_download: bool | None = None
+    hide_download_link: bool | None = None
 
     @field_validator("exif_fields")
     @classmethod

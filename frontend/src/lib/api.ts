@@ -123,6 +123,65 @@ export async function getPage(slug: string): Promise<import('../types').PostDeta
   return apiServer(`/api/pages/${encodeURIComponent(slug)}`);
 }
 
+/** Parameters accepted by the aggregated public page-data endpoint (R1). */
+export interface BootstrapParams {
+  route: import('../types').BootstrapRoute;
+  slug?: string;
+  page?: number;
+  tag?: string;
+  category?: string;
+  q?: string;
+  featured?: boolean;
+}
+
+/**
+ * In-request bootstrap cache.
+ *
+ * A page renders from exactly one `/api/bootstrap` call, but a page may import a
+ * component that also needs the same payload; a very short TTL (and the
+ * parameter key) collapses those into one backend request without hiding real
+ * edits for long.
+ */
+const BOOTSTRAP_CACHE_TTL = 500;
+const bootstrapCache = new Map<string, { at: number; data: import('../types').BootstrapInfo }>();
+
+/**
+ * Fetch everything one public page needs in a single request (R1).
+ *
+ * This is a public endpoint: no cookies or request headers are forwarded, so the
+ * payload depends only on the route parameters and the database (usable at build
+ * time for a future SSG pipeline).
+ */
+export async function getBootstrap(
+  params: BootstrapParams,
+): Promise<import('../types').BootstrapInfo> {
+  const query = new URLSearchParams();
+  query.set('route', params.route);
+  if (params.slug) query.set('slug', params.slug);
+  if (params.page !== undefined) query.set('page', String(params.page));
+  if (params.tag) query.set('tag', params.tag);
+  if (params.category) query.set('category', params.category);
+  if (params.q) query.set('q', params.q);
+  if (params.featured !== undefined) query.set('featured', String(params.featured));
+  const key = query.toString();
+  const now = Date.now();
+  const cached = bootstrapCache.get(key);
+  if (cached && now - cached.at < BOOTSTRAP_CACHE_TTL) return cached.data;
+  if (bootstrapCache.size > 64) {
+    for (const [cacheKey, entry] of bootstrapCache) {
+      if (now - entry.at >= BOOTSTRAP_CACHE_TTL) bootstrapCache.delete(cacheKey);
+    }
+  }
+  const data = await apiServer<import('../types').BootstrapInfo>(`/api/bootstrap?${key}`);
+  bootstrapCache.set(key, { at: now, data });
+  return data;
+}
+
+/** Drop cached bootstrap payloads (used by tests/dev tooling). */
+export function clearBootstrapCache(): void {
+  bootstrapCache.clear();
+}
+
 /** Browser API client. All admin calls carry the CSRF marker header. */
 export async function api<T>(
   path: string,

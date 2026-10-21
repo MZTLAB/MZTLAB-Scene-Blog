@@ -13,11 +13,12 @@ already exists. Delete anything from the admin and it stays deleted.
 
 from __future__ import annotations
 
+import hashlib
 import io
 import json
 import logging
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, TypedDict
 
 from .config import SEED_DEMO, UPLOAD_DIR
@@ -355,7 +356,7 @@ GALLERIES: list[dict[str, Any]] = [
 
 def _iso(days_ago: int) -> str:
     return (
-        (datetime.now(timezone.utc) - timedelta(days=days_ago))
+        (datetime.now(UTC) - timedelta(days=days_ago))
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")
@@ -394,7 +395,7 @@ def _seed_taxonomy(conn: sqlite3.Connection) -> tuple[dict[str, int], dict[str, 
                VALUES ('category', ?, ?, ?, ?)""",
             (name, slug, description, created_at),
         )
-        category_ids[name] = int(cur.lastrowid)
+        category_ids[name] = int(cur.lastrowid or 0)
 
     tag_ids: dict[str, int] = {}
     for name in TAGS:
@@ -410,7 +411,7 @@ def _seed_taxonomy(conn: sqlite3.Connection) -> tuple[dict[str, int], dict[str, 
                VALUES ('tag', ?, ?, '', ?)""",
             (name, slug, created_at),
         )
-        tag_ids[name] = int(cur.lastrowid)
+        tag_ids[name] = int(cur.lastrowid or 0)
     return category_ids, tag_ids
 
 
@@ -450,7 +451,7 @@ def _insert_post(
             published,
         ),
     )
-    post_id = int(cur.lastrowid)
+    post_id = int(cur.lastrowid or 0)
     if post_type == "project":
         conn.execute(
             """INSERT INTO project_details(post_id, kind, year, role, client, url)
@@ -532,6 +533,7 @@ class _DemoPhoto(TypedDict):
     filename: str
     original_name: str
     data: bytes
+    sha1: str
     width: int
     height: int
     exif: str
@@ -571,7 +573,7 @@ def _render_demo_photos() -> list[_DemoGallery]:
     for gallery in GALLERIES:
         palette = _PALETTES[gallery["palette"] % len(_PALETTES)]
         created_at = _iso(int(gallery["days_ago"]))
-        taken = datetime.now(timezone.utc) - timedelta(days=int(gallery["days_ago"]))
+        taken = datetime.now(UTC) - timedelta(days=int(gallery["days_ago"]))
         exif_datetime = taken.strftime("%Y:%m:%d %H:%M:%S")
         taken_date = taken.strftime("%Y-%m-%d")
         lens_mm = _lens_mm(gallery["lens"])
@@ -614,6 +616,9 @@ def _render_demo_photos() -> list[_DemoGallery]:
                     filename=filename,
                     original_name=f"{gallery['slug']}-{index + 1:02d}.jpg",
                     data=data,
+                    # Part of every artifact token; the derivative set itself is
+                    # produced by the background prewarm job, never here.
+                    sha1=hashlib.sha1(data).hexdigest(),
                     width=size[0],
                     height=size[1],
                     exif=dump_exif(read_exif_bytes(data)),
@@ -637,9 +642,40 @@ def _render_demo_photos() -> list[_DemoGallery]:
     return rendered
 
 
+def _enqueue_prewarm_jobs(
+    conn: sqlite3.Connection, media_ids: list[int]
+) -> int:
+    """Queue one background `prewarm` job per seeded image (best effort).
+
+    `app.jobs` is the Phase 3 worker queue; it may still be absent (or its API
+    not final) while the refactor is in progress. Demo seeding must never fail
+    because of that: without the job the originals still serve and derivatives
+    are generated later. Returns the number of jobs queued.
+    """
+    if not media_ids:
+        return 0
+    try:
+        from .jobs import enqueue_prewarm  # lazy import: optional Phase 3 module
+    except ImportError:
+        logger.info("demo seed: jobs module unavailable; skipped prewarm jobs")
+        return 0
+    queued = 0
+    for media_id in media_ids:
+        try:
+            enqueue_prewarm(media_id, conn=conn)
+            queued += 1
+        except Exception:  # noqa: BLE001 - seeding must not break on a job error
+            logger.warning(
+                "demo seed: could not queue prewarm for media %s", media_id,
+                exc_info=True,
+            )
+    return queued
+
+
 def _seed_galleries(
     conn: sqlite3.Connection, owner_id: int, galleries: list[_DemoGallery]
 ) -> None:
+    media_ids: list[int] = []
     for item in galleries:
         entry = item["entry"]
         created_at = item["created_at"]
@@ -657,14 +693,14 @@ def _seed_galleries(
                 created_at,
             ),
         )
-        gallery_id = int(cur.lastrowid)
+        gallery_id = int(cur.lastrowid or 0)
         cover_photo_id: int | None = None
 
         for photo in item["photos"]:
             media_cur = conn.execute(
                 """INSERT INTO media(filename, original_name, mime, size, width, height,
-                                     alt, owner_id, exif, created_at)
-                   VALUES (?, ?, 'image/jpeg', ?, ?, ?, ?, ?, ?, ?)""",
+                                     alt, owner_id, exif, source_sha1, created_at)
+                   VALUES (?, ?, 'image/jpeg', ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     photo["filename"],
                     photo["original_name"],
@@ -674,17 +710,21 @@ def _seed_galleries(
                     photo["alt"],
                     owner_id,
                     photo["exif"],
+                    photo["sha1"],
                     photo["created_at"],
                 ),
             )
+            media_id = int(media_cur.lastrowid or 0)
+            media_ids.append(media_id)
             photo_cur = conn.execute(
                 """INSERT INTO photos(gallery_id, media_id, filename, title, caption,
                                       location, camera, lens, taken_at, width, height,
-                                      featured, status, sort_order, created_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', ?, ?)""",
+                                      hide_download_link, featured, status, sort_order,
+                                      created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'published', ?, ?)""",
                 (
                     gallery_id,
-                    int(media_cur.lastrowid),
+                    media_id,
                     photo["filename"],
                     photo["title"],
                     photo["caption"],
@@ -700,12 +740,15 @@ def _seed_galleries(
                 ),
             )
             if cover_photo_id is None:
-                cover_photo_id = int(photo_cur.lastrowid)
+                cover_photo_id = int(photo_cur.lastrowid or 0)
 
         conn.execute(
             "UPDATE galleries SET cover_photo_id = ? WHERE id = ?",
             (cover_photo_id, gallery_id),
         )
+
+    # One job per image, queued on the seeding transaction (the caller commits).
+    _enqueue_prewarm_jobs(conn, media_ids)
 
 
 def _seed_posts(conn: sqlite3.Connection, owner_id: int) -> None:

@@ -50,17 +50,25 @@ export default defineConfig(
   ...eslintPluginAstro.configs.recommended,
   legacyOverrides,
   {
-    name: 'mztlab/custom-rules',
+    name: 'mztlab/no-direct-html',
+    files: ['src/**/*.{ts,mjs,js,astro}'],
+    // ADR-5: HTML injection must go through src/lib/dom.ts (`setHTML` / `html`).
+    // dom.ts is the only file allowed to assign innerHTML; everything under src/
+    // now goes through the primitives, so no ratchet exceptions remain.
+    ignores: ['src/lib/dom.ts'],
     rules: {
-      // Phase 4 ratchet: scripts must go through src/lib/dom.ts text helpers.
-      // Warn for now so the 2.x scripts (which use innerHTML directly) pass.
       'no-restricted-syntax': [
-        'warn',
+        'error',
         {
           selector:
-            "AssignmentExpression[left.type='MemberExpression'][left.property.name='innerHTML']",
+            "AssignmentExpression[left.type='MemberExpression'][left.property.name=/^(innerHTML|outerHTML)$/]",
           message:
-            'Do not assign innerHTML directly. Use the text-escaping helpers in src/lib/dom.ts (Phase 4); this rule becomes "error" after the scripts migrate.',
+            'Do not assign innerHTML/outerHTML directly. Build markup with html`` / raw() from src/lib/dom.ts and use setHTML()/mount().',
+        },
+        {
+          selector: "CallExpression[callee.property.name='insertAdjacentHTML']",
+          message:
+            'Do not call insertAdjacentHTML directly. Build markup with html`` from src/lib/dom.ts and use setHTML()/mount().',
         },
       ],
     },

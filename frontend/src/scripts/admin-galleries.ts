@@ -1,5 +1,6 @@
 import { api, qs } from '../lib/api';
-import { debounce, errorMessage, escapeHtml, statusBadge, toast } from '../lib/admin-client';
+import { debounce, errorMessage, statusBadge, toast } from '../lib/admin-client';
+import { html, setHTML, type RawHtml } from '../lib/dom';
 import { formatDate } from '../lib/format';
 import { thumbUrl } from '../lib/images';
 import type { Gallery, Paginated } from '../types';
@@ -25,47 +26,59 @@ if (root) {
 
   const load = async () => {
     if (!grid) return;
-    grid.innerHTML =
-      '<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:140px"></div></div>';
+    setHTML(
+      grid,
+      html`<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:140px"></div></div>`,
+    );
     try {
       const data = await api<Paginated<Gallery> & { counts: Record<string, number> }>(
         `/api/admin/galleries${qs({ page: state.page, status: state.status, q: state.q, per_page: 24 })}`,
       );
       syncCounts(data.counts);
       if (!data.items.length) {
-        grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1">
+        setHTML(
+          grid,
+          html`<div class="admin-empty" style="grid-column:1/-1">
           <p>${state.q ? '没有匹配的相册。' : '还没有相册。新建一本，从媒体库挑几张照片开始。'}</p>
           <button class="a-btn a-btn--sm" type="button" data-empty-create>新建相册</button>
-        </div>`;
+        </div>`,
+        );
         grid.querySelector('[data-empty-create]')?.addEventListener('click', () => openCreate(true));
       } else {
-        grid.innerHTML = data.items.map(renderCard).join('');
+        setHTML(grid, html`${data.items.map(renderCard)}`);
         bindCards();
       }
       renderPagination(data);
     } catch (error) {
-      grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${escapeHtml(errorMessage(error))}</p></div>`;
+      setHTML(
+        grid,
+        html`<div class="admin-empty" style="grid-column:1/-1"><p>${errorMessage(error)}</p></div>`,
+      );
     }
   };
 
-  const renderCard = (gallery: Gallery) => {
+  const renderCard = (gallery: Gallery): RawHtml => {
     const cover = gallery.cover;
-    return `<article class="gallery-admin-card" data-gallery="${gallery.id}">
+    return html`<article class="gallery-admin-card" data-gallery="${gallery.id}">
       <a class="gallery-admin-card__media" href="/admin/galleries/${gallery.id}">
-        ${cover ? `<img src="${escapeHtml(thumbUrl(cover.image, cover.url))}" alt="${escapeHtml(cover.alt)}" loading="lazy" />` : '<div style="display:grid;place-content:center;height:100%;color:var(--ink-faint);font-family:var(--font-mono);font-size:9px;letter-spacing:.12em">NO COVER</div>'}
+        ${cover
+          ? html`<img src="${thumbUrl(cover.image, cover.url)}" alt="${cover.alt}" loading="lazy" />`
+          : html`<div style="display:grid;place-content:center;height:100%;color:var(--ink-faint);font-family:var(--font-mono);font-size:9px;letter-spacing:.12em">NO COVER</div>`}
         ${statusBadge(gallery.status)}
       </a>
       <div class="gallery-admin-card__body">
-        <strong>${escapeHtml(gallery.title)}</strong>
+        <strong>${gallery.title}</strong>
         <div class="gallery-admin-card__meta">
           <span>${gallery.photo_count} FRAMES</span>
-          <span>${escapeHtml(formatDate(gallery.updated_at, 'short'))}</span>
+          <span>${formatDate(gallery.updated_at, 'short')}</span>
         </div>
       </div>
       <div class="gallery-admin-card__actions">
         <a class="a-btn a-btn--sm" href="/admin/galleries/${gallery.id}">编辑</a>
-        ${gallery.status === 'published' ? `<a class="a-btn a-btn--sm" href="${escapeHtml(gallery.url)}" target="_blank" rel="noopener">查看</a>` : ''}
-        <button class="a-btn a-btn--sm a-btn--danger" type="button" data-delete="${gallery.id}" data-title="${escapeHtml(gallery.title)}">删除</button>
+        ${gallery.status === 'published'
+          ? html`<a class="a-btn a-btn--sm" href="${gallery.url}" target="_blank" rel="noopener">查看</a>`
+          : ''}
+        <button class="a-btn a-btn--sm a-btn--danger" type="button" data-delete="${gallery.id}" data-title="${gallery.title}">删除</button>
       </div>
     </article>`;
   };
@@ -97,15 +110,18 @@ if (root) {
   const renderPagination = (data: Paginated<Gallery>) => {
     if (!pagination) return;
     if (data.pages <= 1) {
-      pagination.innerHTML = `<span class="number-label">${data.total} GALLERIES</span>`;
+      setHTML(pagination, html`<span class="number-label">${data.total} GALLERIES</span>`);
       return;
     }
-    pagination.innerHTML = `
+    setHTML(
+      pagination,
+      html`
       <span class="number-label">PAGE ${data.page} / ${data.pages} · ${data.total} GALLERIES</span>
       <div class="toolbar-group">
         <button class="a-btn a-btn--sm" data-page="${data.page - 1}" ${data.has_prev ? '' : 'disabled'}>上一页</button>
         <button class="a-btn a-btn--sm" data-page="${data.page + 1}" ${data.has_next ? '' : 'disabled'}>下一页</button>
-      </div>`;
+      </div>`,
+    );
     pagination.querySelectorAll<HTMLButtonElement>('[data-page]').forEach((button) => {
       button.addEventListener('click', () => {
         state.page = Number(button.dataset.page);

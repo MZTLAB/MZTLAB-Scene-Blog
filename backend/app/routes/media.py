@@ -1,29 +1,35 @@
-"""Media library: validated image/audio uploads, ownership, EXIF, listing, deletion.
+"""Media library: streamed uploads, ownership, EXIF, listing, deletion.
 
-Every file has an owner (`media.owner_id`): the member who uploaded it. Admins
-can see and manage the whole library; editors and authors only see their own
-files unless the site owner enables 设置 → 协作与权限 → 编辑可管理他人内容.
-Ownership checks go through the single `app.services.authz.authorize` entry
-point; upload policy and image-pipeline knobs come from the typed `Settings`
-object.
+3.0.0 changes (P-H1/P-H2, BC-16):
+
+* `upload_media` is a **synchronous** route (thread pool, never the event loop).
+  It streams the `UploadFile` into a temporary file in 1 MB chunks, hashing
+  SHA-1 as it goes, aborts with 413 as soon as the limit is crossed, validates
+  the temp file with Pillow, then atomically moves it to
+  `uploads/YYYY/MM/{uuid}.{ext}`. The file is never read into memory.
+* Uploading an image enqueues one `prewarm` job (jobs table); audio/files don't.
+* Per-image AVIF quality is gone (BC-34): the image pipeline publishes through
+  `media.derivative_set` and the API exposes `images.image_payload`.
+
+Every file has an owner (`media.owner_id`). Ownership checks go through
+`app.services.authz.authorize`.
 """
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import logging
 import mimetypes
 import re
-import sqlite3
-import threading
+import tempfile
 import uuid
-from datetime import datetime, timezone
-from io import BytesIO
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import (
     APIRouter,
-    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -31,49 +37,42 @@ from fastapi import (
     Query,
     UploadFile,
 )
-from PIL import Image, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
+from pydantic import BaseModel, ConfigDict
 
 from ..api.models import (
+    ExifPayload,
+    ImagePayload,
     MediaDeleteResponse,
     MediaExifResponse,
-    MediaItem,
-    MediaListResponse,
-    MediaUploadResponse,
-    OptimizeQueuedResponse,
-    OptimizeStartResponse,
-    OptimizeStatusResponse,
+    Pagination,
     StorageStatusResponse,
-    StorageSyncStartResponse,
-    StorageSyncStatusResponse,
     StorageTestResponse,
 )
-from ..config import ADMIN_MAX_UPLOAD_BYTES
+from ..config import ADMIN_MAX_UPLOAD_BYTES, UPLOAD_DIR
 from ..db import db, now_iso
 from ..deps import require_permission, require_staff
-from ..exif import dump_exif, parse_stored, read_exif_bytes, summary
+from ..exif import dump_exif, parse_stored, read_exif_file, summary
 from ..images import (
     AVIF_SUPPORTED,
     WEBP_SUPPORTED,
     delete_derivatives,
     derivative_stats,
-    dominant_color,
     image_payload,
     is_image_row,
-    prewarm_media,
 )
+from ..jobs import enqueue_job
 from ..permissions import can
 from ..posts import pagination
 from ..schemas import MediaAltIn, MediaExifIn, StorageSyncIn
 from ..services.authz import authorize
 from ..settings import Settings, load_settings, load_settings_cached
 from ..storage import (
-    LocalStorage,
     StorageError,
     get_remote_storage,
     get_storage,
     storage_config,
 )
-from ..storage_sync import sync_local_to_remote
 
 router = APIRouter(prefix="/admin", tags=["media"], dependencies=[Depends(require_staff)])
 logger = logging.getLogger("mztlab.media")
@@ -114,7 +113,70 @@ MAX_PIXELS = 48_000_000
 # Technical ceiling for the configurable upload limit (the Settings model
 # validates 1-200 as well; keep the two in sync).
 MAX_UPLOAD_MB = 200
-DEFAULT_AVIF_QUALITY = 55
+STREAM_CHUNK_BYTES = 1024 * 1024
+
+
+# ---------------------------------------------------------------------------
+# Response DTOs (kept next to the routes because the media payload is derived
+# from `images.image_payload`; the API contract is generated from these)
+# ---------------------------------------------------------------------------
+
+
+class _Model(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+
+class MediaImageInfo(ImagePayload):
+    """Read-only derivative metadata (mirror of `images.image_payload`)."""
+
+
+class MediaOwnerInfo(_Model):
+    id: int
+    name: str
+    username: str = ""
+
+
+class MediaItemPayload(_Model):
+    id: int
+    filename: str
+    original_name: str
+    mime: str
+    size: int
+    width: int = 0
+    height: int = 0
+    alt: str = ""
+    owner_id: int
+    exif: ExifPayload | None = None
+    placeholder: str = ""
+    created_at: str
+    owner: MediaOwnerInfo
+    url: str
+    kind: Literal["image", "audio", "file"]
+    image: MediaImageInfo | None = None
+
+
+class MediaUploadPayload(MediaItemPayload):
+    exif_summary: str = ""
+
+
+class MediaListPayload(Pagination):
+    items: list[MediaItemPayload]
+
+
+class OptimizeScopeIn(_Model):
+    """Optional scope for `POST /media/optimize-all` (omit = every image)."""
+
+    gallery_id: int | None = None
+
+
+class JobQueuedPayload(_Model):
+    ok: bool
+    job_id: int
+
+
+# ---------------------------------------------------------------------------
+# Upload policy (typed settings, single source of truth)
+# ---------------------------------------------------------------------------
 
 
 def _enabled_image_formats(
@@ -177,7 +239,11 @@ def _format_error(
 
 
 def _file_format(data: bytes, filename: str, allowed: dict[str, str]) -> tuple[str, str] | None:
-    """Validate extra files by extension plus a light magic-byte check."""
+    """Validate extra files by extension plus a light magic-byte check.
+
+    `data` is only the first bytes of the file (the upload path never reads the
+    whole file into memory); every signature below lives in the first bytes.
+    """
     extension = Path(filename).suffix.lower().lstrip(".")
     mime = allowed.get(extension)
     if not mime:
@@ -221,6 +287,10 @@ def _audio_format(data: bytes, filename: str, allowed: dict[str, str]) -> tuple[
     return (extension, mime) if signature and signature(data) else None
 
 
+# ---------------------------------------------------------------------------
+# Serialization
+# ---------------------------------------------------------------------------
+
 _MEDIA_SELECT = """
     SELECT m.*, u.display_name AS owner_name, u.username AS owner_username
     FROM media m
@@ -232,7 +302,7 @@ def _media_url(filename: str) -> str:
     return f"/media/{filename}"
 
 
-def _serialize(row: sqlite3.Row, settings: Settings | None = None) -> dict[str, Any]:
+def _serialize(row: Any, settings: Settings | None = None) -> dict[str, Any]:
     item = dict(row)
     owner_id = item.get("owner_id")
     item["owner_id"] = owner_id
@@ -241,7 +311,7 @@ def _serialize(row: sqlite3.Row, settings: Settings | None = None) -> dict[str, 
         "name": item.get("owner_name") or "未知成员",
         "username": item.get("owner_username") or "",
     }
-    item["url"] = _media_url(item["filename"])
+    item["url"] = _media_url(str(item["filename"]))
     if str(item.get("mime", "")).startswith("audio/"):
         item["kind"] = "audio"
     elif str(item.get("mime", "")).startswith("image/"):
@@ -249,19 +319,18 @@ def _serialize(row: sqlite3.Row, settings: Settings | None = None) -> dict[str, 
     else:
         item["kind"] = "file"
     item["exif"] = parse_stored(item.get("exif"))
-    # SQLite has no boolean type; the API contract is a real JSON boolean so the
-    # admin UI can tell auto from manual without caring about 0/1.
-    item["avif_quality_auto"] = bool(item.get("avif_quality_auto", 1))
-    item["avif_quality"] = int(item.get("avif_quality") or DEFAULT_AVIF_QUALITY)
     active_settings = settings or load_settings_cached()
+    # The only derivative metadata the API exposes. `derivative_set` and
+    # `source_sha1` are internal pointers/token inputs, not client data.
     item["image"] = image_payload(item, active_settings)
-    item.pop("ready_hash", None)
     item.pop("owner_name", None)
     item.pop("owner_username", None)
+    item.pop("derivative_set", None)
+    item.pop("source_sha1", None)
     return item
 
 
-def _get_row(conn: sqlite3.Connection, media_id: int) -> sqlite3.Row:
+def _get_row(conn: Any, media_id: int) -> Any:
     row = conn.execute(_MEDIA_SELECT + " WHERE m.id = ?", (media_id,)).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="文件不存在")
@@ -276,7 +345,122 @@ def _read_media_bytes(filename: str) -> bytes | None:
         return None
 
 
-@router.get("/media", response_model=MediaListResponse)
+# ---------------------------------------------------------------------------
+# Streamed upload
+# ---------------------------------------------------------------------------
+
+
+def _stream_upload_to_temp(file: UploadFile, max_bytes: int) -> tuple[Path, int, str]:
+    """Copy the upload into a temp file in 1 MB chunks, hashing as it goes.
+
+    Returns `(path, size, sha1_hex)`. Raises 400 for an empty file and 413 as
+    soon as the limit is crossed, deleting the partial temp file in both cases.
+    """
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    path: Path | None = None
+    size = 0
+    digest = hashlib.sha1()
+    try:
+        with tempfile.NamedTemporaryFile(
+            dir=UPLOAD_DIR, prefix=".upload-", suffix=".tmp", delete=False
+        ) as handle:
+            path = Path(handle.name)
+            limit_mb = max(1, max_bytes // (1024 * 1024))
+            while True:
+                chunk = file.file.read(STREAM_CHUNK_BYTES)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > max_bytes:
+                    raise HTTPException(
+                        status_code=413, detail=f"文件不能超过 {limit_mb}MB"
+                    )
+                digest.update(chunk)
+                handle.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=400, detail="文件为空")
+    except HTTPException:
+        # The handle is closed by the `with` block before this runs (Windows
+        # cannot delete an open file).
+        if path is not None:
+            path.unlink(missing_ok=True)
+        raise
+    except Exception:
+        if path is not None:
+            path.unlink(missing_ok=True)
+        raise
+    if path is None:  # pragma: no cover - NamedTemporaryFile always names a file
+        raise HTTPException(status_code=500, detail="临时文件创建失败")
+    return path, size, digest.hexdigest()
+
+
+def _read_header(path: Path, length: int = 64) -> bytes:
+    with path.open("rb") as handle:
+        return handle.read(length)
+
+
+def _probe_image(
+    path: Path,
+    *,
+    is_admin: bool,
+    image_formats: dict[str, tuple[str, str]],
+) -> tuple[str | None, int, int]:
+    """Validate an image from the temp file and return `(PIL format, w, h)`.
+
+    Returns `(None, 0, 0)` when the file is not an image; raises 415/413 for a
+    recognised image that the policy rejects.
+    """
+    fmt: str | None = None
+    try:
+        with Image.open(path) as probe:
+            candidate = (probe.format or "").upper()
+            if candidate in IMAGE_FORMATS:
+                extension = IMAGE_FORMATS[candidate][0]
+                if not is_admin and extension not in image_formats:
+                    raise HTTPException(
+                        status_code=415,
+                        detail=f"图片格式 {extension.upper()} 未启用",
+                    )
+                probe.verify()
+                fmt = candidate
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError, SyntaxError):
+        return None, 0, 0
+
+    if fmt is None:
+        return None, 0, 0
+    try:
+        with Image.open(path) as image:
+            width, height = image.size
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError):
+        return None, 0, 0
+    if width * height > MAX_PIXELS:
+        raise HTTPException(status_code=413, detail="图片像素过大")
+    return fmt, width, height
+
+
+def _dominant_color(path: Path) -> str:
+    """A 1×1 average colour used as a decode-time placeholder (from disk)."""
+    try:
+        with Image.open(path) as image:
+            image = ImageOps.exif_transpose(image)
+            thumbnail = image.convert("RGB").resize((1, 1), Image.Resampling.LANCZOS)
+            pixel = thumbnail.getpixel((0, 0))
+            if not isinstance(pixel, tuple):
+                return ""
+            red, green, blue = pixel[:3]
+            return f"#{red:02x}{green:02x}{blue:02x}"
+    except Exception:
+        return ""
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+
+@router.get("/media", response_model=MediaListPayload)
 def list_media(
     page: int = Query(1, ge=1),
     per_page: int = Query(30, ge=1, le=100),
@@ -310,130 +494,101 @@ def list_media(
     }
 
 
-@router.post("/media", status_code=201, response_model=MediaUploadResponse)
-async def upload_media(
-    background: BackgroundTasks,
+@router.post("/media", status_code=201, response_model=MediaUploadPayload)
+def upload_media(
     file: UploadFile = File(...),
     alt: str = Form(default=""),
     user: dict = Depends(require_permission("media.manage")),
 ) -> dict[str, Any]:
+    """Streamed upload: temp file → validate → atomic move → row + prewarm job.
+
+    Synchronous on purpose: `Pillow.verify()`, EXIF parsing and the storage write
+    are CPU/IO heavy and must run in the thread pool, never on the event loop.
+    """
     is_admin = str(user.get("role") or "") == "admin"
     max_bytes, image_formats, audio_formats, file_formats = _upload_policy()
     if is_admin:
         # Administrators bypass the configured size / format policy; only the
         # technical ceiling and image sanity checks remain.
         max_bytes = ADMIN_MAX_UPLOAD_BYTES
-    data = await file.read(max_bytes + 1)
-    if not data:
-        raise HTTPException(status_code=400, detail="文件为空")
-    if len(data) > max_bytes:
-        limit_mb = max_bytes // (1024 * 1024)
-        raise HTTPException(
-            status_code=413,
-            detail=f"文件不能超过 {limit_mb}MB",
-        )
 
-    fmt: str | None = None
-    width = height = 0
+    temp_path, size, source_sha1 = _stream_upload_to_temp(file, max_bytes)
     try:
-        with Image.open(BytesIO(data)) as probe:
-            candidate = (probe.format or "").upper()
-            if candidate in IMAGE_FORMATS:
-                ext = IMAGE_FORMATS[candidate][0]
-                if not is_admin and ext not in image_formats:
+        fmt, width, height = _probe_image(
+            temp_path, is_admin=is_admin, image_formats=image_formats
+        )
+        if fmt:
+            ext, mime = IMAGE_FORMATS[fmt]
+        else:
+            header = _read_header(temp_path)
+            audio = _audio_format(
+                header,
+                file.filename or "",
+                AUDIO_EXTENSIONS if is_admin else audio_formats,
+            )
+            if audio:
+                ext, mime = audio
+                width = height = 0
+            elif is_admin:
+                ext, mime = _any_file_format(file.filename or "")
+                width = height = 0
+            else:
+                extra = _file_format(header, file.filename or "", file_formats)
+                if not extra:
                     raise HTTPException(
                         status_code=415,
-                        detail=f"图片格式 {ext.upper()} 未启用：{_format_error(image_formats, audio_formats, file_formats)}",
+                        detail=_format_error(image_formats, audio_formats, file_formats),
                     )
-                probe.verify()
-                with Image.open(BytesIO(data)) as image:
-                    width, height = image.size
-                    if width * height > MAX_PIXELS:
-                        raise HTTPException(status_code=413, detail="图片像素过大")
-                fmt = candidate
-    except HTTPException:
-        raise
-    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError, SyntaxError):
-        fmt = None
+                ext, mime = extra
+                width = height = 0
 
-    if fmt:
-        ext, mime = IMAGE_FORMATS[fmt]
-    else:
-        audio = _audio_format(
-            data,
-            file.filename or "",
-            AUDIO_EXTENSIONS if is_admin else audio_formats,
-        )
-        if audio:
-            ext, mime = audio
-            width = height = 0
-        elif is_admin:
-            ext, mime = _any_file_format(file.filename or "")
-            width = height = 0
-        else:
-            extra = _file_format(data, file.filename or "", file_formats)
-            if not extra:
-                raise HTTPException(
-                    status_code=415,
-                    detail=_format_error(image_formats, audio_formats, file_formats),
-                )
-            ext, mime = extra
-            width = height = 0
+        exif = read_exif_file(temp_path) if fmt else None
+        placeholder = _dominant_color(temp_path) if fmt else ""
 
-    now = datetime.now(timezone.utc)
-    relative_dir = Path(f"{now.year:04d}") / f"{now.month:02d}"
-    filename = f"{uuid.uuid4().hex}.{ext}"
-    relative = (relative_dir / filename).as_posix()
-    storage = get_storage()
-    try:
-        storage.save(relative, data, mime)
-    except StorageError as error:
-        raise HTTPException(status_code=502, detail=f"媒体存储不可用：{error}") from error
+        now = datetime.now(UTC)
+        relative_dir = Path(f"{now.year:04d}") / f"{now.month:02d}"
+        filename = f"{uuid.uuid4().hex}.{ext}"
+        relative = (relative_dir / filename).as_posix()
+        try:
+            get_storage().save_file(relative, temp_path, mime)
+        except StorageError as error:
+            raise HTTPException(status_code=502, detail=f"媒体存储不可用：{error}") from error
 
-    # Pillow is only for images; EXIF never blocks an otherwise valid upload.
-    exif = read_exif_bytes(data) if fmt else None
-    original_name = (file.filename or f"media.{ext}").replace("\\", "/").split("/")[-1][:200]
-    placeholder = dominant_color(data) if fmt else ""
-    with db() as conn:
-        cur = conn.execute(
-            """INSERT INTO media(filename, original_name, mime, size, width, height,
-                                 alt, owner_id, exif, placeholder, created_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                relative,
-                original_name,
-                mime,
-                len(data),
-                width,
-                height,
-                alt.strip()[:200],
-                int(user["id"]),
-                dump_exif(exif),
-                placeholder,
-                now_iso(),
-            ),
-        )
-        media_id = int(cur.lastrowid)
-        row = _get_row(conn, media_id)
-        item = _serialize(row)
-    item["exif_summary"] = summary(exif)
-    # Generate the scene variants in the background; the upload itself must not
-    # wait for AVIF encoding. Until the set is complete the API serves proxy
-    # URLs instead of direct object-storage URLs.
-    if fmt and load_settings_cached().advanced.image.prewarm:
-        background.add_task(prewarm_media, media_id)
-    return item
+        original_name = (file.filename or f"media.{ext}").replace("\\", "/").split("/")[-1][:200]
+        with db() as conn:
+            cursor = conn.execute(
+                """INSERT INTO media(filename, original_name, mime, size, width, height,
+                                     alt, owner_id, exif, source_sha1, placeholder, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    relative,
+                    original_name,
+                    mime,
+                    size,
+                    width,
+                    height,
+                    alt.strip()[:200],
+                    int(user["id"]),
+                    dump_exif(exif),
+                    source_sha1,
+                    placeholder,
+                    now_iso(),
+                ),
+            )
+            media_id = int(cursor.lastrowid or 0)
+            row = _get_row(conn, media_id)
+            item = _serialize(row)
+        item["exif_summary"] = summary(exif)
+        # Encoding happens in the background worker; the upload never waits for
+        # AVIF/WebP generation (R4: read paths only assemble existing artifacts).
+        if fmt:
+            enqueue_job("prewarm", media_id=media_id)
+        return item
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
-@router.get("/media/optimize-status", response_model=OptimizeStatusResponse)
-def optimize_status(
-    user: dict = Depends(require_permission("media.manage")),
-) -> dict[str, Any]:
-    with _OPTIMIZE_LOCK:
-        return dict(_OPTIMIZE_STATE)
-
-
-@router.get("/media/{media_id}", response_model=MediaItem)
+@router.get("/media/{media_id}", response_model=MediaItemPayload)
 def media_detail(media_id: int, user: dict = Depends(require_staff)) -> dict[str, Any]:
     with db() as conn:
         row = _get_row(conn, media_id)
@@ -441,7 +596,7 @@ def media_detail(media_id: int, user: dict = Depends(require_staff)) -> dict[str
         return _serialize(row)
 
 
-@router.put("/media/{media_id}/exif", response_model=MediaItem)
+@router.put("/media/{media_id}/exif", response_model=MediaItemPayload)
 def update_media_exif(
     media_id: int,
     payload: MediaExifIn,
@@ -455,7 +610,7 @@ def update_media_exif(
         raw = _read_media_bytes(row["filename"])
         if raw is None:
             raise HTTPException(status_code=404, detail="原始图片文件不存在")
-        current = parse_stored(row["exif"]) or read_exif_bytes(raw) or {}
+        current = parse_stored(row["exif"]) or {}
         incoming = {
             "camera": payload.camera.strip(),
             "lens": payload.lens.strip(),
@@ -508,14 +663,18 @@ def media_exif(media_id: int, user: dict = Depends(require_staff)) -> dict[str, 
     """Read EXIF from the original file, caching the result on the media row.
 
     Older uploads have no cached block; reading on demand means the feature
-    works for images uploaded before this route existed.
+    works for images uploaded before the cached block existed.
     """
     with db() as conn:
         row = _get_row(conn, media_id)
         authorize(user, row, "write")
         stored = parse_stored(row["exif"])
         raw = _read_media_bytes(row["filename"]) if not stored else None
-        fresh = read_exif_bytes(raw) if raw else None
+        fresh = None
+        if raw:
+            from ..exif import read_exif_bytes
+
+            fresh = read_exif_bytes(raw)
         if fresh and not stored:
             conn.execute("UPDATE media SET exif = ? WHERE id = ?", (dump_exif(fresh), media_id))
         exif = stored or fresh
@@ -528,40 +687,21 @@ def media_exif(media_id: int, user: dict = Depends(require_staff)) -> dict[str, 
     }
 
 
-def _media_patch_columns(row: sqlite3.Row, payload: MediaAltIn) -> dict[str, Any]:
+def _media_patch_columns(row: Any, payload: MediaAltIn) -> dict[str, Any]:
     """Map only the fields the client actually sent to `media` columns.
 
-    PATCH semantics: an omitted field keeps its current value; an explicit JSON
-    `null` clears the value (for the AVIF quality that means "follow the scene
-    presets again").
+    PATCH semantics: an omitted field keeps its current value. Per-image AVIF
+    quality no longer exists (BC-34), so `alt` is the only editable field; old
+    clients still sending `avif_quality*` are ignored rather than erroring.
     """
     provided = payload.model_dump(exclude_unset=True)
     columns: dict[str, Any] = {}
     if "alt" in provided:
         columns["alt"] = str(provided["alt"] or "")
-    if not is_image_row(row):
-        return columns
-    if "avif_quality_auto" in provided or "avif_quality" in provided:
-        auto = int(row["avif_quality_auto"] or 0)
-        manual = int(row["avif_quality"] or DEFAULT_AVIF_QUALITY)
-        if "avif_quality_auto" in provided:
-            auto = 0 if provided["avif_quality_auto"] is False else 1
-        if "avif_quality" in provided:
-            value = provided["avif_quality"]
-            if value is None:
-                manual = DEFAULT_AVIF_QUALITY
-                auto = 1
-            else:
-                manual = max(1, min(100, int(value)))
-        columns["avif_quality_auto"] = auto
-        columns["avif_quality"] = manual
-        # A changed quality produces a new URL token; drop the "ready" mark so
-        # the API falls back to proxy URLs until the new set is built.
-        columns["ready_hash"] = ""
     return columns
 
 
-def _apply_media_columns(conn: sqlite3.Connection, media_id: int, columns: dict[str, Any]) -> None:
+def _apply_media_columns(conn: Any, media_id: int, columns: dict[str, Any]) -> None:
     if not columns:
         return
     assignments = ", ".join(f"{name} = ?" for name in columns)
@@ -571,106 +711,52 @@ def _apply_media_columns(conn: sqlite3.Connection, media_id: int, columns: dict[
     )
 
 
-@router.put("/media/{media_id}", response_model=MediaItem)
-@router.patch("/media/{media_id}", response_model=MediaItem)
+@router.put("/media/{media_id}", response_model=MediaItemPayload)
+@router.patch("/media/{media_id}", response_model=MediaItemPayload)
 def update_media(
     media_id: int,
     payload: MediaAltIn,
-    background: BackgroundTasks,
     user: dict = Depends(require_permission("media.manage")),
 ) -> dict[str, Any]:
-    """Partial update: omitted fields are untouched, explicit null clears."""
+    """Partial update: omitted fields are untouched."""
     with db() as conn:
         row = _get_row(conn, media_id)
         authorize(user, row, "write")
         columns = _media_patch_columns(row, payload)
         _apply_media_columns(conn, media_id, columns)
-        if "avif_quality" in columns and load_settings_cached().advanced.image.prewarm:
-            background.add_task(prewarm_media, media_id)
         updated = _get_row(conn, media_id)
     return _serialize(updated)
 
 
 # ---------------------------------------------------------------------------
-# Derivative / storage maintenance
+# Derivative / storage maintenance (jobs table, no in-process globals)
 # ---------------------------------------------------------------------------
 
-_OPTIMIZE_STATE: dict[str, Any] = {
-    "running": False,
-    "total": 0,
-    "done": 0,
-    "failed": 0,
-    "started_at": "",
-    "finished_at": "",
-    "error": "",
-}
-_OPTIMIZE_LOCK = threading.Lock()
 
-
-def _run_optimize_all() -> None:
-    with _OPTIMIZE_LOCK:
-        _OPTIMIZE_STATE.update(
-            running=True,
-            total=0,
-            done=0,
-            failed=0,
-            error="",
-            started_at=now_iso(),
-            finished_at="",
-        )
-    try:
-        with db() as conn:
-            ids = [
-                int(row["id"])
-                for row in conn.execute(
-                    "SELECT id FROM media WHERE mime LIKE 'image/%' ORDER BY id"
-                )
-            ]
-        with _OPTIMIZE_LOCK:
-            _OPTIMIZE_STATE["total"] = len(ids)
-        for media_id in ids:
-            try:
-                prewarm_media(media_id)
-            except Exception:
-                with _OPTIMIZE_LOCK:
-                    _OPTIMIZE_STATE["failed"] += 1
-                continue
-            with _OPTIMIZE_LOCK:
-                _OPTIMIZE_STATE["done"] += 1
-    except Exception as error:  # pragma: no cover - defensive
-        with _OPTIMIZE_LOCK:
-            _OPTIMIZE_STATE["error"] = str(error)
-    finally:
-        with _OPTIMIZE_LOCK:
-            _OPTIMIZE_STATE["running"] = False
-            _OPTIMIZE_STATE["finished_at"] = now_iso()
-
-
-@router.post("/media/optimize-all", response_model=OptimizeStartResponse)
+@router.post("/media/optimize-all", response_model=JobQueuedPayload)
 def optimize_all(
-    background: BackgroundTasks,
+    payload: OptimizeScopeIn | None = None,
     user: dict = Depends(require_permission("media.manage")),
 ) -> dict[str, Any]:
-    with _OPTIMIZE_LOCK:
-        if _OPTIMIZE_STATE["running"]:
-            return {"ok": True, "started": False, "message": "已有优化任务在进行"}
-    background.add_task(_run_optimize_all)
-    return {"ok": True, "started": True}
+    """Queue a `reencode` job for every image (or one gallery's images)."""
+    scope = payload or OptimizeScopeIn()
+    job_id = enqueue_job("reencode", gallery_id=scope.gallery_id, force=True)
+    return {"ok": True, "job_id": job_id}
 
 
-@router.post("/media/{media_id}/optimize", response_model=OptimizeQueuedResponse)
+@router.post("/media/{media_id}/optimize", response_model=JobQueuedPayload)
 def optimize_media(
     media_id: int,
-    background: BackgroundTasks,
     user: dict = Depends(require_permission("media.manage")),
 ) -> dict[str, Any]:
+    """Queue a `reencode` job for one image."""
     with db() as conn:
         row = _get_row(conn, media_id)
         authorize(user, row, "write")
         if not is_image_row(row):
             raise HTTPException(status_code=400, detail="只有图片可以优化")
-    background.add_task(prewarm_media, media_id, force=True)
-    return {"ok": True, "queued": True, "media_id": media_id}
+    job_id = enqueue_job("reencode", media_id=media_id, force=True)
+    return {"ok": True, "job_id": job_id}
 
 
 @router.get("/storage/status", response_model=StorageStatusResponse)
@@ -719,127 +805,28 @@ def storage_test(
     }
 
 
-# ---------------------------------------------------------------------------
-# Force-sync local files to object storage
-# ---------------------------------------------------------------------------
-
-_SYNC_STATE: dict[str, Any] = {
-    "running": False,
-    "total": 0,
-    "uploaded": 0,
-    "skipped": 0,
-    "failed": 0,
-    "bytes": 0,
-    "current": "",
-    "force": False,
-    "scope": "all",
-    "started_at": "",
-    "finished_at": "",
-    "error": "",
-    "errors": [],
-}
-_SYNC_LOCK = threading.Lock()
-
-
-def _sync_progress(result) -> None:
-    with _SYNC_LOCK:
-        _SYNC_STATE.update(
-            total=result.total,
-            uploaded=result.uploaded,
-            skipped=result.skipped,
-            failed=result.failed,
-            bytes=result.bytes_uploaded,
-            current=result.current,
-            errors=result.errors[-5:],
-        )
-
-
-def _run_storage_sync(force: bool, scope: str) -> None:
-    with _SYNC_LOCK:
-        _SYNC_STATE.update(
-            running=True,
-            total=0,
-            uploaded=0,
-            skipped=0,
-            failed=0,
-            bytes=0,
-            current="",
-            force=force,
-            scope=scope,
-            error="",
-            errors=[],
-            started_at=now_iso(),
-            finished_at="",
-        )
-    try:
-        remote = get_remote_storage()
-        if remote is None:
-            raise StorageError("对象存储未配置（请填写 bucket 与 endpoint）")
-        result = sync_local_to_remote(
-            LocalStorage(),
-            remote,
-            force=force,
-            scope=scope,
-            progress=_sync_progress,
-        )
-        with _SYNC_LOCK:
-            _SYNC_STATE.update(
-                total=result.total,
-                uploaded=result.uploaded,
-                skipped=result.skipped,
-                failed=result.failed,
-                bytes=result.bytes_uploaded,
-                errors=result.errors[-5:],
-            )
-    except Exception as error:  # pragma: no cover - defensive
-        logger.exception("storage sync failed")
-        with _SYNC_LOCK:
-            _SYNC_STATE["error"] = str(error)
-    finally:
-        with _SYNC_LOCK:
-            _SYNC_STATE["running"] = False
-            _SYNC_STATE["current"] = ""
-            _SYNC_STATE["finished_at"] = now_iso()
-
-
-@router.get("/storage/sync-status", response_model=StorageSyncStatusResponse)
-def storage_sync_status(
-    user: dict = Depends(require_permission("settings.manage")),
-) -> dict[str, Any]:
-    with _SYNC_LOCK:
-        return dict(_SYNC_STATE)
-
-
-@router.post("/storage/sync", response_model=StorageSyncStartResponse)
+@router.post("/storage/sync", response_model=JobQueuedPayload)
 def storage_sync(
     payload: StorageSyncIn,
-    background: BackgroundTasks,
     user: dict = Depends(require_permission("settings.manage")),
 ) -> dict[str, Any]:
-    """Force-upload local originals and/or cached derivatives to the bucket.
+    """Queue a `storage_sync` job (force-upload local files to the bucket).
 
-    Runs in the background; poll `/api/admin/storage/sync-status` for progress.
+    The connectivity/config pre-check stays synchronous so a misconfigured
+    bucket is a 400 instead of a failed background job; the upload itself runs
+    in the worker and its progress lives on the `jobs` row.
     """
-    remote = get_remote_storage()
-    if remote is None:
+    if get_remote_storage() is None:
         raise HTTPException(
             status_code=400,
             detail="请先在「图片与存储」填写对象存储的 bucket 与 endpoint（无需先切换存储后端）",
         )
-    with _SYNC_LOCK:
-        if _SYNC_STATE["running"]:
-            return {
-                "ok": True,
-                "started": False,
-                "message": "已有同步任务在进行",
-            }
-    background.add_task(_run_storage_sync, payload.force, payload.scope)
-    return {
-        "ok": True,
-        "started": True,
-        "force": payload.force,
-        "scope": payload.scope,
-    }
+    job_id = enqueue_job(
+        "storage_sync",
+        force=payload.force,
+        payload={"force": payload.force, "scope": payload.scope},
+    )
+    return {"ok": True, "job_id": job_id}
 
 
 @router.delete("/media/{media_id}", response_model=MediaDeleteResponse)
@@ -851,11 +838,9 @@ def delete_media(
         authorize(user, row, "write")
         filename = row["filename"]
     delete_derivatives(media_id)
-    try:
+    # A missing object must not stop the database row from being removed.
+    with contextlib.suppress(StorageError):
         get_storage().delete(filename)
-    except StorageError:
-        # A missing object must not stop the database row from being removed.
-        pass
     with db() as conn:
         conn.execute("DELETE FROM media WHERE id = ?", (media_id,))
     return {"ok": True, "deleted": media_id}

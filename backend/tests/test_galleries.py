@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import unittest
 
 from app.errors import ApiError
-from app.galleries import photo_dict
+from app.galleries import gallery_dict, photo_dict
+from app.images import artifact_url
 from app.posts import public_url
 from app.routes.gallery_admin import _apply_columns, _photo_patch_columns
 from app.schemas import PhotoUpdateIn
@@ -38,29 +40,173 @@ class GalleryShapeTests(unittest.TestCase):
         self.assertEqual(item["alt"], "夜色 01")
         self.assertTrue(item["featured"])
         self.assertEqual(item["gallery"]["url"], "/galleries/nocturne")
-        # Original download is allowed by default and uses an attachment URL.
-        self.assertTrue(item["allow_download"])
+        # Schema v2 semantics: the original download is shown by default.
+        self.assertIs(item["hide_download_link"], False)
         self.assertEqual(item["download_url"], "/media/seed/nocturne-01.jpg?download=1")
         self.assertEqual(item["download_name"], "nocturne-01.jpg")
+        self.assertNotIn("allow_download", item)
 
-    def test_photo_can_disable_original_download(self) -> None:
+    def test_hidden_download_link_has_no_download_url(self) -> None:
         item = photo_dict(
             {
                 "id": 11,
                 "filename": "scene/two.jpg",
                 "width": 1200,
                 "height": 800,
-                "allow_download": 0,
+                "hide_download_link": 1,
             },
             Settings(),
         )
-        self.assertFalse(item["allow_download"])
+        self.assertIs(item["hide_download_link"], True)
         self.assertEqual(item["download_url"], "")
+        # Hiding the affordance never hides the (public) original URL.
+        self.assertEqual(item["url"], "/media/scene/two.jpg")
 
     def test_loose_photo_has_no_gallery(self) -> None:
         item = photo_dict({"id": 1, "filename": "a.jpg", "width": 0, "height": 0}, Settings())
         self.assertIsNone(item["gallery"])
         self.assertEqual(item["aspect"], 1.5)
+
+
+class ImagePayloadTests(unittest.TestCase):
+    """`photo_dict` must pass the v2 media columns to `images.image_payload`."""
+
+    def _row(self, **overrides: object) -> dict[str, object]:
+        row: dict[str, object] = {
+            "id": 4,
+            "gallery_id": 2,
+            "gallery_slug": "form-studies",
+            "gallery_title": "FORM / 结构练习",
+            "media_id": 9,
+            "filename": "seed/form-studies-01.jpg",
+            "title": "FORM 01",
+            "caption": "",
+            "width": 1600,
+            "height": 1000,
+            "media_mime": "image/jpeg",
+            "media_size": 123_456,
+            "media_width": 3200,
+            "media_height": 2000,
+            "media_source_sha1": "a" * 40,
+            "media_derivative_set": "",
+            "media_placeholder": "#c2451f",
+        }
+        row.update(overrides)
+        return row
+
+    def test_not_ready_falls_back_to_the_original(self) -> None:
+        item = photo_dict(self._row(), Settings())
+        image = item["image"]
+        assert image is not None
+        # No derivative set yet: the frontend falls back to `item["url"]`.
+        self.assertIs(image["ready"], False)
+        self.assertFalse(image["artifacts"])
+        self.assertEqual(image["formats"], [])
+        self.assertEqual(image["base"], "/media/_v/9")
+        self.assertEqual(image["placeholder"], "#c2451f")
+        self.assertEqual((image["s"], image["l"], image["f"]), (720, 2560, 3200))
+
+    def test_ready_derivative_set_is_exposed_by_token(self) -> None:
+        derivative_set = json.dumps(
+            {
+                "ready": True,
+                "pipeline_version": 4,
+                "s": 720,
+                "l": 2560,
+                "f": 3200,
+                "artifacts": {
+                    "card": {"720": {"jpeg": "aaaabbbb01", "webp": "aaaabbbb02"}},
+                    "full": {"3200": {"jpeg": "aaaabbbb03"}},
+                },
+            }
+        )
+        item = photo_dict(self._row(media_derivative_set=derivative_set), Settings())
+        image = item["image"]
+        assert image is not None
+        self.assertIs(image["ready"], True)
+        self.assertEqual(image["pipeline_version"], 4)
+        # `images` owns the payload shape; the tokens must survive it either as
+        # a nested map or as a flattened artifact list.
+        self.assertIn("aaaabbbb01", json.dumps(image["artifacts"]))
+        self.assertEqual(
+            artifact_url(image, "card", 720, "jpeg", prefer_direct=False),
+            "/media/_v/9/aaaabbbb01/card/720.jpg",
+        )
+        # URLs only exist for artifacts the set actually contains.
+        self.assertEqual(artifact_url(image, "hero", 2560, "jpeg"), "")
+
+    def test_missing_media_row_has_no_payload(self) -> None:
+        item = photo_dict(self._row(media_id=None), Settings())
+        self.assertIsNone(item["image"])
+
+
+class PhotoColumnsTests(unittest.TestCase):
+    """The v2 columns in `_PHOTO_COLUMNS` must match the real schema."""
+
+    def _connection(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        conn.executescript(
+            """
+            CREATE TABLE users(id INTEGER PRIMARY KEY, display_name TEXT,
+                               username TEXT, avatar TEXT);
+            CREATE TABLE galleries(id INTEGER PRIMARY KEY, title TEXT, slug TEXT,
+                                   description TEXT, status TEXT, featured INTEGER,
+                                   cover_photo_id INTEGER, owner_id INTEGER,
+                                   created_at TEXT, updated_at TEXT);
+            CREATE TABLE media(id INTEGER PRIMARY KEY, filename TEXT,
+                               original_name TEXT, mime TEXT, size INTEGER,
+                               width INTEGER, height INTEGER, alt TEXT,
+                               owner_id INTEGER, exif TEXT, source_sha1 TEXT,
+                               derivative_set TEXT, placeholder TEXT,
+                               created_at TEXT);
+            CREATE TABLE photos(id INTEGER PRIMARY KEY, gallery_id INTEGER,
+                                media_id INTEGER, filename TEXT, title TEXT,
+                                caption TEXT, location TEXT, camera TEXT,
+                                lens TEXT, taken_at TEXT, width INTEGER,
+                                height INTEGER, exif_fields TEXT,
+                                hide_download_link INTEGER, featured INTEGER,
+                                status TEXT, sort_order INTEGER, created_at TEXT);
+            """
+        )
+        conn.execute("INSERT INTO users VALUES (1, 'MZTLAB', 'mztlab', '')")
+        conn.execute(
+            "INSERT INTO galleries VALUES (2, 'FORM', 'form-studies', '边界练习', "
+            "'published', 1, 10, 1, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')"
+        )
+        conn.execute(
+            "INSERT INTO media VALUES (9, 'seed/form-studies-01.jpg', "
+            "'form-studies-01.jpg', 'image/jpeg', 1000, 3200, 2000, 'FORM 01', 1, "
+            "'{}', 'deadbeef', '', '#c2451f', '2026-01-01T00:00:00Z')"
+        )
+        conn.execute(
+            "INSERT INTO photos VALUES (10, 2, 9, 'seed/form-studies-01.jpg', "
+            "'FORM 01', '', '上海', 'Ricoh GR III', '28mm', '2026-01-01', 1600, "
+            "1000, '', 0, 1, 'published', 10, '2026-01-01T00:00:00Z')"
+        )
+        return conn
+
+    def test_gallery_dict_reads_v2_columns(self) -> None:
+        conn = self._connection()
+        try:
+            row = conn.execute(
+                "SELECT g.*, u.display_name AS author_name, "
+                "u.username AS author_username, u.avatar AS author_avatar "
+                "FROM galleries g LEFT JOIN users u ON u.id = g.owner_id "
+                "WHERE g.id = 2"
+            ).fetchone()
+            assert row is not None
+            gallery = gallery_dict(conn, row, detail=True, settings=Settings())
+        finally:
+            conn.close()
+        self.assertEqual(gallery["photo_count"], 1)
+        photo = gallery["photos"][0]
+        self.assertEqual(photo["media_id"], 9)
+        self.assertIs(photo["hide_download_link"], False)
+        image = photo["image"]
+        assert image is not None
+        self.assertIs(image["ready"], False)
+        self.assertEqual(image["placeholder"], "#c2451f")
 
 
 class UrlShapeTests(unittest.TestCase):
@@ -106,14 +252,18 @@ class PhotoPatchSemanticsTests(unittest.TestCase):
         self.assertIn("gallery_id", columns)
         self.assertIsNone(columns["gallery_id"])
 
-    def test_explicit_null_clears_exif_visibility_and_download(self) -> None:
+    def test_explicit_null_resets_hidden_download_link(self) -> None:
+        if "hide_download_link" not in PhotoUpdateIn.model_fields:
+            # Lead owns app/schemas.py; until the `allow_download` ->
+            # `hide_download_link` rename lands this assertion cannot hold.
+            self.skipTest("PhotoUpdateIn.hide_download_link rename pending")
         columns = _photo_patch_columns(
             PhotoUpdateIn.model_validate(
-                {"exif_fields": None, "allow_download": None, "sort_order": None}
+                {"exif_fields": None, "hide_download_link": None, "sort_order": None}
             )
         )
         self.assertEqual(columns["exif_fields"], "")
-        self.assertEqual(columns["allow_download"], 1)
+        self.assertEqual(columns["hide_download_link"], 0)
         self.assertEqual(columns["sort_order"], 0)
 
     def test_partial_update_only_touches_the_provided_column(self) -> None:

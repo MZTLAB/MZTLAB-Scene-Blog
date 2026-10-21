@@ -1,0 +1,102 @@
+---
+/**
+ * Shared taxonomy listing (category/tag, page 1 at the short path and page N at
+ * `/tags/{tag}/page/{n}`). Rendered entirely from the bootstrap payload, so it
+ * has no request-context reads.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import StoryCard from './StoryCard.astro';
+import Pagination from './Pagination.astro';
+import Icon from './Icon.astro';
+import type { PostSummary, SiteInfo, Term } from '../types';
+
+interface Props {
+  site: SiteInfo;
+  kind: 'tag' | 'category';
+  term: Term;
+  items: PostSummary[];
+  page: number;
+  pages: number;
+  total: number;
+  basePath: string;
+}
+
+const { site, kind, term, items, page, pages, total, basePath } = Astro.props;
+const { site: siteSettings } = site.settings;
+const isTag = kind === 'tag';
+const pageTitle = isTag ? `标签：${term.name}` : `分类：${term.name}`;
+const pageDescription = isTag
+  ? term.description || `关于「${term.name}」的文章。`
+  : term.description || `${term.name} 分类下的文章。`;
+const heading = isTag ? `#${term.name}` : term.name;
+const kindLabel = isTag ? 'Tag' : 'Category';
+const emptyTitle = isTag ? '这个标签下还没有文章' : '这个分类下还没有文章';
+const otherTitle = isTag ? '其他标签' : '其他分类';
+const otherTermHref = (slug: string) =>
+  isTag ? `/tags/${slug}` : `/categories/${slug}`;
+const others = (isTag ? site.tags : site.categories)
+  .filter((item) => item.slug !== term.slug && (item.count || 0) > 0)
+  .slice(0, isTag ? 10 : undefined);
+const articleCount = term.count || total;
+const emptyMark = isTag ? '#' : '✳';
+---
+
+<BaseLayout site={site} title={pageTitle} description={pageDescription}>
+  <section class="container page-hero">
+    <span class="eyebrow">
+      <span class="dot"></span>
+      {kindLabel}
+    </span>
+    <h1>{heading}</h1>
+    <p>{pageDescription}</p>
+    <div class="page-hero__meta">
+      <span>{articleCount} 篇文章</span>
+      <span>·</span>
+      <a href="/archive" class="text-link">返回归档 <Icon name="arrowUpRight" size={12} /></a>
+    </div>
+  </section>
+
+  <div class="container section--tight">
+    {
+      items.length ? (
+        <div class="story-grid">
+          {items.map((post, index) => (
+            <StoryCard
+              post={post}
+              site={site}
+              label={siteSettings.site_title}
+              eager={index === 0}
+            />
+          ))}
+        </div>
+      ) : (
+        <div class="empty-state">
+          <span class="empty-mark">{emptyMark}</span>
+          <h2>{emptyTitle}</h2>
+        </div>
+      )
+    }
+    <Pagination page={page} pages={pages} basePath={basePath} />
+  </div>
+
+  {
+    others.length > 0 && (
+      <div class="container" style="padding-bottom: clamp(40px, 6vw, 80px)">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow eyebrow--plain">Elsewhere</span>
+            <h2>{otherTitle}</h2>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          {others.map((item) => (
+            <a class="chip" href={otherTermHref(item.slug)}>
+              {isTag ? `#${item.name}` : item.name}{' '}
+              <span style="opacity: .5">{item.count}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    )
+  }
+</BaseLayout>

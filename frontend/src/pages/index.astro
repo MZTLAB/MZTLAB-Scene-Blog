@@ -4,25 +4,20 @@ import HomeHero from '../components/HomeHero.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import SmartImage from '../components/SmartImage.astro';
 import Icon from '../components/Icon.astro';
-import { apiServer, getSite } from '../lib/api';
+import { getBootstrap } from '../lib/api';
 import { formatDate } from '../lib/format';
-import { isValidImage, srcset as imageSrcset } from '../lib/images';
+import { isValidImage, isReady, srcset as imageSrcset } from '../lib/images';
 import { copyReader } from '../lib/site';
-import type { Gallery, Paginated, PostSummary, SiteInfo } from '../types';
 
-const site: SiteInfo = await getSite();
+const { site, page: home } = await getBootstrap({ route: 'home' });
+if (home.kind !== 'home') throw new Error('unexpected bootstrap payload for home');
 const { site: siteSettings, appearance } = site.settings;
 const copy = copyReader(site.settings);
 
-// A backend failure must surface as a real 500 instead of a half-rendered 200.
-const [galleryResult, projectResult, articleResult] = await Promise.all([
-  apiServer<Paginated<Gallery>>('/api/galleries?per_page=6'),
-  apiServer<Paginated<PostSummary>>('/api/projects?per_page=6'),
-  apiServer<Paginated<PostSummary>>('/api/posts?per_page=4'),
-]);
-const galleries = galleryResult.items;
-const projects = projectResult.items;
-const articles = articleResult.items;
+// The aggregated payload is the only request this page makes (R1).
+const galleries = home.galleries;
+const projects = home.projects;
+const articles = home.posts;
 
 const featuredGallery = galleries.find((gallery) => gallery.featured) || galleries[0] || null;
 const photoItems = galleries.slice(0, 3);
@@ -43,6 +38,7 @@ const heroPreload =
   !appearance.hero_image &&
   appearance.hero_show &&
   isValidImage(heroCover) &&
+  isReady(heroCover) &&
   heroCover.formats.includes('avif')
     ? imageSrcset(heroCover, 'hero', 'avif')
     : '';

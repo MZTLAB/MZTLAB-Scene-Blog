@@ -2,15 +2,14 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GalleryCard from '../components/GalleryCard.astro';
 import Icon from '../components/Icon.astro';
-import { apiServer, getSite } from '../lib/api';
+import { getBootstrap } from '../lib/api';
 import { copyReader } from '../lib/site';
-import type { Gallery, Paginated, SiteInfo } from '../types';
 
-const site: SiteInfo = await getSite();
+const { site, page: galleryPage } = await getBootstrap({ route: 'galleries' });
+if (galleryPage.kind !== 'galleries') throw new Error('unexpected bootstrap payload for /photos');
 const { site: siteSettings } = site.settings;
 const copy = copyReader(site.settings);
-const data = await apiServer<Paginated<Gallery>>('/api/galleries?per_page=60');
-const galleries = data.items;
+const galleries = galleryPage.items;
 const columns = Math.min(4, Math.max(2, Number(siteSettings.gallery_columns) || 3));
 ---
 <BaseLayout site={site} title={copy('photos_title', '影像')} description={`${siteSettings.site_title} 的影像相册。`}>

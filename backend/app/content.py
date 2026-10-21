@@ -6,6 +6,7 @@ import html
 import math
 import re
 import unicodedata
+from datetime import UTC
 from html.parser import HTMLParser
 from typing import Any
 from urllib.parse import quote
@@ -237,7 +238,7 @@ def normalize_iso_datetime(value: str | None) -> str | None:
     """Accept browser datetime-local or ISO 8601; store UTC with a Z suffix."""
     if not value:
         return None
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     value = value.strip().replace("Z", "+00:00")
     try:
@@ -245,9 +246,9 @@ def normalize_iso_datetime(value: str | None) -> str | None:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
     return (
-        parsed.astimezone(timezone.utc)
+        parsed.astimezone(UTC)
         .replace(microsecond=0)
         .isoformat()
         .replace("+00:00", "Z")

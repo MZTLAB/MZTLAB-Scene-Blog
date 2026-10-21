@@ -1,6 +1,6 @@
 [project]
 name = "mztlab-backend"
-version = "3.0.0-beta1"
+version = "3.0.0-beta2"
 description = "MZTLAB Scene blog backend (FastAPI + SQLite)"
 requires-python = ">=3.11"
 # Runtime dependencies are intentionally not duplicated here: requirements.txt is
@@ -46,31 +46,12 @@ extend-immutable-calls = [
 # Tests legitimately use assert statements and loose typing helpers.
 "tests/*" = ["S101", "B011"]
 "tests/test_content.py" = ["S101", "B011", "E501"]  # legacy long assertions, rewritten later
-
-# Progressive ignore list (ratchet): existing 2.x modules are listed here with
-# only the rules they currently violate. New code must not add entries, and the
-# list shrinks as each module is rewritten in 3.0.0. Never add global `ignore`
-# entries to silence existing code.
-"app/content.py" = ["UP017"]  # datetime.timezone.utc -> datetime.UTC
-"app/db.py" = ["UP017", "UP035"]
-"app/deps.py" = ["SIM118", "UP035"]
-"app/exif.py" = ["SIM102"]
-"app/images.py" = ["E501", "SIM105"]
-"app/main.py" = ["F401"]
-"app/permissions.py" = ["UP035"]
-"app/posts.py" = ["UP035"]
-"app/photo_exif.py" = ["UP035"]
-"app/schemas.py" = ["UP037"]
-"app/security.py" = ["SIM118", "UP006", "UP017", "UP035"]
-"app/seed.py" = ["E501", "F401", "F841", "UP017"]
-"app/storage.py" = ["SIM105", "UP035", "UP037"]
-"app/storage_sync.py" = ["UP035"]
-# The image payload keeps its historical short keys (s/l/f) for the frontend.
+# Intentional, documented exceptions (the 2.x ratchet is gone: all rewritten
+# modules are lint-clean):
+# * the image payload keeps its historical short key names (s/l/f) for the web UI;
+# * the demo-content fixtures embed long Markdown paragraphs on single lines.
 "app/api/models.py" = ["E741"]
-"app/routes/gallery_admin.py" = ["E501", "I001"]
-"app/routes/media.py" = ["E501", "SIM105", "UP017"]
-"app/routes/public.py" = ["E501", "F541"]
-"app/routes/users.py" = ["E501"]
+"app/seed.py" = ["E501"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -97,11 +78,11 @@ disallow_untyped_defs = false
 check_untyped_defs = false
 ignore_missing_imports = false
 
-# Strict scope for new 3.0.0 packages. `app.settings` joins this list once
-# Phase 1 finishes typing models/store (it is pinned in the temporary ratchet
-# section below for now so `mypy app` stays green during the refactor).
+# Strict scope for the 3.0.0 domain layer. Legacy modules keep the relaxed global
+# baseline (they have since been rewritten and type-check anyway), so there is no
+# progressive ignore list any more.
 [[tool.mypy.overrides]]
-module = ["app.services", "app.services.*", "app.scripts", "app.scripts.*"]
+module = ["app.settings", "app.settings.*", "app.services", "app.services.*", "app.scripts", "app.scripts.*"]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true
@@ -111,35 +92,8 @@ no_implicit_optional = true
 # Third-party packages without stubs. Keep this list limited to libraries we do
 # not control; first-party modules must never be listed here.
 [[tool.mypy.overrides]]
-module = ["boto3", "bleach", "markdown", "markdown.*"]
+module = ["boto3", "botocore.*", "bleach", "markdown", "markdown.*"]
 ignore_missing_imports = true
-
-# TEMPORARY (Phase 1 in progress): app/settings is actively being written and
-# does not type-check yet. Once it does, delete this section and add
-# "app.settings", "app.settings.*" to the strict override above.
-[[tool.mypy.overrides]]
-module = ["app.settings", "app.settings.*"]
-ignore_errors = true
-
-# Progressive mypy ignore list (ratchet), same policy as ruff: every module
-# here is a 2.x module that cannot type-check yet. Remove an entry as soon as
-# that module is rewritten in 3.0.0; never add a global exception.
-[[tool.mypy.overrides]]
-module = [
-    "app.content",
-    "app.galleries",
-    "app.images",
-    "app.posts",
-    "app.seed",
-    "app.storage",
-    "app.routes.auth",
-    "app.routes.gallery_admin",
-    "app.routes.media",
-    "app.routes.media_serve",
-    "app.routes.public",
-    "app.routes.users",
-]
-ignore_errors = true
 
 # ---------------------------------------------------------------------------
 # pytest

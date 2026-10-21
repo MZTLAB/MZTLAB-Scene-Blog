@@ -380,10 +380,10 @@ const initialData = {
   import {
     debounce,
     errorMessage,
-    escapeHtml,
     toast,
   } from '../../lib/admin-client';
   import { api, ApiError } from '../../lib/api';
+  import { html, raw, setHTML } from '../../lib/dom';
   import { formatDate } from '../../lib/format';
   import { thumbUrl } from '../../lib/images';
   import type { AdminPost, AuthorOption, MediaItem, Paginated, Revision } from '../../types';
@@ -495,11 +495,12 @@ const initialData = {
 
     const renderTags = () => {
       if (!tagChips) return;
-      tagChips.innerHTML = tags
-        .map(
-          (tag, index) => `<span class="tag-chip">${escapeHtml(tag)}<button type="button" data-remove-tag="${index}" aria-label="移除 ${escapeHtml(tag)}">×</button></span>`,
-        )
-        .join('');
+      setHTML(
+        tagChips,
+        html`${tags.map(
+          (tag, index) => html`<span class="tag-chip">${tag}<button type="button" data-remove-tag="${index}" aria-label="移除 ${tag}">×</button></span>`,
+        )}`,
+      );
       tagChips.querySelectorAll<HTMLButtonElement>('[data-remove-tag]').forEach((button) => {
         button.addEventListener('click', () => {
           tags.splice(Number(button.dataset.removeTag), 1);
@@ -529,7 +530,10 @@ const initialData = {
         coverPreview.replaceChildren(image);
         coverUrlInput.value = cover;
       } else {
-        coverPreview.innerHTML = `<div class="cover-picker__empty"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>未设置封面<br>不设置时会生成文字封面</span></div>`;
+        setHTML(
+          coverPreview,
+          html`<div class="cover-picker__empty"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>未设置封面<br>不设置时会生成文字封面</span></div>`,
+        );
         coverUrlInput.value = '';
       }
     };
@@ -704,7 +708,8 @@ const initialData = {
           signal: controller.signal,
         });
         if (requestId !== previewRequestId) return;
-        preview.innerHTML = result.html;
+        // The API returns server-rendered, sanitized Markdown HTML.
+        setHTML(preview, raw(result.html));
         lastPreviewContent = content;
         if (previewStatus) previewStatus.textContent = '';
         preview.querySelectorAll('pre').forEach((pre) => {
@@ -806,21 +811,28 @@ const initialData = {
       mediaModal?.classList.add('is-open');
       document.body.style.overflow = 'hidden';
       if (!mediaGrid) return;
-      mediaGrid.innerHTML = '<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:90px"></div><div class="skeleton" style="height:90px"></div></div>';
+      setHTML(
+        mediaGrid,
+        html`<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:90px"></div><div class="skeleton" style="height:90px"></div></div>`,
+      );
       try {
         const result = await api<Paginated<MediaItem>>('/api/admin/media?per_page=60&kind=image');
         if (!result.items.length) {
-          mediaGrid.innerHTML = '<div class="admin-empty" style="grid-column:1/-1"><p>媒体库还是空的。先上传一张图片吧。</p></div>';
+          setHTML(
+            mediaGrid,
+            html`<div class="admin-empty" style="grid-column:1/-1"><p>媒体库还是空的。先上传一张图片吧。</p></div>`,
+          );
           return;
         }
-        mediaGrid.innerHTML = result.items
-          .map(
-            (item) => `<button type="button" data-media-id="${item.id}" data-url="${escapeHtml(item.url)}" data-alt="${escapeHtml(item.alt || item.original_name)}" title="${escapeHtml(item.original_name)}">
-              <img src="${escapeHtml(thumbUrl(item.image, item.url))}" alt="${escapeHtml(item.alt)}" loading="lazy" />
-              <span>${escapeHtml(item.original_name)}</span>
+        setHTML(
+          mediaGrid,
+          html`${result.items.map(
+            (item) => html`<button type="button" data-media-id="${item.id}" data-url="${item.url}" data-alt="${item.alt || item.original_name}" title="${item.original_name}">
+              <img src="${thumbUrl(item.image, item.url)}" alt="${item.alt}" loading="lazy" />
+              <span>${item.original_name}</span>
             </button>`,
-          )
-          .join('');
+          )}`,
+        );
         mediaGrid.querySelectorAll<HTMLButtonElement>('[data-media-id]').forEach((button) => {
           button.addEventListener('click', () => {
             const url = button.dataset.url || '';
@@ -839,7 +851,10 @@ const initialData = {
           });
         });
       } catch (error) {
-        mediaGrid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${escapeHtml(errorMessage(error))}</p></div>`;
+        setHTML(
+          mediaGrid,
+          html`<div class="admin-empty" style="grid-column:1/-1"><p>${errorMessage(error)}</p></div>`,
+        );
       }
     };
 
@@ -854,10 +869,16 @@ const initialData = {
         const categoryList = document.getElementById('category-options');
         const tagList = document.getElementById('tag-options');
         if (categoryList) {
-          categoryList.innerHTML = taxonomy.categories.map((item) => `<option value="${escapeHtml(item.name)}"></option>`).join('');
+          setHTML(
+            categoryList,
+            html`${taxonomy.categories.map((item) => html`<option value="${item.name}"></option>`)}`,
+          );
         }
         if (tagList) {
-          tagList.innerHTML = taxonomy.tags.map((item) => `<option value="${escapeHtml(item.name)}"></option>`).join('');
+          setHTML(
+            tagList,
+            html`${taxonomy.tags.map((item) => html`<option value="${item.name}"></option>`)}`,
+          );
         }
       } catch {
         // Suggestions are non-critical.
@@ -870,20 +891,21 @@ const initialData = {
         const result = await api<{ items: Revision[] }>(`/api/admin/posts/${id}/revisions`);
         if (revisionCount) revisionCount.textContent = String(result.items.length);
         if (!result.items.length) {
-          revisionsHost.innerHTML = '<p class="hint">保存修改后会在这里留下版本。</p>';
+          setHTML(revisionsHost, html`<p class="hint">保存修改后会在这里留下版本。</p>`);
           return;
         }
-        revisionsHost.innerHTML = result.items
-          .map(
-            (revision) => `<div class="revision-row">
+        setHTML(
+          revisionsHost,
+          html`${result.items.map(
+            (revision) => html`<div class="revision-row">
               <div class="revision-row__meta">
-                <strong>${escapeHtml(revision.title)}</strong>
-                <span>${escapeHtml(formatDate(revision.created_at, 'datetime'))} · ${revision.reading_time} min</span>
+                <strong>${revision.title}</strong>
+                <span>${formatDate(revision.created_at, 'datetime')} · ${revision.reading_time} min</span>
               </div>
               <button class="a-btn a-btn--sm" type="button" data-restore="${revision.id}">恢复</button>
             </div>`,
-          )
-          .join('');
+          )}`,
+        );
         revisionsHost.querySelectorAll<HTMLButtonElement>('[data-restore]').forEach((button) => {
           button.addEventListener('click', async () => {
             if (!window.confirm('恢复这个版本？当前内容会先被保存为一个新版本。')) return;
@@ -897,7 +919,7 @@ const initialData = {
           });
         });
       } catch (error) {
-        revisionsHost.innerHTML = `<p class="hint">${escapeHtml(errorMessage(error))}</p>`;
+        setHTML(revisionsHost, html`<p class="hint">${errorMessage(error)}</p>`);
       }
     };
 
@@ -910,21 +932,20 @@ const initialData = {
           : '';
       try {
         const result = await api<{ items: AuthorOption[] }>('/api/admin/content-authors');
-        authorSelect.innerHTML = [
-          '<option value="">未指定 / 保持当前</option>',
-          ...result.items.map(
+        setHTML(
+          authorSelect,
+          html`<option value="">未指定 / 保持当前</option>${result.items.map(
             (item) =>
-              `<option value="${item.id}" ${item.is_active ? '' : 'disabled'}>${escapeHtml(item.name)}${
-                item.role_label ? ` · ${escapeHtml(item.role_label)}` : ''
-              }${item.is_active ? '' : '（已停用）'}</option>`,
-          ),
-        ].join('');
+              html`<option value="${item.id}" ${item.is_active ? '' : 'disabled'}>${item.name}${item.role_label ? html` · ${item.role_label}` : ''}${item.is_active ? '' : '（已停用）'}</option>`,
+          )}`,
+        );
         if (selected) authorSelect.value = selected;
       } catch (error) {
         if (authorSelect) {
-          authorSelect.innerHTML = `<option value="${selected}">${escapeHtml(
-            data.post?.author?.name || '当前账号',
-          )}</option>`;
+          setHTML(
+            authorSelect,
+            html`<option value="${selected}">${data.post?.author?.name || '当前账号'}</option>`,
+          );
         }
         toast(errorMessage(error), 'error');
       }

@@ -8,6 +8,7 @@ Run locally (never expose this port directly):
 from __future__ import annotations
 
 import logging
+import os
 import sqlite3
 import uuid
 from contextlib import asynccontextmanager
@@ -23,7 +24,6 @@ from .config import (
     APP_NAME,
     CORS_ORIGINS,
     ENABLE_API_DOCS,
-    TRUSTED_PROXY,
     VERSION,
     WEB_CONCURRENCY,
 )
@@ -46,6 +46,9 @@ from .routes import (
     users,
 )
 from .routes import (
+    jobs as jobs_routes,
+)
+from .routes import (
     settings as settings_routes,
 )
 
@@ -64,6 +67,13 @@ async def lifespan(app: FastAPI):
         )
     init_db()
     clear_expired_sessions()
+    from .jobs import start_worker, stop_worker
+
+    # Tests set BLOG_DISABLE_JOBS_WORKER=1 and drive `jobs.run_once()`
+    # explicitly; a live deployment always runs exactly one worker thread.
+    worker_enabled = os.getenv("BLOG_DISABLE_JOBS_WORKER", "") != "1"
+    if worker_enabled:
+        start_worker()
     from .images import AVIF_SUPPORTED, WEBP_SUPPORTED
 
     logger.info(
@@ -71,7 +81,11 @@ async def lifespan(app: FastAPI):
     )
     if not AVIF_SUPPORTED:
         logger.warning("AVIF encoder unavailable; serving WebP/JPEG derivatives only")
-    yield
+    try:
+        yield
+    finally:
+        if worker_enabled:
+            stop_worker()
 
 
 app = FastAPI(
@@ -216,6 +230,7 @@ app.include_router(taxonomy.router, prefix="/api")
 app.include_router(settings_routes.router, prefix="/api")
 app.include_router(profile.router, prefix="/api")
 app.include_router(export.router, prefix="/api")
+app.include_router(jobs_routes.router, prefix="/api")
 app.include_router(users.router, prefix="/api")
 app.include_router(gallery_admin.router, prefix="/api")
 app.include_router(media.router, prefix="/api")

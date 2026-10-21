@@ -3,24 +3,25 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import CoverArt from '../../components/CoverArt.astro';
 import StoryCard from '../../components/StoryCard.astro';
 import Icon from '../../components/Icon.astro';
-import { ApiError, getPost, getSite } from '../../lib/api';
+import { ApiError, getBootstrap } from '../../lib/api';
 import { absoluteUrl, formatDate, initial, safeJson } from '../../lib/format';
 import { copyReader } from '../../lib/site';
-import type { PostDetail, SiteInfo } from '../../types';
 
 const { slug } = Astro.params;
-const site: SiteInfo = await getSite();
-const { site: siteSettings, appearance } = site.settings;
-const copy = copyReader(site.settings);
-let post: PostDetail;
+let bootstrap;
 try {
-  post = await getPost(slug || '');
+  bootstrap = await getBootstrap({ route: 'post', slug: slug || '' });
 } catch (error) {
   if (error instanceof ApiError && error.status === 404) {
     return Astro.rewrite('/404');
   }
   throw error;
 }
+const { site, page: contentPage } = bootstrap;
+if (contentPage.kind !== 'post') throw new Error('unexpected bootstrap payload for a post slug');
+const post = contentPage.item;
+const { site: siteSettings, appearance } = site.settings;
+const copy = copyReader(site.settings);
 
 const category = post.categories?.[0];
 const description = post.seo_description || post.excerpt;
@@ -99,6 +100,7 @@ const jsonLd = {
                 slug={post.slug}
                 category={category?.name}
                 image={post.cover_image}
+                imageInfo={post.cover ?? null}
                 label={siteSettings.site_title}
                 eager
               />
@@ -209,6 +211,8 @@ const jsonLd = {
   }
 
   <script>
+    import { html, raw, setHTML } from '../../lib/dom';
+
     const prose = document.querySelector<HTMLElement>('[data-prose]');
     const progress = document.querySelector<HTMLElement>('[data-reading-progress]');
 
@@ -250,8 +254,11 @@ const jsonLd = {
       try {
         await navigator.clipboard.writeText(url);
         const original = button.innerHTML;
-        button.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>';
-        setTimeout(() => (button.innerHTML = original), 1400);
+        setHTML(
+          button,
+          html`<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>`,
+        );
+        setTimeout(() => setHTML(button, raw(original)), 1400);
       } catch {
         // Clipboard access can fail on insecure origins; fall back to a prompt.
         window.prompt('复制链接', url);

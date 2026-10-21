@@ -1,5 +1,6 @@
 import { api } from '../lib/api';
-import { errorMessage, escapeHtml, toast } from '../lib/admin-client';
+import { errorMessage, toast } from '../lib/admin-client';
+import { html, setHTML } from '../lib/dom';
 import type { Term } from '../types';
 
 interface TaxonomyResponse {
@@ -35,24 +36,25 @@ if (root) {
     const host = root.querySelector<HTMLElement>(`[data-term-list="${kind}"]`);
     if (!host) return;
     if (!terms.length) {
-      host.innerHTML = '<div class="admin-empty" style="padding: 30px"><p>还没有条目。</p></div>';
+      setHTML(host, html`<div class="admin-empty" style="padding: 30px"><p>还没有条目。</p></div>`);
       return;
     }
-    host.innerHTML = terms
-      .map(
-        (term) => `<div class="term-row">
+    setHTML(
+      host,
+      html`${terms.map(
+        (term) => html`<div class="term-row">
           <div class="term-row__main">
-            <strong>${escapeHtml(term.name)}</strong>
-            <span>/${escapeHtml(term.slug)}${term.description ? ` · ${escapeHtml(term.description)}` : ''}</span>
+            <strong>${term.name}</strong>
+            <span>/${term.slug}${term.description ? html` · ${term.description}` : ''}</span>
           </div>
           <span class="term-row__count">${term.count || 0}</span>
           <div class="term-row__actions">
             <button type="button" data-edit="${term.id}" data-kind="${kind}" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-            <button type="button" data-delete="${term.id}" data-kind="${kind}" data-name="${escapeHtml(term.name)}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6"/></svg></button>
+            <button type="button" data-delete="${term.id}" data-kind="${kind}" data-name="${term.name}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6"/></svg></button>
           </div>
         </div>`,
-      )
-      .join('');
+      )}`,
+    );
     host.querySelectorAll<HTMLButtonElement>('[data-edit]').forEach((button) => {
       button.addEventListener('click', () => {
         const term = terms.find((item) => item.id === Number(button.dataset.edit));

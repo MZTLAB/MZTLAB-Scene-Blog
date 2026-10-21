@@ -1,3 +1,9 @@
+> **2.x 历史文档，请勿据此部署/开发。**
+>
+> 适用版本：2.x（归档于 2026-10-21）。3.0.0 的现行文档见仓库根目录 `README.md` 与 `docs/DEVELOPMENT.md`、`docs/EDGE.md`、`docs/SCHEMA.md`、`docs/API.md`、`docs/SSG-FEASIBILITY.md`。
+
+---
+
 # 图片加载优化实现方案
 
 > 状态：**待评审**（本文只描述方案，尚未改代码）

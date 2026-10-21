@@ -144,6 +144,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Site
+         * @description Replace all site data with a v3 backup document.
+         */
+        post: operations["import_site_api_admin_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Jobs List
+         * @description List jobs, newest first, optionally filtered by status/kind.
+         */
+        get: operations["jobs_list_api_admin_jobs_get"];
+        put?: never;
+        /**
+         * Create Job
+         * @description Enqueue one job; the response is the persisted row (status `queued`).
+         */
+        post: operations["create_job_api_admin_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Job Detail
+         * @description Poll one job (replaces the retired `optimize-status`/`sync-status`).
+         */
+        get: operations["job_detail_api_admin_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/jobs/{job_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel
+         * @description Cancel a *queued* job.
+         *
+         *     A `running` job cannot be cancelled (409): the worker is mid-handler and
+         *     there is no safe cancellation point, so the API says so instead of faking
+         *     it. Cancelled jobs stay queryable with `status='cancelled'`.
+         */
+        post: operations["cancel_api_admin_jobs__job_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/media": {
         parameters: {
             query?: never;
@@ -154,7 +242,13 @@ export interface paths {
         /** List Media */
         get: operations["list_media_api_admin_media_get"];
         put?: never;
-        /** Upload Media */
+        /**
+         * Upload Media
+         * @description Streamed upload: temp file → validate → atomic move → row + prewarm job.
+         *
+         *     Synchronous on purpose: `Pillow.verify()`, EXIF parsing and the storage write
+         *     are CPU/IO heavy and must run in the thread pool, never on the event loop.
+         */
         post: operations["upload_media_api_admin_media_post"];
         delete?: never;
         options?: never;
@@ -171,25 +265,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Optimize All */
+        /**
+         * Optimize All
+         * @description Queue a `reencode` job for every image (or one gallery's images).
+         */
         post: operations["optimize_all_api_admin_media_optimize_all_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/media/optimize-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Optimize Status */
-        get: operations["optimize_status_api_admin_media_optimize_status_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -207,7 +287,7 @@ export interface paths {
         get: operations["media_detail_api_admin_media__media_id__get"];
         /**
          * Update Media
-         * @description Partial update: omitted fields are untouched, explicit null clears.
+         * @description Partial update: omitted fields are untouched.
          */
         put: operations["update_media_api_admin_media__media_id__put"];
         post?: never;
@@ -217,7 +297,7 @@ export interface paths {
         head?: never;
         /**
          * Update Media
-         * @description Partial update: omitted fields are untouched, explicit null clears.
+         * @description Partial update: omitted fields are untouched.
          */
         patch: operations["update_media_api_admin_media__media_id__patch"];
         trace?: never;
@@ -234,7 +314,7 @@ export interface paths {
          * @description Read EXIF from the original file, caching the result on the media row.
          *
          *     Older uploads have no cached block; reading on demand means the feature
-         *     works for images uploaded before this route existed.
+         *     works for images uploaded before the cached block existed.
          */
         get: operations["media_exif_api_admin_media__media_id__exif_get"];
         /** Update Media Exif */
@@ -255,7 +335,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Optimize Media */
+        /**
+         * Optimize Media
+         * @description Queue a `reencode` job for one image.
+         */
         post: operations["optimize_media_api_admin_media__media_id__optimize_post"];
         delete?: never;
         options?: never;
@@ -555,28 +638,13 @@ export interface paths {
         put?: never;
         /**
          * Storage Sync
-         * @description Force-upload local originals and/or cached derivatives to the bucket.
+         * @description Queue a `storage_sync` job (force-upload local files to the bucket).
          *
-         *     Runs in the background; poll `/api/admin/storage/sync-status` for progress.
+         *     The connectivity/config pre-check stays synchronous so a misconfigured
+         *     bucket is a 400 instead of a failed background job; the upload itself runs
+         *     in the worker and its progress lives on the `jobs` row.
          */
         post: operations["storage_sync_api_admin_storage_sync_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/admin/storage/sync-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Storage Sync Status */
-        get: operations["storage_sync_status_api_admin_storage_sync_status_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -782,6 +850,30 @@ export interface paths {
         };
         /** Auth Status */
         get: operations["auth_status_api_auth_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Bootstrap
+         * @description Everything one public page needs, in one request (SSG reserve R1).
+         *
+         *     The payload depends only on route parameters and the database: no cookies,
+         *     session, user-agent or other request context is read, so a future
+         *     `astro build` can call the same function at build time.
+         */
+        get: operations["bootstrap_api_bootstrap_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1035,7 +1127,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Image Derivative */
+        /**
+         * Image Derivative
+         * @description Serve an existing derivative row; never generate one on request.
+         */
         get: operations["image_derivative_media__v__media_id___token___scene___name__get"];
         put?: never;
         post?: never;
@@ -1425,10 +1520,31 @@ export interface components {
             /** Total */
             total: number;
         };
-        /** AdminGalleryDetail */
-        AdminGalleryDetail: {
+        /** AdminGalleryListPayload */
+        AdminGalleryListPayload: {
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Has Next */
+            has_next: boolean;
+            /** Has Prev */
+            has_prev: boolean;
+            /** Items */
+            items: components["schemas"]["AdminGalleryPayload"][];
+            /** Page */
+            page: number;
+            /** Pages */
+            pages: number;
+            /** Per Page */
+            per_page: number;
+            /** Total */
+            total: number;
+        };
+        /** AdminGalleryPayload */
+        AdminGalleryPayload: {
             author: components["schemas"]["AdminAuthorBrief"];
-            cover?: components["schemas"]["PhotoImage"] | null;
+            cover?: components["schemas"]["PhotoPayload"] | null;
             /** Cover Photo Id */
             cover_photo_id?: number | null;
             /** Created At */
@@ -1444,57 +1560,7 @@ export interface components {
             /** Photo Count */
             photo_count: number;
             /** Photos */
-            photos?: components["schemas"]["PhotoImage"][];
-            /** Slug */
-            slug: string;
-            /** Status */
-            status: string;
-            /** Title */
-            title: string;
-            /** Updated At */
-            updated_at: string;
-            /** Url */
-            url: string;
-        };
-        /** AdminGalleryListResponse */
-        AdminGalleryListResponse: {
-            /** Counts */
-            counts: {
-                [key: string]: number;
-            };
-            /** Has Next */
-            has_next: boolean;
-            /** Has Prev */
-            has_prev: boolean;
-            /** Items */
-            items: components["schemas"]["AdminGallerySummary"][];
-            /** Page */
-            page: number;
-            /** Pages */
-            pages: number;
-            /** Per Page */
-            per_page: number;
-            /** Total */
-            total: number;
-        };
-        /** AdminGallerySummary */
-        AdminGallerySummary: {
-            author: components["schemas"]["AdminAuthorBrief"];
-            cover?: components["schemas"]["PhotoImage"] | null;
-            /** Cover Photo Id */
-            cover_photo_id?: number | null;
-            /** Created At */
-            created_at: string;
-            /** Description */
-            description: string;
-            /** Featured */
-            featured: boolean;
-            /** Id */
-            id: number;
-            /** Owner Id */
-            owner_id?: number | null;
-            /** Photo Count */
-            photo_count: number;
+            photos?: components["schemas"]["PhotoPayload"][];
             /** Slug */
             slug: string;
             /** Status */
@@ -1509,7 +1575,7 @@ export interface components {
         /** AdminSettingsResponse */
         AdminSettingsResponse: {
             meta: components["schemas"]["SettingsMeta"];
-            settings: components["schemas"]["Settings"];
+            settings: components["schemas"]["Settings-Output"];
             storage_secrets: components["schemas"]["StorageSecrets"];
         };
         /** AdminSettingsUpdateResponse */
@@ -1517,7 +1583,7 @@ export interface components {
             meta: components["schemas"]["SettingsMeta"];
             /** Ok */
             ok: boolean;
-            settings: components["schemas"]["Settings"];
+            settings: components["schemas"]["Settings-Output"];
             storage_secrets: components["schemas"]["StorageSecrets"];
             /** Updated */
             updated: string[];
@@ -1844,6 +1910,168 @@ export interface components {
             alt: string;
             /** File */
             file: string;
+        };
+        /** BootstrapArchivePage */
+        BootstrapArchivePage: {
+            /** Items */
+            items: components["schemas"]["ContentListItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "archive";
+            /** Total */
+            total: number;
+            /** Years */
+            years: components["schemas"]["ArchiveYear"][];
+        };
+        /**
+         * BootstrapContentPage
+         * @description A single article / page / project detail payload.
+         */
+        BootstrapContentPage: {
+            item: components["schemas"]["ContentDetail"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "page" | "post" | "project";
+        };
+        /** BootstrapGalleriesPage */
+        BootstrapGalleriesPage: {
+            /** Has Next */
+            has_next: boolean;
+            /** Has Prev */
+            has_prev: boolean;
+            /** Items */
+            items: components["schemas"]["GallerySummary"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "galleries";
+            /** Page */
+            page: number;
+            /** Pages */
+            pages: number;
+            /** Per Page */
+            per_page: number;
+            /** Total */
+            total: number;
+        };
+        /** BootstrapGalleryPage */
+        BootstrapGalleryPage: {
+            item: components["schemas"]["GalleryDetail"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "gallery";
+        };
+        /** BootstrapHomePage */
+        BootstrapHomePage: {
+            /** Galleries */
+            galleries: components["schemas"]["GallerySummary"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "home";
+            /** Posts */
+            posts: components["schemas"]["ContentListItem"][];
+            /** Projects */
+            projects: components["schemas"]["ContentListItem"][];
+        };
+        /** BootstrapProjectsPage */
+        BootstrapProjectsPage: {
+            /** Has Next */
+            has_next: boolean;
+            /** Has Prev */
+            has_prev: boolean;
+            /** Items */
+            items: components["schemas"]["ContentListItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "projects";
+            /** Page */
+            page: number;
+            /** Pages */
+            pages: number;
+            /** Per Page */
+            per_page: number;
+            /** Total */
+            total: number;
+        };
+        /** BootstrapResponse */
+        BootstrapResponse: {
+            /** Page */
+            page: components["schemas"]["BootstrapHomePage"] | components["schemas"]["BootstrapArchivePage"] | components["schemas"]["BootstrapContentPage"] | components["schemas"]["BootstrapProjectsPage"] | components["schemas"]["BootstrapGalleriesPage"] | components["schemas"]["BootstrapGalleryPage"] | components["schemas"]["BootstrapTaxonomyPage"] | components["schemas"]["BootstrapSearchPage"];
+            site: components["schemas"]["SiteInfoResponse"];
+        };
+        /** BootstrapSearchPage */
+        BootstrapSearchPage: {
+            /** Articles */
+            articles: components["schemas"]["ContentListItem"][];
+            /** Galleries */
+            galleries: components["schemas"]["GallerySummary"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "search";
+            /** Photos */
+            photos: components["schemas"]["PhotoImage"][];
+            /** Projects */
+            projects: components["schemas"]["ContentListItem"][];
+            /** Query */
+            query: string;
+        };
+        /** BootstrapTaxonomyPage */
+        BootstrapTaxonomyPage: {
+            /** Categories */
+            categories: components["schemas"]["TaxonomyTerm"][];
+            /**
+             * Has Next
+             * @default false
+             */
+            has_next: boolean;
+            /**
+             * Has Prev
+             * @default false
+             */
+            has_prev: boolean;
+            /** Items */
+            items?: components["schemas"]["ContentListItem"][];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "taxonomy";
+            /**
+             * Page
+             * @default 1
+             */
+            page: number;
+            /**
+             * Pages
+             * @default 1
+             */
+            pages: number;
+            /**
+             * Per Page
+             * @default 9
+             */
+            per_page: number;
+            /** Tags */
+            tags: components["schemas"]["TaxonomyTerm"][];
+            term?: components["schemas"]["TaxonomyTerm"] | null;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** ContentAuthor */
         ContentAuthor: {
@@ -2818,12 +3046,10 @@ export interface components {
         ExportMedia: {
             /** Alt */
             alt: string;
-            /** Avif Quality */
-            avif_quality: number;
-            /** Avif Quality Auto */
-            avif_quality_auto: number;
             /** Created At */
             created_at: string;
+            /** Derivative Set */
+            derivative_set: string;
             /** Exif */
             exif: string;
             /** Filename */
@@ -2840,17 +3066,42 @@ export interface components {
             owner_id: number;
             /** Placeholder */
             placeholder: string;
-            /** Ready Hash */
-            ready_hash: string;
             /** Size */
             size: number;
+            /** Source Sha1 */
+            source_sha1: string;
+            /** Width */
+            width: number;
+        };
+        /** ExportMediaDerivative */
+        ExportMediaDerivative: {
+            /** Created At */
+            created_at: string;
+            /** Format */
+            format: string;
+            /** Height */
+            height: number;
+            /** Id */
+            id: number;
+            /** Key */
+            key: string;
+            /** Media Id */
+            media_id: number;
+            /** Pipeline Version */
+            pipeline_version: number;
+            /** Quality */
+            quality: number;
+            /** Scene */
+            scene: string;
+            /** Size */
+            size: number;
+            /** Token */
+            token: string;
             /** Width */
             width: number;
         };
         /** ExportPhoto */
         ExportPhoto: {
-            /** Allow Download */
-            allow_download: number;
             /** Camera */
             camera: string;
             /** Caption */
@@ -2867,6 +3118,8 @@ export interface components {
             gallery_id?: number | null;
             /** Height */
             height: number;
+            /** Hide Download Link */
+            hide_download_link: number;
             /** Id */
             id: number;
             /** Lens */
@@ -2984,6 +3237,36 @@ export interface components {
             /** Slug */
             slug: string;
         };
+        /**
+         * ExportUser
+         * @description One `users` row; password hashes travel with the backup for restore.
+         */
+        ExportUser: {
+            /** Avatar */
+            avatar: string;
+            /** Bio */
+            bio: string;
+            /** Created At */
+            created_at: string;
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email: string;
+            /** Id */
+            id: number;
+            /** Is Active */
+            is_active: number;
+            /** Last Login At */
+            last_login_at: string;
+            /** Password Hash */
+            password_hash: string;
+            /** Role */
+            role: string;
+            /** Updated At */
+            updated_at: string;
+            /** Username */
+            username: string;
+        };
         /** ExportV3Response */
         ExportV3Response: {
             /** Exported At */
@@ -2997,6 +3280,8 @@ export interface components {
             galleries: components["schemas"]["ExportGallery"][];
             /** Media */
             media: components["schemas"]["ExportMedia"][];
+            /** Media Derivatives */
+            media_derivatives: components["schemas"]["ExportMediaDerivative"][];
             /** Photos */
             photos: components["schemas"]["ExportPhoto"][];
             /** Post Terms */
@@ -3007,9 +3292,11 @@ export interface components {
             project_details: components["schemas"]["ExportProjectDetail"][];
             /** Revisions */
             revisions: components["schemas"]["ExportRevision"][];
-            settings: components["schemas"]["PublicSettings"];
+            settings: components["schemas"]["Settings-Output"];
             /** Taxonomy Terms */
             taxonomy_terms: components["schemas"]["ExportTaxonomyTerm"][];
+            /** Users */
+            users: components["schemas"]["ExportUser"][];
             /**
              * Version
              * @constant
@@ -3110,17 +3397,17 @@ export interface components {
             /** Total */
             total: number;
         };
-        /** GalleryPhotosAddedResponse */
-        GalleryPhotosAddedResponse: {
+        /** GalleryPhotosAddedPayload */
+        GalleryPhotosAddedPayload: {
             /** Added */
             added: number[];
-            gallery: components["schemas"]["AdminGalleryDetail"];
+            gallery: components["schemas"]["AdminGalleryPayload"];
             /** Ok */
             ok: boolean;
         };
-        /** GalleryReorderResponse */
-        GalleryReorderResponse: {
-            gallery: components["schemas"]["AdminGalleryDetail"];
+        /** GalleryReorderPayload */
+        GalleryReorderPayload: {
+            gallery: components["schemas"]["AdminGalleryPayload"];
             /** Ok */
             ok: boolean;
         };
@@ -3162,22 +3449,62 @@ export interface components {
             time: string;
         };
         /**
+         * ImageArtifact
+         * @description One generated derivative; the token is the immutable artifact address.
+         */
+        ImageArtifact: {
+            /** Format */
+            format: string;
+            /** Scene */
+            scene: string;
+            /** Token */
+            token: string;
+            /** Width */
+            width: number;
+        };
+        /**
          * ImagePayload
          * @description Resolved derivative metadata for one media row (see images.image_payload).
+         *
+         *     `ready: false` means the artifact set has not been generated yet; the
+         *     frontend then renders the original file. `artifacts` is a flat list (typed
+         *     for OpenAPI) of the derivatives that actually exist.
          */
         ImagePayload: {
-            /** Base */
+            /** Artifacts */
+            artifacts?: components["schemas"]["ImageArtifact"][];
+            /**
+             * Base
+             * @default
+             */
             base: string;
-            /** Direct */
-            direct?: string | null;
+            /** Direct Base */
+            direct_base?: string | null;
             /** F */
             f: number;
             /** Formats */
-            formats: string[];
+            formats?: string[];
             /** Height */
             height: number;
+            /**
+             * Id
+             * @default 0
+             */
+            id: number;
             /** L */
             l: number;
+            /** Pipeline Version */
+            pipeline_version?: number | null;
+            /**
+             * Placeholder
+             * @default
+             */
+            placeholder: string;
+            /**
+             * Ready
+             * @default false
+             */
+            ready: boolean;
             /** S */
             s: number;
             /** Width */
@@ -3185,11 +3512,13 @@ export interface components {
         };
         /**
          * ImagePipelineSettings
-         * @description Image pipeline knobs.
+         * @description Image pipeline runtime switches.
          *
-         *     Width ladder and format switches are runtime settings; encoding quality is
-         *     an intentional code constant (`PIPELINE_DEFAULTS`, Phase 3) because changing
-         *     it used to invalidate every derivative URL.
+         *     3.0.0 intentionally keeps this tiny: only the width ladder and the format
+         *     switches are user data. Encoding quality/parameters are code constants in
+         *     `app.images.PIPELINE_DEFAULTS` (ADR-10) — changing them requires bumping
+         *     `PIPELINE_VERSION` and running a manual `reencode` job, and never rewrites
+         *     existing artifacts automatically (decision D5).
          */
         ImagePipelineSettings: {
             /**
@@ -3198,80 +3527,10 @@ export interface components {
              */
             avif_enabled: boolean;
             /**
-             * Avif Speed
-             * @default 6
-             */
-            avif_speed: number;
-            /**
-             * Cache Days
-             * @default 365
-             */
-            cache_days: number;
-            /**
-             * Jpeg Quality
-             * @default 82
-             */
-            jpeg_quality: number;
-            /**
-             * Lazy
-             * @default true
-             */
-            lazy: boolean;
-            /**
-             * Max Width
-             * @default 0
-             */
-            max_width: number;
-            /**
-             * Prewarm
-             * @default true
-             */
-            prewarm: boolean;
-            /**
-             * Quality Card
-             * @default 55
-             */
-            quality_card: number;
-            /**
-             * Quality Full
-             * @default 70
-             */
-            quality_full: number;
-            /**
-             * Quality Hero
-             * @default 67
-             */
-            quality_hero: number;
-            /**
-             * Quality Prose
-             * @default 60
-             */
-            quality_prose: number;
-            /**
-             * Quality Thumb
-             * @default 45
-             */
-            quality_thumb: number;
-            /**
-             * Quality Tile
-             * @default 50
-             */
-            quality_tile: number;
-            /**
-             * Quality Viewer
-             * @default 65
-             */
-            quality_viewer: number;
-            /**
              * Webp Enabled
              * @default true
              */
             webp_enabled: boolean;
-            /**
-             * Webp Quality
-             * @default 80
-             */
-            webp_quality: number;
             /** Widths */
             widths?: number[];
         };
@@ -3279,38 +3538,194 @@ export interface components {
         ImagePipelineSettingsPatch: {
             /** Avif Enabled */
             avif_enabled?: boolean | null;
-            /** Avif Speed */
-            avif_speed?: number | null;
-            /** Cache Days */
-            cache_days?: number | null;
-            /** Jpeg Quality */
-            jpeg_quality?: number | null;
-            /** Lazy */
-            lazy?: boolean | null;
-            /** Max Width */
-            max_width?: number | null;
-            /** Prewarm */
-            prewarm?: boolean | null;
-            /** Quality Card */
-            quality_card?: number | null;
-            /** Quality Full */
-            quality_full?: number | null;
-            /** Quality Hero */
-            quality_hero?: number | null;
-            /** Quality Prose */
-            quality_prose?: number | null;
-            /** Quality Thumb */
-            quality_thumb?: number | null;
-            /** Quality Tile */
-            quality_tile?: number | null;
-            /** Quality Viewer */
-            quality_viewer?: number | null;
             /** Webp Enabled */
             webp_enabled?: boolean | null;
-            /** Webp Quality */
-            webp_quality?: number | null;
             /** Widths */
             widths?: number[] | null;
+        };
+        /**
+         * ImportCounts
+         * @description Rows written by one restore, per table.
+         */
+        ImportCounts: {
+            /**
+             * Galleries
+             * @default 0
+             */
+            galleries: number;
+            /**
+             * Media
+             * @default 0
+             */
+            media: number;
+            /**
+             * Media Derivatives
+             * @default 0
+             */
+            media_derivatives: number;
+            /**
+             * Photos
+             * @default 0
+             */
+            photos: number;
+            /**
+             * Post Terms
+             * @default 0
+             */
+            post_terms: number;
+            /**
+             * Posts
+             * @default 0
+             */
+            posts: number;
+            /**
+             * Project Details
+             * @default 0
+             */
+            project_details: number;
+            /**
+             * Revisions
+             * @default 0
+             */
+            revisions: number;
+            /**
+             * Settings
+             * @default 0
+             */
+            settings: number;
+            /**
+             * Taxonomy Terms
+             * @default 0
+             */
+            taxonomy_terms: number;
+            /**
+             * Users
+             * @default 0
+             */
+            users: number;
+        };
+        /**
+         * ImportV3Request
+         * @description A v3 export document plus an explicit destructive-restore confirmation.
+         *
+         *     The list defaults (and permissive `format`/`version` types) keep the body
+         *     accepted so the route can reject an unsupported document with a stable
+         *     `import.*` error code instead of a generic 422 schema failure.
+         */
+        ImportV3Request: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Exported At
+             * @default
+             */
+            exported_at: string;
+            /**
+             * Format
+             * @default
+             */
+            format: string;
+            /** Galleries */
+            galleries?: components["schemas"]["ExportGallery"][];
+            /** Media */
+            media?: components["schemas"]["ExportMedia"][];
+            /** Media Derivatives */
+            media_derivatives?: components["schemas"]["ExportMediaDerivative"][];
+            /** Photos */
+            photos?: components["schemas"]["ExportPhoto"][];
+            /** Post Terms */
+            post_terms?: components["schemas"]["ExportPostTerm"][];
+            /** Posts */
+            posts?: components["schemas"]["ExportPost"][];
+            /** Project Details */
+            project_details?: components["schemas"]["ExportProjectDetail"][];
+            /** Revisions */
+            revisions?: components["schemas"]["ExportRevision"][];
+            settings?: components["schemas"]["Settings-Input"] | null;
+            /** Taxonomy Terms */
+            taxonomy_terms?: components["schemas"]["ExportTaxonomyTerm"][];
+            /** Users */
+            users?: components["schemas"]["ExportUser"][];
+            /**
+             * Version
+             * @default 0
+             */
+            version: number;
+        };
+        /** ImportV3Response */
+        ImportV3Response: {
+            imported: components["schemas"]["ImportCounts"];
+            /** Missing Media Files */
+            missing_media_files?: string[];
+            /** Ok */
+            ok: boolean;
+        };
+        /** JobActionResponse */
+        JobActionResponse: {
+            job: components["schemas"]["JobStatusResponse"];
+            /** Ok */
+            ok: boolean;
+        };
+        /** JobCreateRequest */
+        JobCreateRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Gallery Id */
+            gallery_id?: number | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "prewarm" | "reencode" | "gc_derivatives" | "rerender_content" | "storage_sync" | "export" | "rebuild_site";
+            /** Media Id */
+            media_id?: number | null;
+        };
+        /** JobListResponse */
+        JobListResponse: {
+            /** Items */
+            items: components["schemas"]["JobStatusResponse"][];
+            /** Total */
+            total: number;
+        };
+        /** JobQueuedPayload */
+        JobQueuedPayload: {
+            /** Job Id */
+            job_id: number;
+            /** Ok */
+            ok: boolean;
+        };
+        /** JobStatusResponse */
+        JobStatusResponse: {
+            /** Created At */
+            created_at: string;
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Progress */
+            progress: number;
+            /**
+             * Result
+             * @default
+             */
+            result: string;
+            /** Started At */
+            started_at?: string | null;
+            /** Status */
+            status: string;
         };
         JsonValue: unknown;
         /** LoginIn */
@@ -3331,14 +3746,13 @@ export interface components {
         /**
          * MediaAltIn
          * @description PATCH /api/admin/media/{id}: omitted fields keep their value.
+         *
+         *     Per-image AVIF quality was removed with ADR-10: quality is an immutable
+         *     pipeline constant, so the only editable media field is the alt text.
          */
         MediaAltIn: {
             /** Alt */
             alt?: string | null;
-            /** Avif Quality */
-            avif_quality?: number | null;
-            /** Avif Quality Auto */
-            avif_quality_auto?: boolean | null;
         };
         /** MediaDeleteResponse */
         MediaDeleteResponse: {
@@ -3397,17 +3811,57 @@ export interface components {
             /** Summary */
             summary: string;
         };
-        /** MediaItem */
-        MediaItem: {
+        /**
+         * MediaImageInfo
+         * @description Read-only derivative metadata (mirror of `images.image_payload`).
+         */
+        MediaImageInfo: {
+            /** Artifacts */
+            artifacts?: components["schemas"]["ImageArtifact"][];
+            /**
+             * Base
+             * @default
+             */
+            base: string;
+            /** Direct Base */
+            direct_base?: string | null;
+            /** F */
+            f: number;
+            /** Formats */
+            formats?: string[];
+            /** Height */
+            height: number;
+            /**
+             * Id
+             * @default 0
+             */
+            id: number;
+            /** L */
+            l: number;
+            /** Pipeline Version */
+            pipeline_version?: number | null;
+            /**
+             * Placeholder
+             * @default
+             */
+            placeholder: string;
+            /**
+             * Ready
+             * @default false
+             */
+            ready: boolean;
+            /** S */
+            s: number;
+            /** Width */
+            width: number;
+        };
+        /** MediaItemPayload */
+        MediaItemPayload: {
             /**
              * Alt
              * @default
              */
             alt: string;
-            /** Avif Quality */
-            avif_quality: number;
-            /** Avif Quality Auto */
-            avif_quality_auto: boolean;
             /** Created At */
             created_at: string;
             exif?: components["schemas"]["ExifPayload"] | null;
@@ -3420,7 +3874,7 @@ export interface components {
             height: number;
             /** Id */
             id: number;
-            image?: components["schemas"]["ImagePayload"] | null;
+            image?: components["schemas"]["MediaImageInfo"] | null;
             /**
              * Kind
              * @enum {string}
@@ -3430,7 +3884,7 @@ export interface components {
             mime: string;
             /** Original Name */
             original_name: string;
-            owner: components["schemas"]["MediaOwner"];
+            owner: components["schemas"]["MediaOwnerInfo"];
             /** Owner Id */
             owner_id: number;
             /**
@@ -3448,14 +3902,14 @@ export interface components {
              */
             width: number;
         };
-        /** MediaListResponse */
-        MediaListResponse: {
+        /** MediaListPayload */
+        MediaListPayload: {
             /** Has Next */
             has_next: boolean;
             /** Has Prev */
             has_prev: boolean;
             /** Items */
-            items: components["schemas"]["MediaItem"][];
+            items: components["schemas"]["MediaItemPayload"][];
             /** Page */
             page: number;
             /** Pages */
@@ -3465,8 +3919,8 @@ export interface components {
             /** Total */
             total: number;
         };
-        /** MediaOwner */
-        MediaOwner: {
+        /** MediaOwnerInfo */
+        MediaOwnerInfo: {
             /** Id */
             id: number;
             /** Name */
@@ -3477,17 +3931,13 @@ export interface components {
              */
             username: string;
         };
-        /** MediaUploadResponse */
-        MediaUploadResponse: {
+        /** MediaUploadPayload */
+        MediaUploadPayload: {
             /**
              * Alt
              * @default
              */
             alt: string;
-            /** Avif Quality */
-            avif_quality: number;
-            /** Avif Quality Auto */
-            avif_quality_auto: boolean;
             /** Created At */
             created_at: string;
             exif?: components["schemas"]["ExifPayload"] | null;
@@ -3505,7 +3955,7 @@ export interface components {
             height: number;
             /** Id */
             id: number;
-            image?: components["schemas"]["ImagePayload"] | null;
+            image?: components["schemas"]["MediaImageInfo"] | null;
             /**
              * Kind
              * @enum {string}
@@ -3515,7 +3965,7 @@ export interface components {
             mime: string;
             /** Original Name */
             original_name: string;
-            owner: components["schemas"]["MediaOwner"];
+            owner: components["schemas"]["MediaOwnerInfo"];
             /** Owner Id */
             owner_id: number;
             /**
@@ -3545,46 +3995,13 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
-        /** OptimizeQueuedResponse */
-        OptimizeQueuedResponse: {
-            /** Media Id */
-            media_id: number;
-            /** Ok */
-            ok: boolean;
-            /** Queued */
-            queued: boolean;
-        };
-        /** OptimizeStartResponse */
-        OptimizeStartResponse: {
-            /**
-             * Message
-             * @default
-             */
-            message: string;
-            /** Ok */
-            ok: boolean;
-            /** Started */
-            started: boolean;
-        };
-        /** OptimizeStatusResponse */
-        OptimizeStatusResponse: {
-            /** Done */
-            done: number;
-            /**
-             * Error
-             * @default
-             */
-            error: string;
-            /** Failed */
-            failed: number;
-            /** Finished At */
-            finished_at: string;
-            /** Running */
-            running: boolean;
-            /** Started At */
-            started_at: string;
-            /** Total */
-            total: number;
+        /**
+         * OptimizeScopeIn
+         * @description Optional scope for `POST /media/optimize-all` (omit = every image).
+         */
+        OptimizeScopeIn: {
+            /** Gallery Id */
+            gallery_id?: number | null;
         };
         /** PageIn */
         PageIn: {
@@ -3695,13 +4112,22 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** PhotoGalleryBrief */
+        PhotoGalleryBrief: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+        };
         /**
          * PhotoImage
          * @description Photo payload: image metadata plus EXIF projection and download links.
          */
         PhotoImage: {
-            /** Allow Download */
-            allow_download: boolean;
             /** Alt */
             alt: string;
             /**
@@ -3745,6 +4171,8 @@ export interface components {
             gallery_id?: number | null;
             /** Height */
             height: number;
+            /** Hide Download Link */
+            hide_download_link: boolean;
             /** Id */
             id: number;
             image?: components["schemas"]["ImagePayload"] | null;
@@ -3777,11 +4205,6 @@ export interface components {
         /** PhotoIn */
         PhotoIn: {
             /**
-             * Allow Download
-             * @default true
-             */
-            allow_download: boolean;
-            /**
              * Camera
              * @default
              */
@@ -3800,6 +4223,11 @@ export interface components {
             featured: boolean;
             /** Gallery Id */
             gallery_id?: number | null;
+            /**
+             * Hide Download Link
+             * @default false
+             */
+            hide_download_link: boolean;
             /**
              * Lens
              * @default
@@ -3829,14 +4257,14 @@ export interface components {
              */
             title: string;
         };
-        /** PhotoListResponse */
-        PhotoListResponse: {
+        /** PhotoListPayload */
+        PhotoListPayload: {
             /** Has Next */
             has_next: boolean;
             /** Has Prev */
             has_prev: boolean;
             /** Items */
-            items: components["schemas"]["PhotoImage"][];
+            items: components["schemas"]["PhotoPayload"][];
             /** Page */
             page: number;
             /** Pages */
@@ -3846,13 +4274,87 @@ export interface components {
             /** Total */
             total: number;
         };
+        /** PhotoPayload */
+        PhotoPayload: {
+            /** Alt */
+            alt: string;
+            /**
+             * Aperture
+             * @default
+             */
+            aperture: string;
+            /** Aspect */
+            aspect: number;
+            /** Camera */
+            camera: string;
+            /** Caption */
+            caption: string;
+            /** Created At */
+            created_at: string;
+            /** Download Name */
+            download_name: string;
+            /** Download Url */
+            download_url: string;
+            exif?: components["schemas"]["PublicExif"] | null;
+            /** Exif Fields */
+            exif_fields?: string[];
+            /**
+             * Exposure
+             * @default
+             */
+            exposure: string;
+            /** Featured */
+            featured: boolean;
+            /** Filename */
+            filename: string;
+            /**
+             * Focal Length
+             * @default
+             */
+            focal_length: string;
+            /** Focal Length 35Mm */
+            focal_length_35mm?: number | null;
+            gallery?: components["schemas"]["PhotoGalleryBrief"] | null;
+            /** Gallery Id */
+            gallery_id?: number | null;
+            /** Height */
+            height: number;
+            /** Hide Download Link */
+            hide_download_link: boolean;
+            /** Id */
+            id: number;
+            image?: components["schemas"]["ImagePayload"] | null;
+            /** Iso */
+            iso?: number | null;
+            /** Lens */
+            lens: string;
+            /** Location */
+            location: string;
+            /** Media Id */
+            media_id?: number | null;
+            /** Sort Order */
+            sort_order: number;
+            /** Status */
+            status: string;
+            /** Taken At */
+            taken_at: string;
+            /**
+             * Taken At Raw
+             * @default
+             */
+            taken_at_raw: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string;
+            /** Width */
+            width: number;
+        };
         /**
          * PhotoUpdateIn
          * @description PATCH: omitted fields keep their value; explicit null clears.
          */
         PhotoUpdateIn: {
-            /** Allow Download */
-            allow_download?: boolean | null;
             /** Camera */
             camera?: string | null;
             /** Caption */
@@ -3863,6 +4365,8 @@ export interface components {
             featured?: boolean | null;
             /** Gallery Id */
             gallery_id?: number | null;
+            /** Hide Download Link */
+            hide_download_link?: boolean | null;
             /** Lens */
             lens?: string | null;
             /** Location */
@@ -4318,11 +4822,22 @@ export interface components {
          * Settings
          * @description The complete, validated settings document.
          */
-        Settings: {
+        "Settings-Input": {
             advanced?: components["schemas"]["AdvancedSettings"];
             appearance?: components["schemas"]["AppearanceSettings"];
             copy?: components["schemas"]["CopySettings"];
-            site?: components["schemas"]["SiteSettings"];
+            site?: components["schemas"]["SiteSettings-Input"];
+            upload?: components["schemas"]["UploadSettings"];
+        };
+        /**
+         * Settings
+         * @description The complete, validated settings document.
+         */
+        "Settings-Output": {
+            advanced?: components["schemas"]["AdvancedSettings"];
+            appearance?: components["schemas"]["AppearanceSettings"];
+            copy?: components["schemas"]["CopySettings"];
+            site?: components["schemas"]["SiteSettings-Output"];
             upload?: components["schemas"]["UploadSettings"];
         };
         /**
@@ -4421,7 +4936,101 @@ export interface components {
             tags: components["schemas"]["TaxonomyTerm"][];
         };
         /** SiteSettings */
-        SiteSettings: {
+        "SiteSettings-Input": {
+            /**
+             * Announcement
+             * @default
+             */
+            announcement: string;
+            /**
+             * Description
+             * @default MZTLAB 是一间以影像、项目与文字为媒介的独立工作室档案。
+             */
+            description: string;
+            /**
+             * Editor Manage Others
+             * @default true
+             */
+            editor_manage_others: boolean;
+            /**
+             * Favicon
+             * @default
+             */
+            favicon: string;
+            /** Footer Links */
+            footer_links?: components["schemas"]["NavLink-Input"][];
+            /**
+             * Footer Note
+             * @default MZTLAB // ASTRO × FASTAPI
+             */
+            footer_note: string;
+            /**
+             * Footer Text
+             * @default 影像、项目与文字。
+             */
+            footer_text: string;
+            /**
+             * Gallery Columns
+             * @default 3
+             */
+            gallery_columns: number;
+            /**
+             * Icp
+             * @default
+             */
+            icp: string;
+            /**
+             * Logo
+             * @default
+             */
+            logo: string;
+            /** Nav */
+            nav?: components["schemas"]["NavLink-Input"][];
+            /**
+             * Og Image
+             * @default
+             */
+            og_image: string;
+            /**
+             * Posts Per Page
+             * @default 9
+             */
+            posts_per_page: number;
+            /**
+             * Seo Description
+             * @default MZTLAB：影像、项目与文字。
+             */
+            seo_description: string;
+            /**
+             * Seo Keywords
+             * @default 摄影, 影像, 相册, 项目, 代码, 文字, MZTLAB
+             */
+            seo_keywords: string;
+            /**
+             * Site Subtitle
+             * @default Scene
+             */
+            site_subtitle: string;
+            /**
+             * Site Title
+             * @default MZTLAB
+             */
+            site_title: string;
+            /**
+             * Site Url
+             * @default http://127.0.0.1:4321
+             */
+            site_url: string;
+            /** Social */
+            social?: components["schemas"]["NavLink-Input"][];
+            /**
+             * Tagline
+             * @default 影像、项目与文字。
+             */
+            tagline: string;
+        };
+        /** SiteSettings */
+        "SiteSettings-Output": {
             /**
              * Announcement
              * @default
@@ -4789,90 +5398,6 @@ export interface components {
              */
             scope: "all" | "originals" | "derivatives";
         };
-        /** StorageSyncStartResponse */
-        StorageSyncStartResponse: {
-            /**
-             * Force
-             * @default false
-             */
-            force: boolean;
-            /**
-             * Message
-             * @default
-             */
-            message: string;
-            /** Ok */
-            ok: boolean;
-            /**
-             * Scope
-             * @default all
-             */
-            scope: string;
-            /** Started */
-            started: boolean;
-        };
-        /** StorageSyncStatusResponse */
-        StorageSyncStatusResponse: {
-            /**
-             * Bytes
-             * @default 0
-             */
-            bytes: number;
-            /**
-             * Current
-             * @default
-             */
-            current: string;
-            /**
-             * Error
-             * @default
-             */
-            error: string;
-            /** Errors */
-            errors?: string[];
-            /**
-             * Failed
-             * @default 0
-             */
-            failed: number;
-            /**
-             * Finished At
-             * @default
-             */
-            finished_at: string;
-            /**
-             * Force
-             * @default false
-             */
-            force: boolean;
-            /** Running */
-            running: boolean;
-            /**
-             * Scope
-             * @default all
-             */
-            scope: string;
-            /**
-             * Skipped
-             * @default 0
-             */
-            skipped: number;
-            /**
-             * Started At
-             * @default
-             */
-            started_at: string;
-            /**
-             * Total
-             * @default 0
-             */
-            total: number;
-            /**
-             * Uploaded
-             * @default 0
-             */
-            uploaded: number;
-        };
         /** StorageTestResponse */
         StorageTestResponse: {
             /**
@@ -5225,7 +5750,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminGalleryListResponse"];
+                    "application/json": components["schemas"]["AdminGalleryListPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5258,7 +5783,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminGalleryDetail"];
+                    "application/json": components["schemas"]["AdminGalleryPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5289,7 +5814,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminGalleryDetail"];
+                    "application/json": components["schemas"]["AdminGalleryPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5324,7 +5849,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminGalleryDetail"];
+                    "application/json": components["schemas"]["AdminGalleryPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5390,7 +5915,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdminGalleryDetail"];
+                    "application/json": components["schemas"]["AdminGalleryPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5425,7 +5950,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GalleryPhotosAddedResponse"];
+                    "application/json": components["schemas"]["GalleryPhotosAddedPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5460,7 +5985,171 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["GalleryReorderResponse"];
+                    "application/json": components["schemas"]["GalleryReorderPayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_site_api_admin_import_post: {
+        parameters: {
+            query?: {
+                /** @description Destructive restore confirmation; `replace-all` is equivalent to `confirm: true` in the body. */
+                confirm?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportV3Request"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportV3Response"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    jobs_list_api_admin_jobs_get: {
+        parameters: {
+            query?: {
+                status?: ("queued" | "running" | "done" | "failed" | "cancelled") | null;
+                kind?: ("prewarm" | "reencode" | "gc_derivatives" | "rerender_content" | "storage_sync" | "export" | "rebuild_site") | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_job_api_admin_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    job_detail_api_admin_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_api_admin_jobs__job_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -5494,7 +6183,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MediaListResponse"];
+                    "application/json": components["schemas"]["MediaListPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5527,7 +6216,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MediaUploadResponse"];
+                    "application/json": components["schemas"]["MediaUploadPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5548,27 +6237,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OptimizeStartResponse"];
-                };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OptimizeScopeIn"] | null;
             };
         };
-    };
-    optimize_status_api_admin_media_optimize_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -5576,7 +6249,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OptimizeStatusResponse"];
+                    "application/json": components["schemas"]["JobQueuedPayload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5598,7 +6280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MediaItem"];
+                    "application/json": components["schemas"]["MediaItemPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5633,7 +6315,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MediaItem"];
+                    "application/json": components["schemas"]["MediaItemPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5699,7 +6381,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MediaItem"];
+                    "application/json": components["schemas"]["MediaItemPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5765,7 +6447,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MediaItem"];
+                    "application/json": components["schemas"]["MediaItemPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5796,7 +6478,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OptimizeQueuedResponse"];
+                    "application/json": components["schemas"]["JobQueuedPayload"];
                 };
             };
             /** @description Validation Error */
@@ -5994,7 +6676,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PhotoListResponse"];
+                    "application/json": components["schemas"]["PhotoListPayload"];
                 };
             };
             /** @description Validation Error */
@@ -6027,7 +6709,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PhotoImage"];
+                    "application/json": components["schemas"]["PhotoPayload"];
                 };
             };
             /** @description Validation Error */
@@ -6062,7 +6744,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PhotoImage"];
+                    "application/json": components["schemas"]["PhotoPayload"];
                 };
             };
             /** @description Validation Error */
@@ -6128,7 +6810,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PhotoImage"];
+                    "application/json": components["schemas"]["PhotoPayload"];
                 };
             };
             /** @description Validation Error */
@@ -6731,7 +7413,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StorageSyncStartResponse"];
+                    "application/json": components["schemas"]["JobQueuedPayload"];
                 };
             };
             /** @description Validation Error */
@@ -6741,26 +7423,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    storage_sync_status_api_admin_storage_sync_status_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["StorageSyncStatusResponse"];
                 };
             };
         };
@@ -7168,6 +7830,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuthStatusResponse"];
+                };
+            };
+        };
+    };
+    bootstrap_api_bootstrap_get: {
+        parameters: {
+            query?: {
+                route?: "home" | "archive" | "post" | "page" | "project" | "projects" | "galleries" | "gallery" | "taxonomy" | "search";
+                slug?: string | null;
+                page?: number;
+                tag?: string | null;
+                category?: string | null;
+                q?: string | null;
+                featured?: boolean | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BootstrapResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

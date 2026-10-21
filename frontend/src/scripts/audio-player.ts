@@ -9,13 +9,21 @@
  * preview without a page reload).
  */
 
-const ICONS = {
-  play: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z"/></svg>',
-  pause:
+import { html, raw, setHTML, type RawHtml } from '../lib/dom';
+
+const ICONS: Record<'play' | 'pause' | 'volume' | 'mute', RawHtml> = {
+  play: raw(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5L8 5.5Z"/></svg>',
+  ),
+  pause: raw(
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5h3.6v14H7zM13.4 5H17v14h-3.6z"/></svg>',
-  volume:
+  ),
+  volume: raw(
     '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
-  mute: '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>',
+  ),
+  mute: raw(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>',
+  ),
 };
 
 const formatTime = (seconds: number): string => {
@@ -59,7 +67,9 @@ const enhance = (audio: HTMLAudioElement): void => {
 
   const player = document.createElement('div');
   player.className = 'audio-player';
-  player.innerHTML = `
+  setHTML(
+    player,
+    html`
     <div class="audio-player__top">
       <button class="audio-player__toggle" type="button" aria-label="播放">${ICONS.play}</button>
       <div class="audio-player__meta">
@@ -86,7 +96,8 @@ const enhance = (audio: HTMLAudioElement): void => {
       </div>
       <span class="audio-player__hint">MZTLAB / AUDIO</span>
     </div>
-  `;
+  `,
+  );
   figure.append(player);
 
   const titleNode = player.querySelector<HTMLElement>('.audio-player__title')!;
@@ -117,7 +128,7 @@ const enhance = (audio: HTMLAudioElement): void => {
     const value = audio.muted ? 0 : audio.volume;
     volume.value = String(value);
     player.style.setProperty('--volume-progress', `${(value * 100).toFixed(2)}%`);
-    mute.innerHTML = audio.muted || audio.volume === 0 ? ICONS.mute : ICONS.volume;
+    setHTML(mute, audio.muted || audio.volume === 0 ? ICONS.mute : ICONS.volume);
     mute.setAttribute('aria-label', audio.muted ? '取消静音' : '静音');
   };
 
@@ -127,7 +138,7 @@ const enhance = (audio: HTMLAudioElement): void => {
   };
 
   const setPlayingUi = (playing: boolean) => {
-    toggle.innerHTML = playing ? ICONS.pause : ICONS.play;
+    setHTML(toggle, playing ? ICONS.pause : ICONS.play);
     toggle.setAttribute('aria-label', playing ? '暂停' : '播放');
     if (playing) setState('PLAYING');
     else if (duration > 0 && audio.currentTime >= duration - 0.05) setState('ENDED');

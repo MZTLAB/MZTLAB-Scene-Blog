@@ -1,0 +1,27 @@
+---
+import TaxonomyListing from '../../../../components/TaxonomyListing.astro';
+import { getBootstrap } from '../../../../lib/api';
+
+const { category: slug, page: rawPage } = Astro.params;
+const pageNumber = Number(rawPage);
+if (!Number.isInteger(pageNumber) || pageNumber < 2) {
+  return Astro.redirect(`/categories/${slug || ''}`, 301);
+}
+const { site, page } = await getBootstrap({
+  route: 'taxonomy',
+  category: slug || '',
+  page: pageNumber,
+});
+if (page.kind !== 'taxonomy') throw new Error('unexpected bootstrap payload for a category');
+if (!page.term) return Astro.rewrite('/404');
+---
+<TaxonomyListing
+  site={site}
+  kind="category"
+  term={page.term}
+  items={page.items}
+  page={page.page}
+  pages={page.pages}
+  total={page.total}
+  basePath={`/categories/${slug || page.term.slug}`}
+/>

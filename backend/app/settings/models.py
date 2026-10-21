@@ -13,6 +13,7 @@ database.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -279,7 +280,9 @@ class CopySettings(StripModel):
     article_filed: str = Field(default="归档于", max_length=500)
 
 
-def _format_list(allowed: tuple[str, ...], aliases: dict[str, str]):
+def _format_list(
+    allowed: tuple[str, ...], aliases: dict[str, str]
+) -> Callable[[list[str]], list[str]]:
     allowed_set = set(allowed)
 
     def validate(value: list[str]) -> list[str]:
@@ -319,30 +322,18 @@ class UploadSettings(StripModel):
 
 
 class ImagePipelineSettings(StripModel):
-    """Image pipeline knobs.
+    """Image pipeline runtime switches.
 
-    Width ladder and format switches are runtime settings; encoding quality is
-    an intentional code constant (`PIPELINE_DEFAULTS`, Phase 3) because changing
-    it used to invalidate every derivative URL.
+    3.0.0 intentionally keeps this tiny: only the width ladder and the format
+    switches are user data. Encoding quality/parameters are code constants in
+    `app.images.PIPELINE_DEFAULTS` (ADR-10) — changing them requires bumping
+    `PIPELINE_VERSION` and running a manual `reencode` job, and never rewrites
+    existing artifacts automatically (decision D5).
     """
 
     widths: list[int] = Field(default_factory=lambda: [720, 2560])
-    max_width: int = Field(default=0, ge=0, le=8192)
-    cache_days: int = Field(default=365, ge=1, le=3650)
-    prewarm: bool = True
-    lazy: bool = True
     avif_enabled: bool = True
-    avif_speed: int = Field(default=6, ge=0, le=10)
     webp_enabled: bool = True
-    webp_quality: int = Field(default=80, ge=1, le=100)
-    jpeg_quality: int = Field(default=82, ge=1, le=100)
-    quality_thumb: int = Field(default=45, ge=1, le=100)
-    quality_tile: int = Field(default=50, ge=1, le=100)
-    quality_card: int = Field(default=55, ge=1, le=100)
-    quality_hero: int = Field(default=67, ge=1, le=100)
-    quality_viewer: int = Field(default=65, ge=1, le=100)
-    quality_prose: int = Field(default=60, ge=1, le=100)
-    quality_full: int = Field(default=70, ge=1, le=100)
 
     @field_validator("widths")
     @classmethod
@@ -385,7 +376,9 @@ class Settings(BaseModel):
 
     site: SiteSettings = Field(default_factory=SiteSettings)
     appearance: AppearanceSettings = Field(default_factory=AppearanceSettings)
-    copy: CopySettings = Field(default_factory=CopySettings)
+    # `copy` is the domain name for theme copy; it shadows BaseModel.copy,
+    # which the application never calls on the settings document.
+    copy: CopySettings = Field(default_factory=CopySettings)  # type: ignore[assignment]
     upload: UploadSettings = Field(default_factory=UploadSettings)
     advanced: AdvancedSettings = Field(default_factory=AdvancedSettings)
 
@@ -545,22 +538,8 @@ class UploadSettingsPatch(StripModel):
 
 class ImagePipelineSettingsPatch(StripModel):
     widths: list[int] | None = None
-    max_width: int | None = Field(default=None, ge=0, le=8192)
-    cache_days: int | None = Field(default=None, ge=1, le=3650)
-    prewarm: bool | None = None
-    lazy: bool | None = None
     avif_enabled: bool | None = None
-    avif_speed: int | None = Field(default=None, ge=0, le=10)
     webp_enabled: bool | None = None
-    webp_quality: int | None = Field(default=None, ge=1, le=100)
-    jpeg_quality: int | None = Field(default=None, ge=1, le=100)
-    quality_thumb: int | None = Field(default=None, ge=1, le=100)
-    quality_tile: int | None = Field(default=None, ge=1, le=100)
-    quality_card: int | None = Field(default=None, ge=1, le=100)
-    quality_hero: int | None = Field(default=None, ge=1, le=100)
-    quality_viewer: int | None = Field(default=None, ge=1, le=100)
-    quality_prose: int | None = Field(default=None, ge=1, le=100)
-    quality_full: int | None = Field(default=None, ge=1, le=100)
 
 
 class StorageSettingsPatch(StripModel):
@@ -587,7 +566,7 @@ class SettingsPatch(BaseModel):
 
     site: SiteSettingsPatch | None = None
     appearance: AppearanceSettingsPatch | None = None
-    copy: CopySettingsPatch | None = None
+    copy: CopySettingsPatch | None = None  # type: ignore[assignment]
     upload: UploadSettingsPatch | None = None
     advanced: AdvancedSettingsPatch | None = None
 

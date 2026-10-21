@@ -15,8 +15,8 @@ size differs; `force=True` overwrites every remote object.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable
 
 from .storage import LocalStorage, Storage, content_type_for
 

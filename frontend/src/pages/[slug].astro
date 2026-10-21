@@ -1,19 +1,20 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
-import { ApiError, getPage, getSite } from '../lib/api';
-import type { PostDetail, SiteInfo } from '../types';
+import { ApiError, getBootstrap } from '../lib/api';
 import { formatDate, initial } from '../lib/format';
 
 const { slug } = Astro.params;
-const site: SiteInfo = await getSite();
-let page: PostDetail;
+let bootstrap;
 try {
-  page = await getPage(slug || '');
+  bootstrap = await getBootstrap({ route: 'page', slug: slug || '' });
 } catch (error) {
   if (error instanceof ApiError && error.status === 404) return Astro.rewrite('/404');
   throw error;
 }
+const { site, page: contentPage } = bootstrap;
+if (contentPage.kind !== 'page') throw new Error('unexpected bootstrap payload for a page slug');
+const page = contentPage.item;
 const settings = site.settings.site;
 const description = page.seo_description || '';
 ---

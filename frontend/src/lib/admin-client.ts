@@ -1,13 +1,9 @@
 import { api } from './api';
+import { html, type RawHtml } from './dom';
 
-export function escapeHtml(value: unknown): string {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
-}
+// Backwards-compatible re-export: `escapeHtml` now lives in ./dom (single
+// implementation for the whole frontend).
+export { escapeHtml } from './dom';
 
 type ToastKind = 'info' | 'success' | 'error';
 
@@ -40,13 +36,13 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1024 ** index).toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 }
 
-export function statusBadge(status: string): string {
+export function statusBadge(status: string): RawHtml {
   const labels: Record<string, string> = {
     published: '已发布',
     draft: '草稿',
     scheduled: '定时',
   };
-  return `<span class="badge badge--${escapeHtml(status)}">${escapeHtml(labels[status] || status)}</span>`;
+  return html`<span class="badge badge--${status}">${labels[status] || status}</span>`;
 }
 
 export function debounce<T extends (...args: never[]) => void>(fn: T, wait = 300): (...args: Parameters<T>) => void {

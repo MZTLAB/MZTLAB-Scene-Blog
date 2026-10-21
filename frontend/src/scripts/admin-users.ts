@@ -1,5 +1,6 @@
 import { api, qs } from '../lib/api';
-import { debounce, errorMessage, escapeHtml, toast } from '../lib/admin-client';
+import { debounce, errorMessage, toast } from '../lib/admin-client';
+import { html, setHTML, type RawHtml } from '../lib/dom';
 import { formatDate, timeAgo } from '../lib/format';
 import type { Member } from '../types';
 
@@ -64,32 +65,23 @@ if (root) {
 
   const closeModal = () => modal?.classList.remove('is-open');
 
-  const render = () => {
-    if (!grid) return;
-    if (!members.length) {
-      grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1">
-        <p>${state.q ? '没有匹配的成员。' : '还没有成员。'}</p>
-      </div>`;
-      return;
-    }
-    grid.innerHTML = members
-      .map((member) => {
-        const isSelf = member.id === selfId;
-        const roleLabel = member.role === 'admin' ? '管理员' : member.role === 'editor' ? '编辑' : '作者';
-        return `<article class="member-card" data-member="${member.id}" data-self="${isSelf}">
+  const renderMemberCard = (member: Member): RawHtml => {
+    const isSelf = member.id === selfId;
+    const roleLabel = member.role === 'admin' ? '管理员' : member.role === 'editor' ? '编辑' : '作者';
+    return html`<article class="member-card" data-member="${member.id}" data-self="${isSelf}">
           <div class="member-card__top">
-            <span class="avatar">${escapeHtml((member.display_name || 'M').slice(0, 1))}</span>
+            <span class="avatar">${(member.display_name || 'M').slice(0, 1)}</span>
             <div class="member-card__id">
-              <strong>${escapeHtml(member.display_name)}${isSelf ? '（你）' : ''}</strong>
-              <span>@${escapeHtml(member.username)}</span>
+              <strong>${member.display_name}${isSelf ? '（你）' : ''}</strong>
+              <span>@${member.username}</span>
             </div>
             <span class="role-badge" data-role="${member.role}" data-inactive="${member.is_active ? 'false' : 'true'}">${roleLabel}</span>
           </div>
           <div class="member-card__meta">
-            <div><span>邮箱</span><span>${escapeHtml(member.email || '—')}</span></div>
+            <div><span>邮箱</span><span>${member.email || '—'}</span></div>
             <div><span>内容</span><span>${member.content_count} 篇 · ${member.gallery_count} 本相册 · ${member.media_count ?? 0} 个媒体</span></div>
-            <div><span>最近登录</span><span>${member.last_login_at ? escapeHtml(timeAgo(member.last_login_at)) : '从未登录'}</span></div>
-            <div><span>加入</span><span>${escapeHtml(formatDate(member.created_at, 'short'))}</span></div>
+            <div><span>最近登录</span><span>${member.last_login_at ? timeAgo(member.last_login_at) : '从未登录'}</span></div>
+            <div><span>加入</span><span>${formatDate(member.created_at, 'short')}</span></div>
             <div><span>状态</span><span>${member.is_active ? '启用中' : '已停用'}</span></div>
           </div>
           <div class="member-card__actions">
@@ -97,11 +89,23 @@ if (root) {
             <button class="a-btn a-btn--sm" type="button" data-toggle="${member.id}" ${isSelf ? 'disabled' : ''}>
               ${member.is_active ? '停用' : '启用'}
             </button>
-            <button class="a-btn a-btn--sm a-btn--danger" type="button" data-delete="${member.id}" data-name="${escapeHtml(member.display_name)}" ${isSelf ? 'disabled' : ''}>删除</button>
+            <button class="a-btn a-btn--sm a-btn--danger" type="button" data-delete="${member.id}" data-name="${member.display_name}" ${isSelf ? 'disabled' : ''}>删除</button>
           </div>
         </article>`;
-      })
-      .join('');
+  };
+
+  const render = () => {
+    if (!grid) return;
+    if (!members.length) {
+      setHTML(
+        grid,
+        html`<div class="admin-empty" style="grid-column:1/-1">
+        <p>${state.q ? '没有匹配的成员。' : '还没有成员。'}</p>
+      </div>`,
+      );
+      return;
+    }
+    setHTML(grid, html`${members.map(renderMemberCard)}`);
 
     grid.querySelectorAll<HTMLButtonElement>('[data-edit]').forEach((button) => {
       button.addEventListener('click', () => {
@@ -171,7 +175,10 @@ if (root) {
       syncCounts(data.counts);
       render();
     } catch (error) {
-      grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${escapeHtml(errorMessage(error))}</p></div>`;
+      setHTML(
+        grid,
+        html`<div class="admin-empty" style="grid-column:1/-1"><p>${errorMessage(error)}</p></div>`,
+      );
     }
   };
 

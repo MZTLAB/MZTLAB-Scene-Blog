@@ -1,5 +1,6 @@
 import { api } from '../lib/api';
 import { errorMessage, toast } from '../lib/admin-client';
+import { readForm } from '../lib/form';
 import type { AdminUser } from '../types';
 
 const form = document.querySelector<HTMLElement>('[data-profile-form]');
@@ -26,12 +27,7 @@ const refreshAdminIdentity = (user: AdminUser) => {
 
 saveButton?.addEventListener('click', async () => {
   if (!form) return;
-  const data = Object.fromEntries(
-    Array.from(form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[name]')).map((input) => [
-      input.name,
-      input.value,
-    ]),
-  ) as Record<string, string>;
+  const data = readForm(form) as Record<string, string>;
   if (data.new_password && data.new_password !== data.confirm_password) {
     toast('两次输入的新密码不一致', 'error');
     return;

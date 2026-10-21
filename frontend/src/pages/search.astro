@@ -4,23 +4,19 @@ import GalleryCard from '../components/GalleryCard.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import SmartImage from '../components/SmartImage.astro';
 import Icon from '../components/Icon.astro';
-import { apiServer, getSite } from '../lib/api';
+import { getBootstrap } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { copyReader } from '../lib/site';
-import type { Photo, SearchResults, SiteInfo } from '../types';
+import type { Photo } from '../types';
 
-const site: SiteInfo = await getSite();
+const query = (Astro.url.searchParams.get('q') || '').trim();
+const { site, page: searchPage } = await getBootstrap({ route: 'search', q: query });
+if (searchPage.kind !== 'search') throw new Error('unexpected bootstrap payload for /search');
 const { site: siteSettings } = site.settings;
 const copy = copyReader(site.settings);
-const query = (Astro.url.searchParams.get('q') || '').trim();
 // Search failures are real errors now: a broken backend must not render an
-// empty 200 result page.
-let results: SearchResults = { query: '', articles: [], projects: [], galleries: [], photos: [] };
-if (query) {
-  results = await apiServer<SearchResults>(`/api/search?q=${encodeURIComponent(query)}`);
-  results.projects = results.projects || [];
-  results.photos = results.photos || [];
-}
+// empty 200 result page. The bootstrap payload is the only request (R1).
+const results = searchPage;
 const total =
   results.articles.length +
   (results.projects?.length || 0) +

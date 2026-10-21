@@ -4,20 +4,23 @@ import PhotoGrid from '../../components/PhotoGrid.astro';
 import GalleryViewer from '../../components/GalleryViewer.astro';
 import GalleryCard from '../../components/GalleryCard.astro';
 import Icon from '../../components/Icon.astro';
-import { ApiError, apiServer, getSite } from '../../lib/api';
+import { ApiError, getBootstrap } from '../../lib/api';
 import { exifFieldVisible } from '../../lib/photo';
 import { formatMonth } from '../../lib/format';
-import type { Gallery, SiteInfo } from '../../types';
 
 const { slug } = Astro.params;
-const site: SiteInfo = await getSite();
-let gallery: Gallery;
+let bootstrap;
 try {
-  gallery = await apiServer<Gallery>(`/api/galleries/${encodeURIComponent(slug || '')}`);
+  bootstrap = await getBootstrap({ route: 'gallery', slug: slug || '' });
 } catch (error) {
   if (error instanceof ApiError && error.status === 404) return Astro.rewrite('/404');
   throw error;
 }
+const { site, page: galleryPayload } = bootstrap;
+if (galleryPayload.kind !== 'gallery') {
+  throw new Error('unexpected bootstrap payload for a gallery slug');
+}
+const gallery = galleryPayload.item;
 
 const photos = gallery.photos || [];
 const columns = Math.min(4, Math.max(2, Number(site.settings.site.gallery_columns) || 3));

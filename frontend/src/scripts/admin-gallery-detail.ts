@@ -1,8 +1,8 @@
 import { api } from '../lib/api';
-import { debounce, errorMessage, escapeHtml, toast } from '../lib/admin-client';
+import { debounce, errorMessage, toast } from '../lib/admin-client';
+import { html, setHTML, type RawHtml } from '../lib/dom';
 import { PHOTO_EXIF_FIELDS, PHOTO_EXIF_LABELS } from '../lib/photo';
 import { thumbUrl } from '../lib/images';
-import { initQualityDialog } from '../lib/quality-dialog';
 import type { Gallery, MediaItem, Paginated, Photo } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-gallery-detail]');
@@ -42,15 +42,13 @@ if (root) {
       value.status === 'published' ? '已发布' : '草稿';
     const photos = value.photos || [];
     if (coverSelect) {
-      coverSelect.innerHTML = [
-        '<option value="">自动（第一张）</option>',
-        ...photos.map(
+      setHTML(
+        coverSelect,
+        html`<option value="">自动（第一张）</option>${photos.map(
           (photo) =>
-            `<option value="${photo.id}" ${value.cover_photo_id === photo.id ? 'selected' : ''}>${escapeHtml(
-              photo.title || `照片 #${photo.id}`,
-            )}</option>`,
-        ),
-      ].join('');
+            html`<option value="${photo.id}" ${value.cover_photo_id === photo.id ? 'selected' : ''}>${photo.title || `照片 #${photo.id}`}</option>`,
+        )}`,
+      );
     }
     const overviewPhotos = root.querySelector<HTMLElement>('[data-overview-photos]');
     const overviewPublished = root.querySelector<HTMLElement>('[data-overview-published]');
@@ -62,67 +60,70 @@ if (root) {
     renderPhotos();
   };
 
-  const renderPhotos = () => {
-    if (!rowsHost || !gallery) return;
-    const photos = gallery.photos || [];
-    if (!photos.length) {
-      rowsHost.innerHTML = `<div class="admin-empty" style="padding:34px 18px">
-        <p>这本相册还没有照片。先从媒体库挑选几张。</p>
-        <button class="a-btn a-btn--sm" type="button" data-empty-add>从媒体库添加</button>
-      </div>`;
-      rowsHost.querySelector('[data-empty-add]')?.addEventListener('click', () => openPicker());
-      return;
-    }
-
-    rowsHost.innerHTML = photos
-      .map(
-        (photo, index) => `<div class="photo-row" data-photo-row="${photo.id}">
-          <button class="photo-row__thumb" type="button" data-preview="${escapeHtml(photo.url)}" title="查看大图">
-            <img src="${escapeHtml(thumbUrl(photo.image, photo.url))}" alt="${escapeHtml(photo.alt)}" loading="lazy" />
+  const renderPhotoRow = (photo: Photo, index: number, total: number): RawHtml => {
+    const exifFields = photo.exif_fields || PHOTO_EXIF_FIELDS;
+    const exifLine =
+      [photo.focal_length, photo.aperture, photo.exposure, photo.iso ? `ISO ${photo.iso}` : '']
+        .filter(Boolean)
+        .join(' / ') || 'NO EXIF';
+    return html`<div class="photo-row" data-photo-row="${photo.id}">
+          <button class="photo-row__thumb" type="button" data-preview="${photo.url}" title="查看大图">
+            <img src="${thumbUrl(photo.image, photo.url)}" alt="${photo.alt}" loading="lazy" />
           </button>
           <div class="photo-row__fields">
-            <input data-photo-field="title" type="text" maxlength="140" value="${escapeHtml(photo.title)}" placeholder="标题" />
-            <input data-photo-field="caption" type="text" maxlength="600" value="${escapeHtml(photo.caption)}" placeholder="说明 / 旁注" />
-            <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;color:var(--accent);text-transform:uppercase">${escapeHtml(
-              [photo.focal_length, photo.aperture, photo.exposure, photo.iso ? `ISO ${photo.iso}` : '']
-                .filter(Boolean)
-                .join(' / ') || 'NO EXIF',
-            )}</span>
+            <input data-photo-field="title" type="text" maxlength="140" value="${photo.title}" placeholder="标题" />
+            <input data-photo-field="caption" type="text" maxlength="600" value="${photo.caption}" placeholder="说明 / 旁注" />
+            <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:.06em;color:var(--accent);text-transform:uppercase">${exifLine}</span>
             <details class="photo-exif-panel">
-              <summary>显示 EXIF · ${(photo.exif_fields || PHOTO_EXIF_FIELDS).length}/${PHOTO_EXIF_FIELDS.length}</summary>
+              <summary>显示 EXIF · ${exifFields.length}/${PHOTO_EXIF_FIELDS.length}</summary>
               <div class="photo-exif-panel__body">
                 ${PHOTO_EXIF_FIELDS.map((field) => {
-                  const checked = (photo.exif_fields || PHOTO_EXIF_FIELDS).includes(field);
-                  return `<label><input type="checkbox" data-exif-field="${field}" ${checked ? 'checked' : ''} /> ${PHOTO_EXIF_LABELS[field]}</label>`;
-                }).join('')}
+                  const checked = exifFields.includes(field);
+                  return html`<label><input type="checkbox" data-exif-field="${field}" ${checked ? 'checked' : ''} /> ${PHOTO_EXIF_LABELS[field]}</label>`;
+                })}
               </div>
             </details>
             <label class="check-row" style="margin-top:2px" title="仅隐藏前台下载入口；原图 URL 本身仍可通过媒体库访问">
-              <input type="checkbox" data-download-field ${photo.allow_download ? 'checked' : ''} />
-              <span style="font-size:10px;color:var(--ink-faint)">允许下载原图</span>
+              <input type="checkbox" data-download-field ${photo.hide_download_link ? 'checked' : ''} />
+              <span style="font-size:10px;color:var(--ink-faint)">隐藏下载链接</span>
             </label>
           </div>
           <div class="photo-row__side">
-            <input data-photo-field="location" type="text" maxlength="120" value="${escapeHtml(photo.location)}" placeholder="地点" />
+            <input data-photo-field="location" type="text" maxlength="120" value="${photo.location}" placeholder="地点" />
           </div>
           <div class="photo-row__actions">
             ${
               photo.media_id
-                ? `<a class="icon-action icon-action--text" href="/admin/media?edit=${photo.media_id}" target="_blank" rel="noopener" title="在媒体库编辑 EXIF" aria-label="在媒体库编辑 EXIF">EXIF</a>
-                   <button class="icon-action icon-action--text" type="button" data-quality-edit="${photo.media_id}" title="设置这张图的 AVIF 画质" aria-label="设置这张图的 AVIF 画质">画质</button>`
+                ? html`<a class="icon-action icon-action--text" href="/admin/media?edit=${photo.media_id}" target="_blank" rel="noopener" title="在媒体库编辑 EXIF" aria-label="在媒体库编辑 EXIF">EXIF</a>`
                 : ''
             }
             <button class="icon-action" type="button" data-move="-1" ${index === 0 ? 'disabled' : ''} title="上移" aria-label="上移">↑</button>
-            <button class="icon-action" type="button" data-move="1" ${index === photos.length - 1 ? 'disabled' : ''} title="下移" aria-label="下移">↓</button>
+            <button class="icon-action" type="button" data-move="1" ${index === total - 1 ? 'disabled' : ''} title="下移" aria-label="下移">↓</button>
             <button class="icon-action" type="button" data-featured="${photo.id}" title="${photo.featured ? '取消封面候选' : '设为精选'}" aria-label="切换精选" style="${photo.featured ? 'color:var(--accent);border-color:var(--accent)' : ''}">★</button>
             <button class="icon-action" type="button" data-toggle-status="${photo.id}" title="切换发布状态" aria-label="切换发布状态" style="${photo.status === 'published' ? '' : 'opacity:.45'}">●</button>
             <button class="icon-action icon-action--danger" type="button" data-remove="${photo.id}" title="从相册移除" aria-label="移除照片">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6"/></svg>
             </button>
           </div>
-        </div>`,
-      )
-      .join('');
+        </div>`;
+  };
+
+  const renderPhotos = () => {
+    if (!rowsHost || !gallery) return;
+    const photos = gallery.photos || [];
+    if (!photos.length) {
+      setHTML(
+        rowsHost,
+        html`<div class="admin-empty" style="padding:34px 18px">
+        <p>这本相册还没有照片。先从媒体库挑选几张。</p>
+        <button class="a-btn a-btn--sm" type="button" data-empty-add>从媒体库添加</button>
+      </div>`,
+      );
+      rowsHost.querySelector('[data-empty-add]')?.addEventListener('click', () => openPicker());
+      return;
+    }
+
+    setHTML(rowsHost, html`${photos.map((photo, index) => renderPhotoRow(photo, index, photos.length))}`);
 
     bindRows();
   };
@@ -164,7 +165,7 @@ if (root) {
 
       row.querySelectorAll<HTMLInputElement>('[data-download-field]').forEach((input) => {
         input.addEventListener('change', () => {
-          patchPhoto(photoId, { allow_download: input.checked });
+          patchPhoto(photoId, { hide_download_link: input.checked });
         });
       });
 
@@ -290,17 +291,21 @@ if (root) {
   const renderPicker = () => {
     if (!pickerGrid) return;
     if (!mediaItems.length) {
-      pickerGrid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>媒体库还没有可用的图片。<a href="/admin/media">先上传</a>。</p></div>`;
+      setHTML(
+        pickerGrid,
+        html`<div class="admin-empty" style="grid-column:1/-1"><p>媒体库还没有可用的图片。<a href="/admin/media">先上传</a>。</p></div>`,
+      );
       return;
     }
-    pickerGrid.innerHTML = mediaItems
-      .map(
-        (item) => `<button class="picker-tile ${selected.has(item.id) ? 'is-selected' : ''}" type="button" data-pick="${item.id}" title="${escapeHtml(item.original_name)}">
-          <img src="${escapeHtml(thumbUrl(item.image, item.url))}" alt="${escapeHtml(item.alt)}" loading="lazy" />
-          <span>${escapeHtml(item.original_name)}</span>
+    setHTML(
+      pickerGrid,
+      html`${mediaItems.map(
+        (item) => html`<button class="picker-tile ${selected.has(item.id) ? 'is-selected' : ''}" type="button" data-pick="${item.id}" title="${item.original_name}">
+          <img src="${thumbUrl(item.image, item.url)}" alt="${item.alt}" loading="lazy" />
+          <span>${item.original_name}</span>
         </button>`,
-      )
-      .join('');
+      )}`,
+    );
     pickerGrid.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((button) => {
       button.addEventListener('click', () => {
         const mediaId = Number(button.dataset.pick);
@@ -314,8 +319,10 @@ if (root) {
 
   const loadMedia = async (q: string) => {
     if (!pickerGrid) return;
-    pickerGrid.innerHTML =
-      '<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:100px"></div></div>';
+    setHTML(
+      pickerGrid,
+      html`<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:100px"></div></div>`,
+    );
     try {
       const data = await api<Paginated<MediaItem>>(
         `/api/admin/media?per_page=100&kind=image${q ? `&q=${encodeURIComponent(q)}` : ''}`,
@@ -323,7 +330,10 @@ if (root) {
       mediaItems = data.items;
       renderPicker();
     } catch (error) {
-      pickerGrid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${escapeHtml(errorMessage(error))}</p></div>`;
+      setHTML(
+        pickerGrid,
+        html`<div class="admin-empty" style="grid-column:1/-1"><p>${errorMessage(error)}</p></div>`,
+      );
     }
   };
 
@@ -374,8 +384,6 @@ if (root) {
       toast(errorMessage(error), 'error');
     }
   });
-
-  initQualityDialog({ onSaved: () => reload() });
 
   reload().catch((error) => toast(errorMessage(error), 'error'));
 }

@@ -1,8 +1,9 @@
 ---
+
+import { normalizeTheme } from '../lib/theme';
+import type { SiteInfo } from '../types';
 import '../styles/global.css';
 import '../styles/admin.css';
-import { themeTokens } from '../lib/site';
-import type { SiteInfo } from '../types';
 
 interface Props {
   site: SiteInfo;
@@ -11,7 +12,7 @@ interface Props {
 
 const { site, mode = 'login' } = Astro.props;
 const { site: siteSettings, appearance } = site.settings;
-const tokens = themeTokens(appearance, siteSettings);
+const tokens = normalizeTheme(appearance, siteSettings);
 const markSrc = siteSettings.favicon || '/favicon.svg';
 ---
 <!doctype html>

@@ -1,13 +1,15 @@
 ---
 /**
  * Responsive image: AVIF → WebP → JPEG, sized for the surrounding scene.
- * Falls back to the original `<img src>` when the API returned no metadata
- * (external image, deleted media, animated GIF, backend offline).
+ *
+ * Phase 3: a `<picture>` is only emitted when the backend has generated
+ * artifacts (`ready` + artifact tokens). Otherwise the ORIGINAL file is rendered
+ * with the payload's intrinsic width/height so there is no layout shift.
  */
 import {
   SCENE_SIZES,
   fallbackUrl,
-  isValidImage,
+  isReady,
   sceneWidths,
   srcset,
   type ImageInfo,
@@ -40,27 +42,34 @@ const {
   draggable,
 } = Astro.props;
 
-const info = isValidImage(image) ? image : null;
+const info = image;
+const readyImage = isReady(info) ? info : null;
 const activeSizes = sizes ?? SCENE_SIZES[scene];
-const formats: string[] = info?.formats ?? [];
-const displayWidth = info ? (width ?? sceneWidths(scene, info)[0]) : width;
-const displayHeight = info
-  ? (height ?? Math.max(1, Math.round(displayWidth! * (info.height / info.width))))
-  : height;
+const avifSet = readyImage ? srcset(readyImage, scene, 'avif') : '';
+const webpSet = readyImage ? srcset(readyImage, scene, 'webp') : '';
+const fallback = readyImage ? fallbackUrl(readyImage, scene) : '';
+const usePicture = Boolean(readyImage && (avifSet || webpSet || fallback));
+const payloadWidth = info?.width && info.width > 0 ? info.width : undefined;
+const payloadHeight = info?.height && info.height > 0 ? info.height : undefined;
+const displayWidth = width ?? payloadWidth ?? (info ? sceneWidths(scene, info)[0] : undefined);
+const displayHeight =
+  height ??
+  payloadHeight ??
+  (displayWidth && payloadWidth && payloadHeight
+    ? Math.max(1, Math.round(displayWidth * (payloadHeight / payloadWidth)))
+    : undefined);
 const loading = eager ? 'eager' : 'lazy';
 const priority = eager ? 'high' : 'auto';
+const placeholderColor = info?.placeholder || '';
+const placeholderStyle = placeholderColor ? `background-color:${placeholderColor}` : undefined;
 ---
-{info ? (
+{usePicture ? (
   <picture>
-    {formats.includes('avif') && (
-      <source type="image/avif" srcset={srcset(info, scene, 'avif')} sizes={activeSizes} />
-    )}
-    {formats.includes('webp') && (
-      <source type="image/webp" srcset={srcset(info, scene, 'webp')} sizes={activeSizes} />
-    )}
+    {avifSet && <source type="image/avif" srcset={avifSet} sizes={activeSizes} />}
+    {webpSet && <source type="image/webp" srcset={webpSet} sizes={activeSizes} />}
     <img
       class={className || undefined}
-      src={fallbackUrl(info, scene)}
+      src={fallback || src}
       alt={alt}
       width={displayWidth}
       height={displayHeight}
@@ -68,6 +77,7 @@ const priority = eager ? 'high' : 'auto';
       decoding="async"
       fetchpriority={priority}
       draggable={draggable}
+      style={placeholderStyle}
     />
   </picture>
 ) : (
@@ -75,11 +85,12 @@ const priority = eager ? 'high' : 'auto';
     class={className || undefined}
     src={src}
     alt={alt}
-    width={width}
-    height={height}
+    width={displayWidth}
+    height={displayHeight}
     loading={loading}
     decoding="async"
     fetchpriority={priority}
     draggable={draggable}
+    style={placeholderStyle}
   />
 )}

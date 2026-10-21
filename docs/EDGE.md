@@ -1,6 +1,6 @@
 # MZTLAB · Scene 接入层（nginx）配置与核对
 
-> **适用版本：3.0.0-beta1**
+> **适用版本：3.0.0-beta2**
 >
 > 本文是接入层的**唯一文档**：写清部署方（运维）必须满足的路由、转发头、体积、缓冲、压缩、可选限流与缓存、日志要求，并给出上线核对清单与参考片段。
 >
@@ -40,6 +40,8 @@
 
 - 只做**前缀转发**，不要在 nginx 里重写路径；应用内部路径以 `/api`、`/media` 为准。
 - `/admin` 页面走 Astro（`:4321`），其数据请求走 `/api/`（`:8000`），两者都经同一入口；后端与 Astro 只监听内网/回环，nginx 是唯一对外监听者。
+- `/api/bootstrap` 是公共页唯一的聚合读接口（无 cookie/会话依赖），应用已输出 `ETag` 与 `Cache-Control`（含 `s-maxage=60`）；接入层默认无需为它额外加缓存。
+- 分页使用**路径式 URL**（如 `/tags/{tag}/page/{n}`）；旧 `?page=` 的 301 重定向由应用层（Astro）发出，nginx 不要改写或缓存这些 301。
 
 ---
 
@@ -121,6 +123,7 @@ location = /api/auth/login {
 - 排除 `/api/admin/*`（后台数据一律不缓存）。
 - 排除带 `Cookie` 请求头的请求（应在 `proxy_cache_key` / `map` 中体现，不能只靠默认行为）。
 - 排除任何带 `Set-Cookie` 的响应（如 `proxy_no_cache $upstream_http_set_cookie`），否则会缓存登录态。
+- 公共页与 `/api/bootstrap` 可复用应用已给出的 `ETag` / `Cache-Control`（`s-maxage=60`），但缓存键不得包含 `Cookie`；如需缓存 `/api/bootstrap`，同样受上面三条约束。
 - 改动后检查：公开页/媒体按预期命中，`/api/admin/*` 不被缓存。
 
 ---

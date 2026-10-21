@@ -68,7 +68,7 @@
 | 新增一个后台字段的改动点 | 5~7 处 | 2~3 处（模型 + 模板；结构变更另有 SQL 文件） |
 | 后端 HTTP 集成测试 | 0 | 覆盖全部鉴权/所有权/上传/写入路径 |
 | Python 静态检查 | 无 | `ruff` + `mypy --strict`（新代码；存量代码用渐进清单） |
-| CSS 行数 | 9,985（实测 8,466） | ≤ 5,000（`@layer` + 组件作用域） |
+| CSS 行数 | 9,985（实测 8,466） | 本版不做收口：沿用 2.x `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`（见 3.9） |
 | 迁移函数数量 | 13 | 0（无存量迁移；结构变更走版本化 SQL + 显式执行） |
 | 存量图像自动重编码 | 改配置即全站失效 | **0**（只有手动触发 `reencode` 任务才会重编码） |
 
@@ -367,7 +367,7 @@
 - `P-O1` 9,985 行 CSS（实测 8,466）是全仓最大模块；`global.css` → `mono.css` → `index.css` 靠 import 顺序互相覆盖；`admin.css` 单文件 3,654 行。
 - `P-O2` 强调色 4 个不同默认值；`data-theme="scene"` 硬编码与 `data-palette` 两套主题机制并存。
 
-**3.0.0 处置**：见 3.9。用 `@layer` 显式声明层叠顺序；删除 `mono.css` / `index.css` 的“覆盖层”定位，合并为 `theme.css`；后台样式按页面拆分；禁止运行时覆盖（`custom_css` 保留但只允许追加，不允许改令牌）。
+**3.0.0 处置**：本版沿用 2.x 样式体系（见 3.9，`@layer` 重构不在本版范围）；后台样式继续集中在 `admin.css`。
 
 #### P. 契约与类型
 
@@ -758,7 +758,9 @@ jobs(id, kind, payload, status CHECK(status IN ('queued','running','done','faile
 - 把三个最复杂页面（`PostEditor`、媒体库、相册详情）改为 `@astrojs/preact` 岛屿；其余页面继续服务端渲染 + 轻量脚本。
 - 迁移标准：页面交互状态 > 5 个或脚本 > 300 行时，评估岛屿化。
 
-### 3.9 样式系统
+### 3.9 样式系统（本版不实施）
+
+> 本版沿用 2.x 样式体系（`global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`），不做 `@layer` 重构、不拆分样式文件、不引入 Stylelint。以下内容仅作为后续版本候选设计保留。
 
 - 使用 CSS `@layer` 固定层叠顺序：`@layer reset, tokens, base, components, pages, utilities;`
 - 文件结构：
@@ -906,6 +908,8 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### Phase 4：前端与预留（3~4 人日）
 
+> 本阶段**不做样式收口**：`@layer` 重构、样式文件拆分、Stylelint/令牌规范均不实施，3.0.0 继续沿用 2.x 的 `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`。其余任务照常实施。
+
 | 任务 | 产出 | 验收 |
 | --- | --- | --- |
 | 聚合数据入口 | `/api/bootstrap` + `page_data()`，公共页改为单次取数 | 每个公共路由只调用 1 个数据接口；页面无散调 API |
@@ -916,7 +920,6 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 | 重建任务形状（R5） | `jobs.kind='rebuild_site'` 枚举/状态机/API 形状（不实现执行器） | 任务 API 可返回 `queued` 形状的预留记录；文档写明未来实现点 |
 | 前端原语 | `dom.ts` / `form.ts` + 脚本迁移；删除评论脚本/页面 | 无裸 `innerHTML`；ESLint 规则生效 |
 | 令牌归一化 | `lib/theme.ts` 单处 | 两个 Layout 无重复逻辑 |
-| 样式收口 | `@layer` + 删除覆盖层 + 删除评论样式 | CSS ≤ 5,000 行；Stylelint 通过 |
 
 ### Phase 5：收尾（2~3 人日）
 
@@ -955,7 +958,7 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 | E2E | `playwright`（3 条主流程） | 登录 → 新建文章并发布 → 前台可见；上传图片 → 建相册 → 前台可见；权限越权被拒 |
 | SSG 预留 | pytest + 脚本检查 | 公共页只调用 1 个聚合接口；分页无 `?page=`；页面不读 cookie/session/UA；`derivative_set` 就绪；`rebuild_site` 任务形状可查询 |
 | 边缘（staging，仅 CI） | `docs/EDGE.md` 核对清单 + curl 断言 | `X-Forwarded-For` 覆盖生效（伪造无效）、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲 |
-| 静态检查 | `ruff` + `mypy`（渐进清单）+ `eslint` + `stylelint` | 新代码严格；存量文件在 ignore 清单中逐项减少 |
+| 静态检查 | `ruff` + `mypy`（渐进清单）+ `eslint` | 新代码严格；存量文件在 ignore 清单中逐项减少 |
 
 覆盖率门禁：服务层与路由层 ≥ 80%，`frontend/src/lib` ≥ 70%；存量文件可采用“只卡改动行”的 ratchet 模式（见 8）。
 
@@ -1001,7 +1004,7 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 | `src/config.ts` | `fallbackSite`（150 行） | 第三份默认值 |
 | `src/types.ts` | 手写 API 类型 | 生成类型取代 |
 | `src/lib/permissions.ts` | 手写角色矩阵 | 后端唯一来源 |
-| `src/styles/mono.css`、`index.css` | 覆盖式主题层 | 合并进 `theme.css` |
+| `src/styles/mono.css`、`index.css` | 覆盖式主题层 | 保留（本版不做样式收口） |
 | `src/lib/*-esm.mjs` | CJS 桥接 shim | 依赖升级后删除；若必须保留则移入 `vite` 配置 |
 | `pages/galleries/index.astro` | `/galleries` 301 | BC-23 |
 | `components/admin/ImageQualityDialog.astro`、`lib/quality-dialog.ts` | 单图 AVIF 质量覆盖 UI | 删除（质量不可变，BC-34） |

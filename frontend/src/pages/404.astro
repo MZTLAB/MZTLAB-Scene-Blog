@@ -1,26 +1,25 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
-import { getSite } from '../lib/api';
-import { copyReader } from '../lib/site';
-import type { SiteInfo } from '../types';
+import { getBootstrap } from '../lib/api';
 
-// A 404 still needs the site chrome; if the API is down this throws and the
-// 500 page (real error status) handles it instead of a half-rendered 200.
-const site: SiteInfo = await getSite();
-const copy = copyReader(site.settings);
+// A 404 still shows the full site chrome (header/footer/tokens) exactly like
+// 2.x did. It only reads the aggregated public bootstrap payload, so a future
+// SSG build can emit the page without a backend; no request-context access.
+const { site } = await getBootstrap({ route: 'home' });
+const copy = site.settings.copy;
 Astro.response.status = 404;
 ---
 <BaseLayout site={site} title="404" noindex>
   <section class="container notfound">
     <strong>404</strong>
-    <h1>{copy('notfound_title', '场景不存在')}</h1>
-    <p>{copy('notfound_text', '换一个地址，或者回到首页。')}</p>
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 24px">
-      <a class="btn" href="/"><Icon name="home" size={14} /> {copy('notfound_cta', '回到首页')}</a>
-      <a class="btn btn--ghost" href="/photos">{copy('photos_title', '影像')} <Icon name="arrowRight" size={14} /></a>
-      <a class="btn btn--ghost" href="/projects">{copy('projects_title', '项目')}</a>
-      <a class="btn btn--ghost" href="/archive">{copy('texts_title', '文字')}</a>
+    <h1>{copy.notfound_title || '场景不存在'}</h1>
+    <p>{copy.notfound_text || '换一个地址，或者回到首页。'}</p>
+    <div class="notfound-actions">
+      <a class="btn" href="/"><Icon name="home" size={14} /> {copy.notfound_cta || '回到首页'}</a>
+      <a class="btn btn--ghost" href="/photos">{copy.photos_title || '影像'} <Icon name="arrowRight" size={14} /></a>
+      <a class="btn btn--ghost" href="/projects">{copy.projects_title || '项目'}</a>
+      <a class="btn btn--ghost" href="/archive">{copy.texts_title || '文字'}</a>
     </div>
   </section>
 </BaseLayout>

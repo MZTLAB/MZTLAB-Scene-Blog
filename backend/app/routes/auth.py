@@ -68,7 +68,7 @@ def setup(payload: SetupIn, request: Request, response: Response) -> dict:
                 now,
             ),
         )
-        user_id = int(cur.lastrowid)
+        user_id = int(cur.lastrowid or 0)
         token, _ = start_session(conn, request, user_id)
 
     site_patch = SiteSettingsPatch(

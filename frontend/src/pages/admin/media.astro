@@ -1,7 +1,6 @@
 ---
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import Icon from '../../components/Icon.astro';
-import ImageQualityDialog from '../../components/admin/ImageQualityDialog.astro';
 import { guardAdmin, requestCookie } from '../../lib/auth';
 import { apiServer } from '../../lib/api';
 import type { AdminSettingsResponse, UploadSettings } from '../../types';
@@ -96,6 +95,10 @@ const descriptionPrefix = adminUnrestricted
       </div>
       <div class="toolbar-group">
         <a class="a-btn" href="/admin/galleries"><Icon name="camera" size={14} /> 相册</a>
+        <button class="a-btn" type="button" data-optimize-all>
+          <Icon name="refresh" size={14} /> 重新生成全部派生图
+        </button>
+        <span class="hint" data-job-status style="align-self:center"></span>
       </div>
     </div>
 
@@ -180,7 +183,6 @@ const descriptionPrefix = adminUnrestricted
         </form>
       </div>
     </div>
-    <ImageQualityDialog />
   </div>
 </AdminLayout>
 

@@ -9,8 +9,11 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import sqlite3
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import dataclass
+from typing import Any
 
 from .avatars import clean_avatar_url
 from .content import extract_toc, quote_slug, reading_time
@@ -31,11 +34,11 @@ def _in_clause(values: Iterable[int]) -> str:
     return ",".join("?" for _ in values) if values else "NULL"
 
 
-def attach_taxonomies(conn: sqlite3.Connection, rows: list[dict[str, Any] | sqlite3.Row]) -> None:
+def attach_taxonomies(conn: sqlite3.Connection, rows: list[Any]) -> None:
     """Attach categories/tags to mutable dicts in place, one query per kind."""
     if not rows:
         return
-    by_id = {int(row["id"]): row for row in rows}
+    by_id: dict[int, Any] = {int(row["id"]): row for row in rows}
     ids = list(by_id)
     placeholders = _in_clause(ids)
 
@@ -261,18 +264,86 @@ def _base_select() -> str:
     """
 
 
-def _search_clause() -> str:
-    # Metadata search (year/role/client/kind/taxonomy) is still LIKE-based; the
-    # FTS5 index arrives in Phase 5.
-    return (
-        "(p.title LIKE ? OR p.excerpt LIKE ? OR p.content_md LIKE ? "
-        "OR p.seo_description LIKE ? OR COALESCE(pd.year, '') LIKE ? "
-        "OR COALESCE(pd.role, '') LIKE ? OR COALESCE(pd.client, '') LIKE ? "
-        "OR COALESCE(pd.kind, '') LIKE ? "
-        "OR (SELECT uq.display_name FROM users uq WHERE uq.id = p.owner_id) LIKE ? "
-        "OR EXISTS (SELECT 1 FROM post_terms ptq "
-        "           JOIN taxonomy_terms tq ON tq.id = ptq.term_id "
-        "           WHERE ptq.post_id = p.id AND tq.name LIKE ?))"
+# ---------------------------------------------------------------------------
+# Search: FTS5 (trigram) for the body, LIKE for metadata
+# ---------------------------------------------------------------------------
+# The FTS index stores title/excerpt/content_md/seo_description. The trigram
+# tokenizer is the Chinese-friendly choice, but FTS5 cannot match a query token
+# shorter than 3 characters (the trigram size), so such queries fall back to
+# LIKE: the index accelerates long terms and never changes search results.
+FTS_MIN_TOKEN_LENGTH = 3
+
+_METADATA_SEARCH_SQL = (
+    "(COALESCE(pd.year, '') LIKE ? OR COALESCE(pd.role, '') LIKE ? "
+    "OR COALESCE(pd.client, '') LIKE ? OR COALESCE(pd.kind, '') LIKE ? "
+    "OR (SELECT uq.display_name FROM users uq WHERE uq.id = p.owner_id) LIKE ? "
+    "OR EXISTS (SELECT 1 FROM post_terms ptq "
+    "           JOIN taxonomy_terms tq ON tq.id = ptq.term_id "
+    "           WHERE ptq.post_id = p.id AND tq.name LIKE ?))"
+)
+_BODY_LIKE_SQL = (
+    "(p.title LIKE ? OR p.excerpt LIKE ? OR p.content_md LIKE ? OR p.seo_description LIKE ?)"
+)
+# `content_fts MATCH` must name the table itself (FTS5 requirement); the alias
+# `f` is only used for the `post_id` correlation.
+_FTS_SEARCH_SQL = (
+    "(EXISTS (SELECT 1 FROM content_fts f "
+    "WHERE f.post_id = p.id AND content_fts MATCH ?) OR " + _METADATA_SEARCH_SQL + ")"
+)
+_METADATA_ARG_COUNT = 6
+
+
+@dataclass(frozen=True)
+class SearchClause:
+    """One compiled `q` → (SQL fragment, bound arguments, backend used)."""
+
+    sql: str
+    args: tuple[str, ...]
+    uses_fts: bool
+
+
+def _fts_tokens(raw: str) -> list[str]:
+    """Split on whitespace and drop FTS operators/punctuation from each token."""
+    tokens: list[str] = []
+    for part in raw.split():
+        cleaned = re.sub(r"[^\w]+", "", part, flags=re.UNICODE)
+        if cleaned:
+            tokens.append(cleaned)
+    return tokens
+
+
+def _fts_match_expression(tokens: list[str]) -> str:
+    """Quote every token; whitespace between them is FTS5 implicit AND."""
+    return " ".join(f'"{token}"' for token in tokens)
+
+
+def _like_needle(raw: str) -> str:
+    return f"%{raw.strip()}%"
+
+
+def _search_clause(q: str, *, force_like: bool = False) -> SearchClause:
+    """Compile user input into a safe search predicate.
+
+    * FTS5 MATCH when every token is at least 3 characters (trigram minimum);
+    * LIKE on title/excerpt/content_md/seo_description otherwise (short Chinese
+      words, an empty sanitized query, or the post-error fallback).
+    * Metadata (project fields / author / taxonomy) is always LIKE-based and
+      OR-ed in, so metadata search keeps working either way.
+    """
+    raw = q.strip()
+    needle = _like_needle(raw)
+    tokens = _fts_tokens(raw)
+    if not force_like and tokens and all(len(token) >= FTS_MIN_TOKEN_LENGTH for token in tokens):
+        match = _fts_match_expression(tokens)
+        return SearchClause(
+            _FTS_SEARCH_SQL,
+            (match, *[needle] * _METADATA_ARG_COUNT),
+            True,
+        )
+    return SearchClause(
+        f"({_BODY_LIKE_SQL} OR {_METADATA_SEARCH_SQL})",
+        (needle,) * (4 + _METADATA_ARG_COUNT),
+        False,
     )
 
 
@@ -320,34 +391,50 @@ def fetch_posts(
     if featured is not None:
         where.append("p.featured = ?")
         args.append(1 if featured else 0)
-    if q:
-        where.append(_search_clause())
-        needle = f"%{q.strip()}%"
-        args.extend([needle] * 10)
-
-    base = _base_select()
-    if joins:
-        base += " " + " ".join(joins)
-    if where:
-        base += " WHERE " + " AND ".join(where)
-
-    count_sql = (
-        "SELECT COUNT(DISTINCT p.id) AS n FROM posts p "
-        "LEFT JOIN project_details pd ON pd.post_id = p.id "
-        f"{' '.join(joins)}"
-    )
-    if where:
-        count_sql += " WHERE " + " AND ".join(where)
-    total = int(conn.execute(count_sql, args).fetchone()["n"])
+    search: SearchClause | None = None
+    search_at = -1
+    if q and q.strip():
+        search = _search_clause(q)
+        search_at = len(where)
+        where.append(search.sql)
+        args.extend(search.args)
 
     order = (
         "p.updated_at DESC, p.id DESC"
         if admin
         else "p.featured DESC, p.published_at DESC, p.id DESC"
     )
-    sql = f"{base} ORDER BY {order} LIMIT ? OFFSET ?"
-    rows = list(conn.execute(sql, [*args, per_page, (page - 1) * per_page]))
-    return rows, total
+
+    def execute() -> tuple[list[sqlite3.Row], int]:
+        joined = " ".join(joins)
+        count_sql = (
+            "SELECT COUNT(DISTINCT p.id) AS n FROM posts p "
+            "LEFT JOIN project_details pd ON pd.post_id = p.id"
+        )
+        base = _base_select()
+        if joined:
+            count_sql += " " + joined
+            base += " " + joined
+        if where:
+            condition = " WHERE " + " AND ".join(where)
+            count_sql += condition
+            base += condition
+        total = int(conn.execute(count_sql, args).fetchone()["n"])
+        sql = f"{base} ORDER BY {order} LIMIT ? OFFSET ?"
+        rows = list(conn.execute(sql, [*args, per_page, (page - 1) * per_page]))
+        return rows, total
+
+    try:
+        return execute()
+    except sqlite3.OperationalError:
+        # Defensive: a malformed MATCH expression must never become a 500. The
+        # sanitizer makes this unlikely; degrade to the LIKE predicate instead.
+        if search is None or not search.uses_fts:
+            raise
+        fallback = _search_clause(str(q), force_like=True)
+        where[search_at] = fallback.sql
+        args[len(args) - len(search.args) :] = list(fallback.args)
+        return execute()
 
 
 def get_post(
@@ -415,9 +502,7 @@ def related_posts(
 ) -> list[dict[str, Any]]:
     term_ids = [
         int(r["term_id"])
-        for r in conn.execute(
-            "SELECT term_id FROM post_terms WHERE post_id = ?", (row["id"],)
-        )
+        for r in conn.execute("SELECT term_id FROM post_terms WHERE post_id = ?", (row["id"],))
     ]
     rows: list[sqlite3.Row] = []
     if term_ids:

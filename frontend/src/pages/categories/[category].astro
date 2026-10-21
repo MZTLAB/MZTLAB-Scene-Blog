@@ -1,80 +1,19 @@
 ---
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import StoryCard from '../../components/StoryCard.astro';
-import Pagination from '../../components/Pagination.astro';
-import Icon from '../../components/Icon.astro';
-import { apiServer, getSite } from '../../lib/api';
-import type { Paginated, PostSummary, SiteInfo, Term } from '../../types';
+import TaxonomyListing from '../../components/TaxonomyListing.astro';
+import { getBootstrap } from '../../lib/api';
 
 const { category: slug } = Astro.params;
-const site: SiteInfo = await getSite();
-let category = site.categories.find((item) => item.slug === slug);
-if (!category) {
-  const taxonomy = await apiServer<{ categories: Term[] }>('/api/taxonomy');
-  category = taxonomy.categories.find((item) => item.slug === slug);
-}
-if (!category) return Astro.rewrite('/404');
-
-const page = Math.max(1, Number(Astro.url.searchParams.get('page') || 1));
-const data = await apiServer<Paginated<PostSummary>>(
-  `/api/posts?category=${encodeURIComponent(slug || '')}&page=${page}&per_page=12`,
-);
-const others = site.categories.filter((item) => item.slug !== slug && (item.count || 0) > 0);
+const { site, page } = await getBootstrap({ route: 'taxonomy', category: slug || '' });
+if (page.kind !== 'taxonomy') throw new Error('unexpected bootstrap payload for a category');
+if (!page.term) return Astro.rewrite('/404');
 ---
-<BaseLayout
+<TaxonomyListing
   site={site}
-  title={`分类：${category.name}`}
-  description={category.description || `${category.name} 分类下的文章。`}
->
-  <section class="container page-hero">
-    <span class="eyebrow">
-      <span class="dot"></span>
-      Category
-    </span>
-    <h1>{category.name}</h1>
-    <p>{category.description || `关于「${category.name}」的记录与思考。`}</p>
-    <div class="page-hero__meta">
-      <span>{category.count || data.total} 篇文章</span>
-      <span>·</span>
-      <a href="/archive" class="text-link">返回归档 <Icon name="arrowUpRight" size={12} /></a>
-    </div>
-  </section>
-
-  <div class="container section--tight">
-    {
-      data.items.length ? (
-        <div class="story-grid">
-          {data.items.map((post, index) => (
-            <StoryCard post={post} site={site} label={site.settings.site.site_title} eager={index === 0} />
-          ))}
-        </div>
-      ) : (
-        <div class="empty-state">
-          <span class="empty-mark">✳</span>
-          <h2>这个分类下还没有文章</h2>
-        </div>
-      )
-    }
-    <Pagination page={data.page} pages={data.pages} />
-  </div>
-
-  {
-    others.length > 0 && (
-      <div class="container" style="padding-bottom: clamp(40px, 6vw, 80px)">
-        <div class="section-head">
-          <div>
-            <span class="eyebrow eyebrow--plain">Elsewhere</span>
-            <h2>其他分类</h2>
-          </div>
-        </div>
-        <div style="display: flex; flex-wrap: wrap; gap: 8px">
-          {others.map((item) => (
-            <a class="chip" href={`/categories/${item.slug}`}>
-              {item.name} <span style="opacity: .5">{item.count}</span>
-            </a>
-          ))}
-        </div>
-      </div>
-    )
-  }
-</BaseLayout>
+  kind="category"
+  term={page.term}
+  items={page.items}
+  page={page.page}
+  pages={page.pages}
+  total={page.total}
+  basePath={`/categories/${slug || page.term.slug}`}
+/>

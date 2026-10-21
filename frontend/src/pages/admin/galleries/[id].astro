@@ -1,7 +1,6 @@
 ---
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import Icon from '../../../components/Icon.astro';
-import ImageQualityDialog from '../../../components/admin/ImageQualityDialog.astro';
 import { guardAdmin } from '../../../lib/auth';
 import { ApiError, apiServer } from '../../../lib/api';
 import type { Gallery } from '../../../types';
@@ -176,8 +175,6 @@ try {
         </div>
       </div>
     </div>
-
-    <ImageQualityDialog />
   </div>
 </AdminLayout>
 

@@ -1,7 +1,8 @@
 import { api, qs } from '../lib/api';
-import { debounce, errorMessage, escapeHtml, formatBytes, toast } from '../lib/admin-client';
+import { debounce, errorMessage, formatBytes, toast } from '../lib/admin-client';
+import { html, setHTML, type RawHtml } from '../lib/dom';
 import { thumbUrl } from '../lib/images';
-import { initQualityDialog } from '../lib/quality-dialog';
+import { isJobFinished, jobProgressText, runJob, waitForJob } from '../lib/jobs';
 import type { MediaItem, Paginated } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-media-page]');
@@ -72,6 +73,53 @@ if (root) {
   let mediaItems: MediaItem[] = [];
   let editingMedia: MediaItem | null = null;
   let autoOpened = false;
+  let jobRunning = false;
+
+  const jobStatusNode = root.querySelector<HTMLElement>('[data-job-status]');
+  const setJobStatus = (text: string) => {
+    if (jobStatusNode) jobStatusNode.textContent = text;
+  };
+  const setJobButtons = (disabled: boolean) => {
+    root
+      .querySelectorAll<HTMLButtonElement>('[data-optimize-all], [data-reencode]')
+      .forEach((button) => {
+        button.disabled = disabled;
+      });
+  };
+
+  /** Create a job and poll it, then refresh the media list. */
+  const startJob = async (request: { media_id?: number; force?: boolean }) => {
+    if (jobRunning) return;
+    jobRunning = true;
+    setJobButtons(true);
+    try {
+      const job = await runJob({ kind: 'reencode', ...request });
+      setJobStatus(jobProgressText(job));
+      const finished = await waitForJob(job, {
+        intervalMs: 2000,
+        onProgress: (current) => setJobStatus(jobProgressText(current)),
+      });
+      if (finished.status === 'done') {
+        toast('派生图已更新', 'success');
+      } else if (finished.status === 'failed') {
+        toast(`生成失败：${finished.error || '未知错误'}`, 'error');
+      }
+      if (!isJobFinished(finished.status)) setJobStatus('任务已中断');
+      await load();
+    } catch (error) {
+      toast(errorMessage(error), 'error');
+      setJobStatus('');
+    } finally {
+      jobRunning = false;
+      setJobButtons(false);
+    }
+  };
+
+  root.querySelector('[data-optimize-all]')?.addEventListener('click', () => {
+    if (jobRunning) return;
+    if (!window.confirm('重新生成全部图片的派生图？该任务在后台执行，可能需要较长时间。')) return;
+    void startJob({});
+  });
 
   const closeExifEditor = () => {
     exifDialog?.classList.remove('is-open');
@@ -137,68 +185,66 @@ if (root) {
     }
   });
 
+  const renderCard = (item: MediaItem): RawHtml => {
+    const audio = item.kind === 'audio';
+    const file = item.kind === 'file';
+    const extension = (item.original_name.split('.').pop() || 'FILE').toUpperCase().slice(0, 6);
+    const actions = html`<div class="media-card__actions">
+              ${
+                !audio && !file
+                  ? html`<button type="button" data-exif-edit="${item.id}" title="编辑 EXIF" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">EXIF</button>
+                     <button type="button" data-reencode="${item.id}" title="重新生成这张图的派生图" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">重生成</button>`
+                  : ''
+              }
+              <button type="button" data-copy="${item.url}" title="复制链接"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+              <button type="button" data-delete="${item.id}" data-name="${item.original_name}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></svg></button>
+            </div>`;
+    const preview = audio
+      ? html`<div class="media-card__image media-card__audio"><audio controls preload="metadata" src="${item.url}"></audio>${actions}</div>`
+      : file
+        ? html`<div class="media-card__image media-card__file">
+                    <a class="media-card__file-link" href="${item.url}" target="_blank" rel="noopener" download>
+                      <span class="media-card__file-ext">${extension}</span>
+                      <span class="media-card__file-name">${item.original_name}</span>
+                      <span class="media-card__file-hint">下载文件</span>
+                    </a>${actions}
+                  </div>`
+        : html`<div class="media-card__image"><a href="${item.url}" target="_blank" rel="noopener"><img src="${thumbUrl(item.image, item.url)}" alt="${item.alt}" loading="lazy" decoding="async" /></a>${actions}</div>`;
+    const sizeLabel = audio ? 'AUDIO' : file ? 'FILE' : `${item.width}×${item.height}`;
+    const altPlaceholder = audio ? '音频标题 / 描述' : file ? '文件描述' : '图片替代文字（alt）';
+    const exifLine = [item.exif?.camera, item.exif?.taken_at].filter(Boolean).join(' · ');
+    return html`<article class="media-card" id="media-${item.id}">
+              ${preview}
+              <div class="media-card__body">
+                <strong title="${item.original_name}">${item.original_name}</strong>
+                <span>${sizeLabel} · ${formatBytes(item.size)}</span>
+                <span class="media-card__owner">上传者 · ${item.owner?.name || '未知'}</span>
+                ${
+                  !audio && !file && (item.exif?.camera || item.exif?.taken_at)
+                    ? html`<span class="media-card__exif">${exifLine}</span>`
+                    : ''
+                }
+                <input class="media-card__alt" type="text" value="${item.alt}" placeholder="${altPlaceholder}" data-alt="${item.id}" />
+              </div>
+            </article>`;
+  };
+
   const load = async () => {
     if (!grid) return;
-    grid.innerHTML = `<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div></div>`;
+    setHTML(
+      grid,
+      html`<div class="admin-loading" style="grid-column:1/-1"><div class="skeleton" style="height:110px"></div><div class="skeleton" style="height:110px"></div></div>`,
+    );
     try {
       const data = await api<Paginated<MediaItem>>(`/api/admin/media${qs({ page: state.page, q: state.q, kind: state.kind, per_page: 30 })}`);
       mediaItems = data.items;
       if (!data.items.length) {
-        grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${state.q ? '没有匹配的媒体。' : '媒体库还是空的，上传图片、音频或其他文件吧。'}</p></div>`;
+        setHTML(
+          grid,
+          html`<div class="admin-empty" style="grid-column:1/-1"><p>${state.q ? '没有匹配的媒体。' : '媒体库还是空的，上传图片、音频或其他文件吧。'}</p></div>`,
+        );
       } else {
-        grid.innerHTML = data.items
-          .map((item) => {
-            const audio = item.kind === 'audio';
-            const file = item.kind === 'file';
-            const extension = (item.original_name.split('.').pop() || 'FILE').toUpperCase().slice(0, 6);
-            const actions = `<div class="media-card__actions">
-              ${
-                !audio && !file
-                  ? `<button type="button" data-exif-edit="${item.id}" title="编辑 EXIF" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">EXIF</button>
-                     <button type="button" data-quality-edit="${item.id}" title="设置 AVIF 画质" style="width:auto;padding:0 6px;font-family:var(--font-mono);font-size:7.5px;letter-spacing:.04em">画质</button>`
-                  : ''
-              }
-              <button type="button" data-copy="${escapeHtml(item.url)}" title="复制链接"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
-              <button type="button" data-delete="${item.id}" data-name="${escapeHtml(item.original_name)}" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 15H6L5 6M10 11v6M14 11v6"/></svg></button>
-            </div>`;
-            const preview = audio
-              ? `<div class="media-card__image media-card__audio"><audio controls preload="metadata" src="${escapeHtml(item.url)}"></audio>${actions}</div>`
-              : file
-                ? `<div class="media-card__image media-card__file">
-                    <a class="media-card__file-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener" download>
-                      <span class="media-card__file-ext">${escapeHtml(extension)}</span>
-                      <span class="media-card__file-name">${escapeHtml(item.original_name)}</span>
-                      <span class="media-card__file-hint">下载文件</span>
-                    </a>${actions}
-                  </div>`
-                : `<div class="media-card__image"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener"><img src="${escapeHtml(thumbUrl(item.image, item.url))}" alt="${escapeHtml(item.alt)}" loading="lazy" decoding="async" /></a>${actions}</div>`;
-            const sizeLabel = audio ? 'AUDIO' : file ? 'FILE' : `${item.width}×${item.height}`;
-            const altPlaceholder = audio ? '音频标题 / 描述' : file ? '文件描述' : '图片替代文字（alt）';
-            const isAutoQuality =
-              item.avif_quality_auto == null ? true : Boolean(item.avif_quality_auto);
-            const qualityLabel =
-              !audio && !file
-                ? `<span class="media-card__quality">AVIF ${isAutoQuality ? 'AUTO' : Number(item.avif_quality) || 70}</span>`
-                : '';
-            return `<article class="media-card" id="media-${item.id}">
-              ${preview}
-              <div class="media-card__body">
-                <strong title="${escapeHtml(item.original_name)}">${escapeHtml(item.original_name)}</strong>
-                <span>${sizeLabel} · ${formatBytes(item.size)}</span>
-                <span class="media-card__owner">上传者 · ${escapeHtml(item.owner?.name || '未知')}</span>
-                ${
-                  !audio && !file && (item.exif?.camera || item.exif?.taken_at)
-                    ? `<span class="media-card__exif">${escapeHtml(
-                        [item.exif?.camera, item.exif?.taken_at].filter(Boolean).join(' · '),
-                      )}</span>`
-                    : ''
-                }
-                <input class="media-card__alt" type="text" value="${escapeHtml(item.alt)}" placeholder="${altPlaceholder}" data-alt="${item.id}" />
-                ${qualityLabel}
-              </div>
-            </article>`;
-          })
-          .join('');
+        setHTML(grid, html`${data.items.map(renderCard)}`);
         bindCards();
       }
       if (!autoOpened && editId) {
@@ -211,14 +257,16 @@ if (root) {
         }
       }
       if (pagination) {
-        pagination.innerHTML =
+        setHTML(
+          pagination,
           data.pages > 1
-            ? `<span class="number-label">${data.total} FILES · PAGE ${data.page}/${data.pages}</span>
+            ? html`<span class="number-label">${data.total} FILES · PAGE ${data.page}/${data.pages}</span>
                <div class="toolbar-group">
                  <button class="a-btn a-btn--sm" data-page="${data.page - 1}" ${data.has_prev ? '' : 'disabled'}>上一页</button>
                  <button class="a-btn a-btn--sm" data-page="${data.page + 1}" ${data.has_next ? '' : 'disabled'}>下一页</button>
                </div>`
-            : `<span class="number-label">${data.total} FILES · MEDIA LIBRARY</span>`;
+            : html`<span class="number-label">${data.total} FILES · MEDIA LIBRARY</span>`,
+        );
         pagination.querySelectorAll<HTMLButtonElement>('[data-page]').forEach((button) => {
           button.addEventListener('click', () => {
             state.page = Number(button.dataset.page);
@@ -227,7 +275,10 @@ if (root) {
         });
       }
     } catch (error) {
-      grid.innerHTML = `<div class="admin-empty" style="grid-column:1/-1"><p>${escapeHtml(errorMessage(error))}</p></div>`;
+      setHTML(
+        grid,
+        html`<div class="admin-empty" style="grid-column:1/-1"><p>${errorMessage(error)}</p></div>`,
+      );
     }
   };
 
@@ -236,6 +287,11 @@ if (root) {
       button.addEventListener('click', () => {
         const item = mediaItems.find((entry) => entry.id === Number(button.dataset.exifEdit));
         if (item) openExifEditor(item);
+      });
+    });
+    grid?.querySelectorAll<HTMLButtonElement>('[data-reencode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        void startJob({ media_id: Number(button.dataset.reencode), force: true });
       });
     });
     grid?.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
@@ -355,8 +411,6 @@ if (root) {
     }, 350),
   );
 
-  // 画质按钮打开与 EXIF 一致的弹窗；列表重渲染后委托仍然有效。
-  initQualityDialog({ onSaved: () => load() });
-
+  // 页头「重新生成全部派生图」与卡片「重生成」都通过后台 jobs 执行。
   load();
 }

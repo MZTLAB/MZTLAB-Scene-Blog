@@ -54,8 +54,8 @@ function techLine(photo: Photo): string {
             data-photo
             data-src={photo.url}
             data-image={photo.image ? JSON.stringify(photo.image) : undefined}
-            data-download-url={photo.allow_download ? photo.download_url : undefined}
-            data-download-name={photo.allow_download ? photo.download_name : undefined}
+            data-download-url={photo.hide_download_link ? undefined : photo.download_url}
+            data-download-name={photo.hide_download_link ? undefined : photo.download_name}
             data-title={photo.title}
             data-caption={photo.caption}
             data-meta={photoMetaLine(photo)}

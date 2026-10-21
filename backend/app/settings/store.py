@@ -65,11 +65,33 @@ def _read_group(conn: sqlite3.Connection, group: str) -> dict[str, Any]:
     return value
 
 
+def _filter_known(default: dict[str, Any], stored: dict[str, Any]) -> dict[str, Any]:
+    """Drop stored keys the current models no longer know about.
+
+    Settings documents evolve across 3.x releases; removed fields (for example
+    the per-scene encoding quality after ADR-10) are ignored instead of making
+    the whole group fail validation.
+    """
+    result: dict[str, Any] = {}
+    for key, value in stored.items():
+        if key not in default:
+            continue
+        base = default[key]
+        if isinstance(base, dict) and isinstance(value, dict):
+            result[key] = {**base, **_filter_known(base, value)}
+        else:
+            result[key] = value
+    return result
+
+
 def _load_from_conn(conn: sqlite3.Connection) -> Settings:
     documents: dict[str, Any] = {}
     for group in GROUPS:
         stored = _read_group(conn, group)
-        documents[group] = {**_DEFAULT_DOCS[group], **stored}
+        documents[group] = {
+            **_DEFAULT_DOCS[group],
+            **_filter_known(_DEFAULT_DOCS[group], stored),
+        }
     try:
         return Settings.model_validate(documents)
     except ValidationError as exc:

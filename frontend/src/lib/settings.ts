@@ -143,25 +143,16 @@ const UPLOAD_FIELDS: FieldTable = {
   upload_file_formats: { group: 'upload', path: ['file_formats'], kind: 'list' },
 };
 
-/** `settings.advanced.image` fields. */
+/**
+ * `settings.advanced.image` fields.
+ *
+ * Phase 3 / ADR-10: encoding quality and parameters are code constants, so only
+ * the width ladder and the two format switches remain user data.
+ */
 const IMAGE_FIELDS: FieldTable = {
   image_avif_enabled: { group: 'advanced', path: ['image', 'avif_enabled'], kind: 'boolean' },
-  image_avif_speed: { group: 'advanced', path: ['image', 'avif_speed'], kind: 'number' },
   image_webp_enabled: { group: 'advanced', path: ['image', 'webp_enabled'], kind: 'boolean' },
-  image_webp_quality: { group: 'advanced', path: ['image', 'webp_quality'], kind: 'number' },
-  image_jpeg_quality: { group: 'advanced', path: ['image', 'jpeg_quality'], kind: 'number' },
-  image_quality_thumb: { group: 'advanced', path: ['image', 'quality_thumb'], kind: 'number' },
-  image_quality_tile: { group: 'advanced', path: ['image', 'quality_tile'], kind: 'number' },
-  image_quality_card: { group: 'advanced', path: ['image', 'quality_card'], kind: 'number' },
-  image_quality_hero: { group: 'advanced', path: ['image', 'quality_hero'], kind: 'number' },
-  image_quality_viewer: { group: 'advanced', path: ['image', 'quality_viewer'], kind: 'number' },
-  image_quality_prose: { group: 'advanced', path: ['image', 'quality_prose'], kind: 'number' },
-  image_quality_full: { group: 'advanced', path: ['image', 'quality_full'], kind: 'number' },
   image_widths: { group: 'advanced', path: ['image', 'widths'], kind: 'int-list' },
-  image_max_width: { group: 'advanced', path: ['image', 'max_width'], kind: 'number' },
-  image_cache_days: { group: 'advanced', path: ['image', 'cache_days'], kind: 'number' },
-  image_prewarm: { group: 'advanced', path: ['image', 'prewarm'], kind: 'boolean' },
-  image_lazy_enabled: { group: 'advanced', path: ['image', 'lazy'], kind: 'boolean' },
 };
 
 /** `settings.advanced.storage` fields. Credentials are environment-only. */

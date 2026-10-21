@@ -1,5 +1,6 @@
 import { api } from '../lib/api';
-import { escapeHtml, errorMessage, statusBadge, toast } from '../lib/admin-client';
+import { errorMessage, statusBadge, toast } from '../lib/admin-client';
+import { html, setHTML } from '../lib/dom';
 import { number, timeAgo } from '../lib/format';
 import type { Stats } from '../types';
 
@@ -47,54 +48,60 @@ function renderRecent(stats: Stats): void {
   const container = root?.querySelector<HTMLElement>('[data-recent-posts]');
   if (!container) return;
   if (!stats.recent_posts.length) {
-    container.innerHTML =
-      '<div class="admin-empty"><p>还没有文章。<a href="/admin/posts/new">写下第一篇</a>。</p></div>';
+    setHTML(
+      container,
+      html`<div class="admin-empty"><p>还没有文章。<a href="/admin/posts/new">写下第一篇</a>。</p></div>`,
+    );
     return;
   }
-  container.innerHTML = `
+  setHTML(
+    container,
+    html`
     <table class="admin-table">
       <thead><tr><th>标题</th><th>状态</th><th>更新</th></tr></thead>
       <tbody>
-        ${stats.recent_posts
-          .map(
-            (post) => `<tr>
+        ${stats.recent_posts.map(
+          (post) => html`<tr>
               <td>
                 <a class="table-title" href="/admin/posts/${post.id}">
                   <span class="table-title__text">
-                    <strong>${escapeHtml(post.title)}</strong>
-                    <span>${escapeHtml(post.categories?.[0]?.name || '未分类')} · ${post.reading_time} min</span>
+                    <strong>${post.title}</strong>
+                    <span>${post.categories?.[0]?.name || '未分类'} · ${post.reading_time} min</span>
                   </span>
                 </a>
               </td>
               <td>${statusBadge(post.raw_status || post.status)}</td>
-              <td><span style="color: var(--ink-faint); font-size: 10px">${escapeHtml(timeAgo(post.updated_at))}</span></td>
+              <td><span style="color: var(--ink-faint); font-size: 10px">${timeAgo(post.updated_at)}</span></td>
             </tr>`,
-          )
-          .join('')}
+        )}
       </tbody>
-    </table>`;
+    </table>`,
+  );
 }
 
 function renderGalleries(stats: Stats): void {
   const container = root?.querySelector<HTMLElement>('[data-recent-galleries]');
   if (!container) return;
   if (!stats.recent_galleries?.length) {
-    container.innerHTML =
-      '<div class="admin-empty"><p>还没有相册。<a href="/admin/galleries">新建一本</a>。</p></div>';
+    setHTML(
+      container,
+      html`<div class="admin-empty"><p>还没有相册。<a href="/admin/galleries">新建一本</a>。</p></div>`,
+    );
     return;
   }
-  container.innerHTML = stats.recent_galleries
-    .map(
-      (gallery) => `<a class="top-post" href="/admin/galleries/${gallery.id}">
+  setHTML(
+    container,
+    html`${stats.recent_galleries.map(
+      (gallery) => html`<a class="top-post" href="/admin/galleries/${gallery.id}">
         <span class="top-post__index">${String(gallery.photo_count).padStart(2, '0')}</span>
         <span class="top-post__body">
-          <strong>${escapeHtml(gallery.title)}</strong>
+          <strong>${gallery.title}</strong>
           <span style="color: var(--ink-faint); font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase">
-            ${escapeHtml(gallery.status)} · ${escapeHtml(timeAgo(gallery.updated_at))}
+            ${gallery.status} · ${timeAgo(gallery.updated_at)}
           </span>
         </span>
         <span class="top-post__count">→</span>
       </a>`,
-    )
-    .join('');
+    )}`,
+  );
 }

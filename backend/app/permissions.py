@@ -9,7 +9,8 @@ Ownership rules live in `app.services.authz`, not here.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 PERMISSIONS: dict[str, str] = {
     "content.read": "查看后台内容",

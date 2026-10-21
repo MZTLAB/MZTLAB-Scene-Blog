@@ -9,14 +9,15 @@ database fails loudly. There is no 2.x migration path (decision D1).
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 from .config import BASE_DIR, DB_PATH
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 3
 MIGRATIONS_DIR = BASE_DIR / "migrations"
 
 # Tables every 3.0.0 database must contain. Used by the startup check and by
@@ -37,6 +38,9 @@ REQUIRED_TABLES = frozenset(
         "settings",
         "jobs",
         "schema_meta",
+        # FTS5 virtual table (plus its shadow tables). Search silently degrades
+        # to LIKE without it, but a 3.0.0 database must ship it.
+        "content_fts",
     }
 )
 
@@ -81,12 +85,7 @@ def db() -> Iterator[sqlite3.Connection]:
 
 
 def now_iso() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z")
-    )
+    return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def row_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -96,6 +95,7 @@ def row_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 # Schema bootstrap
 # ---------------------------------------------------------------------------
+
 
 def migration_files() -> list[tuple[int, Path]]:
     migrations: list[tuple[int, Path]] = []
@@ -113,8 +113,7 @@ def _user_tables(conn: sqlite3.Connection) -> set[str]:
     return {
         str(row["name"])
         for row in conn.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table' "
-            "AND name NOT LIKE 'sqlite_%'"
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
         )
     }
 
@@ -152,8 +151,7 @@ def init_db() -> None:
         tables = _user_tables(conn)
         if version == 0 and tables:
             raise SchemaVersionError(
-                "检测到非 3.0.0 的数据库结构（可能是 2.x 或未完成的初始化）。"
-                + SCHEMA_RESET_HINT
+                "检测到非 3.0.0 的数据库结构（可能是 2.x 或未完成的初始化）。" + SCHEMA_RESET_HINT
             )
         if version > SCHEMA_VERSION:
             raise SchemaVersionError(

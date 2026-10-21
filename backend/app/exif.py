@@ -137,9 +137,12 @@ def _gps(gps_ifd: dict[int, Any]) -> dict[str, Any] | None:
     if str(gps_ifd.get(3, "")).upper() in {"W", "WEST"}:
         longitude = -longitude
     altitude = _rational(gps_ifd.get(6))
-    if altitude is not None and str(gps_ifd.get(5, "")).lstrip("\x00").isdigit():
-        if int(gps_ifd.get(5, 0)) == 1:
-            altitude = -altitude
+    if (
+        altitude is not None
+        and str(gps_ifd.get(5, "")).lstrip("\x00").isdigit()
+        and int(gps_ifd.get(5, 0)) == 1
+    ):
+        altitude = -altitude
     result: dict[str, Any] = {
         "latitude": latitude,
         "longitude": longitude,

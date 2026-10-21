@@ -1,22 +1,23 @@
 ---
+/**
+ * Path-based pagination (R2): page 1 lives at the listing path, page N at
+ * `<basePath>/page/N`. No query strings are used, so a future static build can
+ * emit one file per page and crawlers see stable URLs.
+ */
 import Icon from './Icon.astro';
 
 interface Props {
   page: number;
   pages: number;
+  /** Listing path without a trailing `/page/N`, e.g. `/tags/photo`. */
+  basePath?: string;
 }
 
-const { page, pages } = Astro.props;
+const { page, pages, basePath } = Astro.props;
 
-const params = new URLSearchParams(Astro.url.search);
-params.delete('page');
-const base = Astro.url.pathname;
-const href = (n: number) => {
-  const query = new URLSearchParams(params);
-  if (n > 1) query.set('page', String(n));
-  const value = query.toString();
-  return value ? `${base}?${value}` : base;
-};
+const rawBase = (basePath || Astro.url.pathname).replace(/\/+$/, '').replace(/\/page\/\d+$/, '');
+const base = rawBase || '/';
+const href = (n: number) => (n <= 1 ? base : `${base}/page/${n}`);
 
 const numbers: number[] = [];
 const start = Math.max(1, page - 2);

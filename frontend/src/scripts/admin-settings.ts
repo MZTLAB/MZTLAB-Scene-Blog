@@ -1,5 +1,7 @@
 import { api } from '../lib/api';
-import { errorMessage, escapeHtml, toast } from '../lib/admin-client';
+import { errorMessage, toast } from '../lib/admin-client';
+import { html, setHTML } from '../lib/dom';
+import { jobLabel, jobProgressText, runJob, waitForJob } from '../lib/jobs';
 import { buildSettingsPatch, flattenSettings } from '../lib/settings';
 import type { AdminSettings, AdminSettingsResponse, NavLink } from '../types';
 
@@ -51,7 +53,9 @@ if (root) {
       if (input.type === 'checkbox') (input as HTMLInputElement).checked = Boolean(value);
       else input.value = String(value ?? '');
     });
-    const image = result.meta?.image;
+    const image = (
+      result.meta as unknown as { image?: { avif?: boolean; webp?: boolean } } | undefined
+    )?.image;
     if (image) {
       setHint(
         '[data-codec-status]',
@@ -103,20 +107,21 @@ if (root) {
   const renderLinks = (kind: 'nav' | 'social' | 'footer') => {
     const host = root.querySelector<HTMLElement>(`[data-links="${kind}"]`);
     if (!host) return;
-    host.innerHTML = links[kind]
-      .map(
-        (link, index) => `<div class="nav-editor__row" data-link-row data-index="${index}">
+    setHTML(
+      host,
+      html`${links[kind].map(
+        (link, index) => html`<div class="nav-editor__row" data-link-row data-index="${index}">
           <span class="nav-editor__handle" draggable="true" tabindex="0" role="button" data-link-drag title="拖动排序（聚焦后可用 ↑ ↓ 键）" aria-label="拖动排序">⋮⋮</span>
-          <input type="text" value="${escapeHtml(link.label)}" placeholder="名称" data-link-label="${kind}" data-index="${index}" />
-          <input type="text" value="${escapeHtml(link.url)}" placeholder="/path 或 https://" data-link-url="${kind}" data-index="${index}" />
+          <input type="text" value="${link.label}" placeholder="名称" data-link-label="${kind}" data-index="${index}" />
+          <input type="text" value="${link.url}" placeholder="/path 或 https://" data-link-url="${kind}" data-index="${index}" />
           <button type="button" data-remove-link="${kind}" data-index="${index}" title="移除"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
           <span class="nav-editor__move">
             <button type="button" data-link-move="${kind}" data-index="${index}" data-delta="-1" title="上移" aria-label="上移" ${index === 0 ? 'disabled' : ''}>↑</button>
             <button type="button" data-link-move="${kind}" data-index="${index}" data-delta="1" title="下移" aria-label="下移" ${index === links[kind].length - 1 ? 'disabled' : ''}>↓</button>
           </span>
         </div>`,
-      )
-      .join('');
+      )}`,
+    );
     host.querySelectorAll<HTMLInputElement>('[data-link-label]').forEach((input) => {
       input.addEventListener('input', () => {
         links[input.dataset.linkLabel as 'nav' | 'social' | 'footer'][Number(input.dataset.index)].label = input.value;
@@ -279,103 +284,59 @@ if (root) {
     }
   });
 
-  const pollOptimize = async () => {
-    const node = root.querySelector<HTMLElement>('[data-optimize-status]');
-    try {
-      const data = await api<{
-        running: boolean;
-        total: number;
-        done: number;
-        failed: number;
-        error: string;
-      }>('/api/admin/media/optimize-status');
-      if (node) {
-        node.textContent = data.running
-          ? `生成中 ${data.done}/${data.total}${data.failed ? ` · 失败 ${data.failed}` : ''}`
-          : data.total
-            ? `上次完成 ${data.done}/${data.total}${data.failed ? ` · 失败 ${data.failed}` : ''}`
-            : '';
-      }
-      if (data.running) window.setTimeout(pollOptimize, 2000);
-    } catch {
-      // the status endpoint is best-effort; the button still works
+  const setJobHint = (selector: string, text: string) => {
+    const node = root.querySelector<HTMLElement>(selector);
+    if (node) node.textContent = text;
+  };
+
+  /** Run a background job and mirror its status into `selector`. */
+  const runTrackedJob = async (
+    request: { kind: string; force?: boolean },
+    selector: string,
+    onFinished?: () => void,
+  ) => {
+    const job = await runJob(request);
+    setJobHint(selector, jobProgressText(job));
+    const finished = await waitForJob(job, {
+      intervalMs: 2000,
+      onProgress: (current) => setJobHint(selector, jobProgressText(current)),
+    });
+    if (finished.status === 'failed') {
+      toast(`${jobLabel(finished.kind)}失败：${finished.error || '未知错误'}`, 'error');
+    } else if (finished.status === 'done') {
+      toast(`${jobLabel(finished.kind)}完成`, 'success');
     }
+    onFinished?.();
+    return finished;
   };
 
   root.querySelector('[data-optimize-all]')?.addEventListener('click', async () => {
+    if (!window.confirm('重新生成全部图片的派生图？该任务在后台执行，可能需要较长时间。')) return;
+    setJobHint('[data-optimize-status]', '正在创建任务…');
     try {
-      const data = await api<{ started: boolean; message?: string }>(
-        '/api/admin/media/optimize-all',
-        { method: 'POST' },
-      );
-      toast(data.message || '已开始生成派生图', 'success');
-      pollOptimize();
+      await runTrackedJob({ kind: 'reencode' }, '[data-optimize-status]');
     } catch (error) {
+      setJobHint('[data-optimize-status]', '');
       toast(errorMessage(error), 'error');
     }
   });
-
-  interface StorageSyncState {
-    running: boolean;
-    total: number;
-    uploaded: number;
-    skipped: number;
-    failed: number;
-    bytes: number;
-    current: string;
-    error: string;
-  }
-
-  const renderSync = (data: StorageSyncState) => {
-    const node = root.querySelector<HTMLElement>('[data-sync-status]');
-    if (!node) return;
-    const done = data.uploaded + data.skipped + data.failed;
-    if (data.running) {
-      node.textContent = `同步中 ${done}/${data.total} · 上传 ${data.uploaded} · 跳过 ${data.skipped}${
-        data.failed ? ` · 失败 ${data.failed}` : ''
-      }`;
-    } else if (data.error) {
-      node.textContent = `同步失败：${data.error}`;
-    } else if (data.total) {
-      node.textContent = `上次同步：上传 ${data.uploaded} · 跳过 ${data.skipped}${
-        data.failed ? ` · 失败 ${data.failed}` : ''
-      }`;
-    }
-  };
-
-  const pollSync = async () => {
-    try {
-      const data = await api<StorageSyncState>('/api/admin/storage/sync-status');
-      renderSync(data);
-      if (data.running) {
-        window.setTimeout(pollSync, 1500);
-      } else {
-        refreshStorage();
-      }
-    } catch {
-      // status polling is best-effort
-    }
-  };
 
   root.querySelector('[data-storage-sync]')?.addEventListener('click', async () => {
     const force =
       root.querySelector<HTMLInputElement>('[data-sync-force]')?.checked ?? false;
     if (force && !window.confirm('强制覆盖对象存储中已有的同名文件？')) return;
+    setJobHint('[data-sync-status]', '正在创建任务…');
     try {
-      const data = await api<{ started: boolean; message?: string }>(
-        '/api/admin/storage/sync',
-        { method: 'POST', body: { force, scope: 'all' } },
+      await runTrackedJob(
+        { kind: 'storage_sync', force },
+        '[data-sync-status]',
+        () => refreshStorage(),
       );
-      toast(
-        data.message || (force ? '已开始强制同步' : '已开始增量同步'),
-        'success',
-      );
-      pollSync();
     } catch (error) {
+      setJobHint('[data-sync-status]', '');
       toast(errorMessage(error), 'error');
     }
   });
-  pollSync();
 
   load();
   refreshStorage();
