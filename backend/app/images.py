@@ -729,6 +729,9 @@ _IMG_TAG = re.compile(r"<img\b[^>]*>", re.IGNORECASE)
 _SRC_ATTR = re.compile(r'\bsrc="([^"]*)"', re.IGNORECASE)
 _ALT_ATTR = re.compile(r'\balt="([^"]*)"', re.IGNORECASE)
 _PROSE_SIZES = "(max-width: 820px) 100vw, 820px"
+# The Markdown editor appends this query flag when the author explicitly asks
+# for the original file; such images must not be upgraded to a prose <picture>.
+_ORIGINAL_MARKER = "original=1"
 
 
 def picture_html(
@@ -782,7 +785,10 @@ def rewrite_inline_images(html: str, conn: Any, settings: Settings | None = None
     filenames: list[str] = []
     for match in tags:
         src_match = _SRC_ATTR.search(match.group(0))
-        filename = url_to_filename(src_match.group(1)) if src_match else None
+        src = src_match.group(1) if src_match else ""
+        if _ORIGINAL_MARKER in src:
+            continue
+        filename = url_to_filename(src) if src else None
         if filename and filename not in filenames:
             filenames.append(filename)
     if not filenames:
@@ -796,7 +802,10 @@ def rewrite_inline_images(html: str, conn: Any, settings: Settings | None = None
     def replace(match: re.Match[str]) -> str:
         tag = match.group(0)
         src_match = _SRC_ATTR.search(tag)
-        filename = url_to_filename(src_match.group(1)) if src_match else None
+        src = src_match.group(1) if src_match else ""
+        if _ORIGINAL_MARKER in src:
+            return tag
+        filename = url_to_filename(src) if src else None
         row = by_filename.get(filename) if filename else None
         if row is None:
             return tag

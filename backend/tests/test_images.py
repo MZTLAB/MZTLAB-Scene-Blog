@@ -260,6 +260,12 @@ class PictureHtmlTests(unittest.TestCase):
             images.picture_html(payload, scene="prose", alt="x", sizes="820px"), ""
         )
 
+    def test_original_marker_keeps_the_img_tag(self) -> None:
+        # The Markdown editor's "insert original" option appends ?original=1;
+        # rewrite_inline_images must leave that tag untouched (no DB access).
+        markup = '<p><img src="/media/2026/05/photo.jpg?original=1" alt="原图"></p>'
+        self.assertEqual(images.rewrite_inline_images(markup, None), markup)
+
 
 if __name__ == "__main__":
     unittest.main()
