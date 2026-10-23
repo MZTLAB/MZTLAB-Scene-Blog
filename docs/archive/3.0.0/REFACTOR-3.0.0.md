@@ -1,3 +1,11 @@
+> **3.0.0 历史方案文档，请勿据此开发/部署。**
+>
+> 适用版本：3.0.0（归档于 2026-10-23，随 3.0.0 发布归档）。现行文档见仓库根 `README.md` 与 `docs/DEVELOPMENT.md`、`docs/EDGE.md`、`docs/CSS.md`、`docs/SCHEMA.md`、`docs/API.md`、`docs/SSG-FEASIBILITY.md`。
+>
+> 本文是 3.0.0 发布时的重构方案、问题目录、实施计划与验收记录，保留归档原貌；发布后的变更不再回写本文。
+
+---
+
 # MZTLAB · Scene 3.0.0 架构重构方案
 
 > 状态：**待评审（修订 2）**
@@ -1039,7 +1047,7 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 - `docs/IMAGE-PIPELINE-PLAN.md`（已实现且过期）→ 归档到 `docs/archive/2.x/`，内容并入新 DEVELOPMENT 与 `docs/SCHEMA.md` 后从当前目录移除。
 - 新增 `docs/EDGE.md`：接入层唯一文档（nginx 要求 + 参考片段 + 上线核对清单；**不包含可部署的仓库配置**）。
 - 新增 `docs/SSG-FEASIBILITY.md`：附录 B 的长期版本（阻塞项、预留清单、未来工作量）。
-- `docs/REFACTOR-3.0.0.md` 在 3.0.0 发布后移到 `docs/archive/3.0.0/`。
+- 本文已于 2026-10-23（3.0.0 发布后）归档到 `docs/archive/3.0.0/REFACTOR-3.0.0.md`。
 - 新增 `docs/archive/README.md` 说明归档规则与各版本差异索引。
 
 ### 7.4 需要新增的非删除项
@@ -1240,3 +1248,49 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 - 保持 SSR：每页仍有组装成本，接入层缓存只能做到 TTL 级；流量峰值时需要靠缓存与限流吸收。
 - 由于本版已完成 R1~R7，**迁移只是基础设施工作**；反之若不做预留，未来迁移会重新触碰页面模板与数据访问层（估计多 3~5 人日返工）。
+
+## 附录 D：归档审查（2026-10-23）
+
+> 归档前对全文逐项核对：对照仓库当前实现、CI 与验收脚本，登记完成情况、与正文记录的差异、以及按设计未执行的项。结论见文末。
+
+### D.1 Phase 0–5 完成情况
+
+| 阶段               | 核对结果（证据）                                                                                                                                                                                                                                         |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Phase 0 地基       | ✅ 代理代码与 `BLOG_PROXY_SECRET` 已无残留；`astro.config.mjs` 保留 dev-only Vite proxy；`GET /api/health/edge` 存在并有集成测试；`docs/EDGE.md` 就绪；ruff/mypy/eslint/prettier/pre-commit/CI 全部在仓；版本 3.0.0 一致                                 |
+| Phase 1 契约与配置 | ✅ `app/settings/{models,store}.py` 分组设置与默认值单源；`openapi.json` 中 `additionalProperties: true` 实测 0 处；契约生成 + CI drift 检查（`types.gen.ts`）；`fallbackSite` 已删除                                                                    |
+| Phase 2 数据与授权 | ✅ `migrations/0001_init.sql` + `scripts/db.py`；`posts`/`project_details`；评论/浏览量仅剩说明性注释（`grep` 无功能残留）；`owner_id` + `services/authz.py`；会话/限流 job 化                                                                           |
+| Phase 3 媒体       | ✅ 流式上传、`token/pipeline_version/quality` 派生图、`jobs`（`reencode` + reserved `rebuild_site`）、未就绪占位、质量常量化均有实现与测试                                                                                                               |
+| Phase 4 前端与预留 | ✅ `/api/bootstrap` + `page_data()`；页面 ETag/`no-store`；`/tags                                                                                                                                                                                        | /categories/.../page/{n}`路由 + 旧`?page=` 301；`check_public_render` 进入 CI（R3）；`derivative_set`/`rebuild_site` 预留；`dom.ts`/`form.ts`/`theme.ts` 落地；样式收口已在发布前补齐（见 §3.9） |
+| Phase 5 收尾       | ✅ FTS5（`0003_content_fts.sql` + `test_search.py`）；3.x 导出/导入（`routes/export.py` + `test_export_import.py`）；GC/`scripts/backup.py` 与恢复演练说明；2.x 文档归档 + 现行文档重写；删除清单已执行；`scripts/verify.py` 一键验收（含 `docs-drift`） |
+
+### D.2 与正文记录的差异（以实现为准）
+
+| 正文写法                                         | 实际实现                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| 数据库：`SCHEMA_VERSION = 1`（当时计划重置编号） | 实际为 **`SCHEMA_VERSION = 3`**（`migrations/0001…0003`，根 README 与 `scripts/db.py` 均为 3） |
+| 契约文件 `api.types.gen.ts`                      | `frontend/src/api/types.gen.ts`（`npm run gen:types` 生成）                                    |
+| 生成脚本 `scripts/docs/gen.py`                   | `backend/app/scripts/gen_docs.py`（`python -m app.scripts.gen_docs`）                          |
+| 验收脚本 `scripts/verify.sh`                     | `scripts/verify.py`（另有 `.sh`/`.ps1` 包装；步骤清单见文件头）                                |
+| Phase 4 "本阶段不做样式收口"                     | 已在 3.0.0 发布前补齐（Phase 1–6，见 §3.9 状态更新）                                           |
+| 正文："发布后移到 `docs/archive/3.0.0/`"         | 已执行；本文件所在路径即归档路径                                                               |
+
+### D.3 按设计未执行 / 发布时接受的偏差
+
+| 项                                                     | 状态                                                                                                                          |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Playwright E2E（§6.2 的 3 条主流程）                   | 未配置；§8 风险表已把 playwright 定位为 nightly 降级项，3.0.0 以 pytest HTTP 集成 + `check_public_render` + verify smoke 覆盖 |
+| 覆盖率数字门禁（服务层 ≥80%、`frontend/src/lib` ≥70%） | 未设自动阈值；沿用正文 §8 的 ratchet 策略（CI 跑 pytest，无硬阈值）                                                           |
+| TODO-D11 版本号与 git tag 一致性 CI                    | 版本号一致性由发布流程人工保证；CI 未做 tag 校验                                                                              |
+| SSG / 2.x 导入 / 多 worker                             | 按正文明确不做：SSG 仅预留、无 2.x 导入通道、多 worker 启动即拒绝                                                             |
+| nginx 配置                                             | 按正文不提交仓库，仅 `docs/EDGE.md` 核对清单 + staging/CI 验证                                                                |
+
+### D.4 §11 文档待办
+
+- 11.1（D01–D04）✅：`docs/archive/2.x/` 三份归档 + `docs/archive/README.md` 索引。
+- 11.2（D05–D10）✅：README / DEVELOPMENT / SCHEMA / API / EDGE / SSG-FEASIBILITY 均已重写或由脚本生成；D11 部分完成（见 D.3）。
+- 11.3 完成定义：旧内容 100% 归档 ✅；新文档数字有脚本来源或采集日期 ✅；`docs-drift` 与契约 drift CI ✅；行号/链接检查未单独脚本化（§6.3 规则保留，发布前人工核对）。
+
+### D.5 审查结论
+
+3.0.0 计划内的实现类任务（Phase 0–5）全部完成；§11 文档待办全部完成（D11 的 CI 部分除外）；§6.2 测试矩阵除 Playwright E2E 与覆盖率数字门禁外均已落地。D.3 列出的偏差是发布时明确接受的取舍，不是隐藏的未完成项。本文自归档后不再更新，现行状态见仓库根 `README.md` 与 `docs/` 下的现行文档。

@@ -115,16 +115,16 @@ docker compose up -d --build
 
 ## 文档索引
 
-| 文档                                                 | 内容                                                                   |
-| ---------------------------------------------------- | ---------------------------------------------------------------------- |
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)         | 维护者手册：架构、数据层、配置、写入管线、授权、媒体、契约生成、测试   |
-| [`docs/CSS.md`](docs/CSS.md)                         | 样式系统维护手册：分层、令牌（字号/断点/语义颜色）、组件归属与级联验证 |
-| [`docs/EDGE.md`](docs/EDGE.md)                       | 接入层（nginx）要求与上线核对清单（不含可部署配置）                    |
-| [`docs/SCHEMA.md`](docs/SCHEMA.md)                   | 数据库结构（脚本生成，勿手改）                                         |
-| [`docs/API.md`](docs/API.md)                         | API 端点表（脚本生成，勿手改）                                         |
-| [`docs/SSG-FEASIBILITY.md`](docs/SSG-FEASIBILITY.md) | 静态化可行性、阻塞项与 3.0.0 预留状态                                  |
-| [`docs/archive/`](docs/archive/README.md)            | 2.x 历史文档归档（仅追溯，勿据此部署）                                 |
-| [`docs/REFACTOR-3.0.0.md`](docs/REFACTOR-3.0.0.md)   | 3.0.0 重构方案与决策记录（历史方案，保留原路径）                       |
+| 文档                                                                           | 内容                                                                   |
+| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)                                   | 维护者手册：架构、数据层、配置、写入管线、授权、媒体、契约生成、测试   |
+| [`docs/CSS.md`](docs/CSS.md)                                                   | 样式系统维护手册：分层、令牌（字号/断点/语义颜色）、组件归属与级联验证 |
+| [`docs/EDGE.md`](docs/EDGE.md)                                                 | 接入层（nginx）要求与上线核对清单（不含可部署配置）                    |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md)                                             | 数据库结构（脚本生成，勿手改）                                         |
+| [`docs/API.md`](docs/API.md)                                                   | API 端点表（脚本生成，勿手改）                                         |
+| [`docs/SSG-FEASIBILITY.md`](docs/SSG-FEASIBILITY.md)                           | 静态化可行性、阻塞项与 3.0.0 预留状态                                  |
+| [`docs/archive/`](docs/archive/README.md)                                      | 2.x 历史文档归档（仅追溯，勿据此部署）                                 |
+| [`docs/archive/3.0.0/REFACTOR-3.0.0.md`](docs/archive/3.0.0/REFACTOR-3.0.0.md) | 3.0.0 重构方案与决策记录（已归档的历史方案）                           |
 
 ## 预览
 

@@ -415,5 +415,5 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 - 数据库结构（生成）：[`SCHEMA.md`](SCHEMA.md)
 - API 参考（生成）：[`API.md`](API.md)
 - SSG 可行性：[`SSG-FEASIBILITY.md`](SSG-FEASIBILITY.md)
-- 重构方案与决策：[`REFACTOR-3.0.0.md`](REFACTOR-3.0.0.md)（历史方案，保留原路径）
+- 重构方案与决策：[`REFACTOR-3.0.0.md`](archive/3.0.0/REFACTOR-3.0.0.md)（历史方案，已归档）
 - 2.x 历史文档：[`archive/README.md`](archive/README.md)

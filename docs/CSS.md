@@ -3,7 +3,7 @@
 > 适用版本：3.0.0
 >
 > 面向维护者：样式文件在哪、级联顺序怎么定、令牌从哪来、改一处 CSS 要跑哪些验证。
-> 架构与后端约定见 [`DEVELOPMENT.md`](DEVELOPMENT.md)；本轮样式重构的动因与范围见 [`REFACTOR-3.0.0.md`](REFACTOR-3.0.0.md) 的 §O 与 §3.9。
+> 架构与后端约定见 [`DEVELOPMENT.md`](DEVELOPMENT.md)；本轮样式重构的动因与范围见 [`REFACTOR-3.0.0.md`](archive/3.0.0/REFACTOR-3.0.0.md) 的 §O 与 §3.9。
 
 ---
 
@@ -129,7 +129,7 @@ frontend/src/styles/
 
 零视觉变化约束。后台画布是纯白、`--header-height` 68（≤900px 时 60）、`--layout-width` 1400（公共 1360）、gutter / gap / band 也各略不同；这些值来自旧 `global.css` 的不同代际，并进公共 palette 会让整个后台位移。
 
-做法：`tokens/admin/palette.css` 与 `tokens/admin/metrics.css` 是后台值的**冻结副本**，只在 `AdminLayout` / `AuthLayout` 引入，公共 token 文件保持公共站的值。想合并成一套是一次显式决策：改完跑 `css:diff`，差异只应落在后台，逐条确认后重拍基线并在本文件记录（`REFACTOR-3.0.0.md` §3.9 把它列为后续候选）。
+做法：`tokens/admin/palette.css` 与 `tokens/admin/metrics.css` 是后台值的**冻结副本**，只在 `AdminLayout` / `AuthLayout` 引入，公共 token 文件保持公共站的值。想合并成一套是一次显式决策：改完跑 `css:diff`，差异只应落在后台，逐条确认后重拍基线并在本文件记录（`docs/archive/3.0.0/REFACTOR-3.0.0.md` §3.9 把它列为后续候选）。
 
 **使用规则**：组件文件只消费 `var(--token)`，不写字面色值与像素魔法数（例外：`1px` 发丝线、`0`、`100%`、`transparent`、`currentColor`）；新令牌按颜色→`colors`、字体→`typography`、尺寸与节奏→`metrics` 归位，后台专属进 `tokens/admin/`；组件内的局部变量必须同文件声明、同文件消费，命名以 `--local-` 开头且不放 `:root`。
 
@@ -283,7 +283,7 @@ npm run css:diff ../.tmp/css-snap/baseline-unmin.json.gz ../.tmp/css-snap/after.
 | 文档                                                            | 关系                                                                                                                                                                    |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [`DEVELOPMENT.md`](DEVELOPMENT.md)                              | §2.3 给出前端分层与目录职责，§13 是编码约定与风险清单。样式相关**以本文件为准**；§13 里"2.x 样式原样保留"的表述属于重构前状态，随重构落地由维护者更新，本文件不重复它。 |
-| [`REFACTOR-3.0.0.md`](REFACTOR-3.0.0.md) §3.9                   | 原候选设计（当时标注"本版不实施"）+ 落地后的"状态更新"块：实施结果、层序内联声明的真实原因、验证矩阵与生产负载数字、剩余后续项。                                        |
+| [`REFACTOR-3.0.0.md`](archive/3.0.0/REFACTOR-3.0.0.md) §3.9     | 原候选设计（当时标注"本版不实施"）+ 落地后的"状态更新"块：实施结果、层序内联声明的真实原因、验证矩阵与生产负载数字、剩余后续项。                                        |
 | [`tokens/layers.css`](../frontend/src/styles/tokens/layers.css) | 层序的一手事实源：层名、各层意图、`custom_css` 为何不分层都写在那段注释里。本文 §2.2 是它的展开；两者冲突时以 `layers.css` 为准，并回来改本文。                         |
 
 版本规则同其它文档：主版本升级时整体移入 `docs/archive/{旧版本}/` 后重写，不在旧文上打补丁。
@@ -328,7 +328,7 @@ Phase 1–4 的结构重构（拆分、组件 import、@layer）以"与重构前
 ### 9.3 Phase 6：文档与工具同步
 
 - 本文件：新增 §3.4–3.7（字号/断点/语义颜色/局部变量）、§9（本节），更新目录、§1 目录树、§6.3 基线、§8 边界与负载数字。
-- `docs/REFACTOR-3.0.0.md` §3.9：状态更新为 Phase 5/6 已完成，列出与原候选方案的差异、验收数据与不再需要的后续项。
+- `docs/archive/3.0.0/REFACTOR-3.0.0.md` §3.9：状态更新为 Phase 5/6 已完成，列出与原候选方案的差异、验收数据与不再需要的后续项。
 - `docs/DEVELOPMENT.md`：§13 样式约定改为"字号/颜色必须走 token、断点只用 4 档、`!important` 仅限 reduced-motion"，样式检查命令补上 `--allow-important` 用法。
 - 工具：`scripts/css/snapshot.mjs` 增加令牌字面值解析；`scripts/css/check-structure.mjs` 的 important allowlist 默认建议只放行动画属性。
 

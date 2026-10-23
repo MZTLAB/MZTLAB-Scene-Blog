@@ -32,10 +32,10 @@
 
 ## 2. 路由要求
 
-| 前缀 | 上游 | 说明 |
-| --- | --- | --- |
-| `/api/` | `127.0.0.1:8000` | FastAPI 全部接口（含 `/api/health`、`/api/health/edge`） |
-| `/media/` | `127.0.0.1:8000` | FastAPI 媒体响应，需关闭代理缓冲（见第 4 节） |
+| 前缀        | 上游             | 说明                                                       |
+| ----------- | ---------------- | ---------------------------------------------------------- |
+| `/api/`     | `127.0.0.1:8000` | FastAPI 全部接口（含 `/api/health`、`/api/health/edge`）   |
+| `/media/`   | `127.0.0.1:8000` | FastAPI 媒体响应，需关闭代理缓冲（见第 4 节）              |
 | 其余（`/`） | `127.0.0.1:4321` | Astro SSR：公共页、`/admin` 后台页面、`/_astro/*` 静态资产 |
 
 - 只做**前缀转发**，不要在 nginx 里重写路径；应用内部路径以 `/api`、`/media` 为准。
@@ -141,15 +141,15 @@ location = /api/auth/login {
 
 只读端点，报告应用**实际观测到**的接入层状态（定义见 `backend/app/routes/health.py`）：
 
-| 字段 | 含义 |
-| --- | --- |
-| `ok` | 固定 `true`，表示端点可用 |
-| `client_ip` | 应用最终采信的客户端 IP（uvicorn 受信代理改写后的 `request.client`），限流与审计使用它 |
-| `forwarded_for` | 应用收到的原始 `X-Forwarded-For` 头，用于确认接入层是“覆盖”而非“追加” |
-| `forwarded_proto` | 应用收到的 `X-Forwarded-Proto`，用于确认 HTTPS 语义 |
-| `request_id` | 本次请求的关联 ID（nginx 生成或应用兜底生成） |
-| `trusted_proxy` | 当前 `BLOG_TRUSTED_PROXY` 配置值（只信任该 peer 的转发头） |
-| `cookie_secure` | 会话 Cookie 是否带 `Secure`（由 `BLOG_SITE_URL`/`BLOG_FRONTEND_URL` 的 https 推导，也可由 `BLOG_COOKIE_SECURE` 显式设置） |
+| 字段              | 含义                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `ok`              | 固定 `true`，表示端点可用                                                                                                 |
+| `client_ip`       | 应用最终采信的客户端 IP（uvicorn 受信代理改写后的 `request.client`），限流与审计使用它                                    |
+| `forwarded_for`   | 应用收到的原始 `X-Forwarded-For` 头，用于确认接入层是“覆盖”而非“追加”                                                     |
+| `forwarded_proto` | 应用收到的 `X-Forwarded-Proto`，用于确认 HTTPS 语义                                                                       |
+| `request_id`      | 本次请求的关联 ID（nginx 生成或应用兜底生成）                                                                             |
+| `trusted_proxy`   | 当前 `BLOG_TRUSTED_PROXY` 配置值（只信任该 peer 的转发头）                                                                |
+| `cookie_secure`   | 会话 Cookie 是否带 `Secure`（由 `BLOG_SITE_URL`/`BLOG_FRONTEND_URL` 的 https 推导，也可由 `BLOG_COOKIE_SECURE` 显式设置） |
 
 用法：在 staging/生产上**经真实入口**请求它，逐条对照第 11 节核对清单：
 
@@ -163,7 +163,7 @@ curl -s https://your.site/api/health/edge
 
 - 本地不安装、不运行 nginx；浏览器保持**同源** `http://127.0.0.1:4321`。
 - `/api`、`/media` 由 Astro/Vite 的**仅 dev 生效**的 `vite.server.proxy` 转发到 `BLOG_API_INTERNAL_URL`（默认 `http://127.0.0.1:8000`），并设置 `xfwd: false`，即不把客户端伪造的转发头传给后端。
-- 生产与开发的路由差异只有“谁做路由”：生产是 nginx，开发是 Vite proxy。因此本地不验证第 11 节的边缘核对项，接入层行为统一在 staging/CI 按本文核对清单验证（见 `docs/REFACTOR-3.0.0.md` 6.2 的边缘测试行）。
+- 生产与开发的路由差异只有“谁做路由”：生产是 nginx，开发是 Vite proxy。因此本地不验证第 11 节的边缘核对项，接入层行为统一在 staging/CI 按本文核对清单验证（见 `docs/archive/3.0.0/REFACTOR-3.0.0.md` 6.2 的边缘测试行）。
 
 ---
 

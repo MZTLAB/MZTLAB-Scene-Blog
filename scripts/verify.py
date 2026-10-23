@@ -11,7 +11,7 @@ and Linux and auto-detects the backend virtualenv.
     python scripts/verify.py --only backend-pytest,contract-audit
     python scripts/verify.py --list
 
-Steps (see docs/REFACTOR-3.0.0.md section 6.2):
+Steps (see docs/archive/3.0.0/REFACTOR-3.0.0.md section 6.2):
 
     backend-ruff     ruff check app tests
     backend-mypy     mypy app
