@@ -131,3 +131,7 @@ docker compose up -d --build
 ![首页](docs/home.png)
 
 ![后台概览](docs/admin.png)
+
+## 许可证
+
+本项目采用 [MIT License](LICENCE) 发布。Copyright © 2026 MZTLAB。

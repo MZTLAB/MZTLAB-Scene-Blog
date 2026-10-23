@@ -3,6 +3,8 @@ name = "mztlab-backend"
 version = "3.0.0"
 description = "MZTLAB Scene blog backend (FastAPI + SQLite)"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+classifiers = ["License :: OSI Approved :: MIT License"]
 # Runtime dependencies are intentionally not duplicated here: requirements.txt is
 # the single source of truth for the deployable environment (see backend/Dockerfile).
 dependencies = []
