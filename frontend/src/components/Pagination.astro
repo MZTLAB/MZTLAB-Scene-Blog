@@ -23,6 +23,7 @@ const numbers: number[] = [];
 const start = Math.max(1, page - 2);
 const end = Math.min(pages, page + 2);
 for (let i = start; i <= end; i += 1) numbers.push(i);
+import '../styles/site/ui/pagination.css';
 ---
 {
   pages > 1 && (

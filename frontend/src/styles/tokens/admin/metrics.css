@@ -1,0 +1,37 @@
+@layer tokens, base, components, pages, utilities;
+
+@layer tokens {
+/* ==========================================================================
+   Metrics tokens — admin workspace.
+
+   Imported by AdminLayout/AuthLayout after tokens/metrics.css. The admin shell
+   is wider and its band rhythm is slightly larger than the public site, so the
+   values differ on purpose (zero-visual-diff constraint). The two responsive
+   overrides below used to live at the end of global.css and are kept here next
+   to the values they change.
+   ========================================================================== */
+
+:root {
+  --layout-width: 1400px;
+  --reading-width: 720px;
+  --radius: 0px;
+  --header-height: 68px;
+  --gutter: clamp(20px, 3.4vw, 48px);
+  --grid-gap: clamp(10px, 1.2vw, 18px);
+  --band: clamp(56px, 8vw, 132px);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (max-width: 900px) {
+  :root {
+    --header-height: 60px;
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --gutter: 18px;
+    --grid-gap: 8px;
+  }
+}
+}

@@ -1,0 +1,14 @@
+@layer tokens, base, components, pages, utilities;
+
+@layer tokens {
+/* ==========================================================================
+   Accent tokens shared by the public site and the admin workspace.
+   The accent itself is overridden at runtime from admin settings through an
+   inline `style` on <html>, so this value only matters before hydration.
+   ========================================================================== */
+
+:root {
+  --accent: #e8481d;
+  --accent-wash-strong: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+}

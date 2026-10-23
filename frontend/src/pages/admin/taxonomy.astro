@@ -6,6 +6,7 @@ import { guardAdmin } from '../../lib/auth';
 const guard = await guardAdmin(Astro, 'taxonomy.manage');
 if (guard instanceof Response) return guard;
 const user = guard;
+import '../../styles/admin/taxonomy.css';
 ---
 <AdminLayout user={user} title="分类与标签" subtitle="Content / Taxonomy" active="taxonomy">
   <div data-taxonomy-page>

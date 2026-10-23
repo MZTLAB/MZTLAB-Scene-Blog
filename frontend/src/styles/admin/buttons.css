@@ -1,0 +1,149 @@
+/* admin/buttons.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.a-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  color: var(--ink-soft);
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.a-btn:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+  background: var(--bg);
+}
+
+.a-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.a-btn--primary {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.a-btn--primary:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.a-btn--danger {
+  color: var(--color-a24439);
+}
+
+.a-btn--danger:hover {
+  border-color: var(--color-rgba-162-68-57-0-3);
+  background: var(--color-rgba-162-68-57-0-07);
+  color: var(--color-a24439);
+}
+
+.a-btn--sm {
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 10.5px;
+}
+
+.a-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+html[data-palette] .a-btn {
+  min-height: 36px;
+  border-radius: 0;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding-inline: 15px;
+}
+
+html[data-palette] .a-btn:hover {
+  border-color: var(--ink);
+  background: transparent;
+  color: var(--ink);
+}
+
+html[data-palette] .a-btn--primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+html[data-palette] .a-btn--primary:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+html[data-palette] .a-btn--danger {
+  color: var(--color-c0392b);
+  border-color: color-mix(in srgb, var(--color-c0392b) 35%, var(--line));
+}
+
+html[data-palette] .a-btn--danger:hover {
+  background: var(--color-c0392b);
+  border-color: var(--color-c0392b);
+  color: var(--color-fff);
+}
+
+html[data-palette] .a-btn--sm {
+  min-height: 30px;
+  font-size: 9px;
+  padding-inline: 11px;
+}
+
+.icon-action {
+  display: grid;
+  place-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+
+.icon-action:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.icon-action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.icon-action--danger:hover {
+  border-color: var(--color-c0392b);
+  color: var(--color-c0392b);
+}
+
+.icon-action--text {
+  width: auto;
+  min-width: 32px;
+  padding-inline: 5px;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.06em;
+}
+}

@@ -1,7 +1,7 @@
 {
   "name": "mztlab-scene",
   "type": "module",
-  "version": "3.0.0-beta2",
+  "version": "3.0.0-beta3",
   "private": true,
   "scripts": {
     "dev": "astro dev",
@@ -13,7 +13,11 @@
     "test": "vitest run",
     "gen:types": "openapi-typescript ./src/api/openapi.json -o ./src/api/types.gen.ts",
     "preview": "astro preview",
-    "start": "node ./dist/server/entry.mjs"
+    "start": "node ./dist/server/entry.mjs",
+    "css:snapshot": "node scripts/css/snapshot.mjs",
+    "css:diff": "node scripts/css/diff.mjs",
+    "css:inventory": "node scripts/css/inventory.mjs",
+    "css:check": "node scripts/css/check-structure.mjs"
   },
   "engines": {
     "node": ">=22.22.0"

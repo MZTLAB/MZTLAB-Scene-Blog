@@ -9,6 +9,7 @@ import { getBootstrap } from '../lib/api';
 const { site } = await getBootstrap({ route: 'home' });
 const copy = site.settings.copy;
 Astro.response.status = 404;
+import '../styles/site/pages/notfound.css';
 ---
 <BaseLayout site={site} title="404" noindex>
   <section class="container notfound">

@@ -14,6 +14,7 @@ const role = project.project_role || '';
 const client = project.project_client || '';
 const kindLabel = (project.project_kind || '').trim();
 const label = `P${String(index + 1).padStart(2, '0')}`;
+import '../styles/site/cards/project-card.css';
 ---
 <a class:list={['project-card', compact && 'project-card--compact']} href={project.url}>
   <span class="project-card__plate" aria-hidden="true">

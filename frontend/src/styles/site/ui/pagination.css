@@ -1,0 +1,53 @@
+/* site/ui/pagination.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding-block: clamp(30px, 4vw, 52px);
+}
+
+.pagination a {
+  display: grid;
+  place-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding-inline: 8px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  transition: all 0.18s var(--ease);
+}
+
+.pagination span {
+  display: grid;
+  place-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding-inline: 8px;
+  border: 1px solid transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  transition: all 0.18s var(--ease);
+}
+
+.pagination a:hover {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.pagination .is-current {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.pagination .is-disabled {
+  color: var(--line);
+}
+}

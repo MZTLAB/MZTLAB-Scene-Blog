@@ -21,6 +21,8 @@ try {
   if (error instanceof ApiError && error.status === 404) return Astro.redirect('/admin/galleries');
   throw error;
 }
+import '../../../styles/admin/galleries.css';
+import '../../../styles/admin/users.css';
 ---
 <AdminLayout user={user} title="编辑相册" subtitle="Photography / Gallery" active="photography" showCompose={false}>
   <Fragment slot="actions">

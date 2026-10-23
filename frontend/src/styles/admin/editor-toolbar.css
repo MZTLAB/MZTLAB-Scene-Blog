@@ -1,0 +1,100 @@
+/* admin/editor-toolbar.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.editor-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 20px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
+}
+
+.editor-tabs button {
+  position: relative;
+  padding: 11px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 10.5px;
+}
+
+.editor-tabs button.is-active {
+  color: var(--ink);
+}
+
+.editor-tabs button.is-active::after {
+  position: absolute;
+  right: 12px;
+  bottom: -1px;
+  left: 12px;
+  height: 2px;
+  background: var(--accent);
+  content: "";
+}
+
+.editor-tabs .spacer {
+  flex: 1;
+}
+
+.editor-tabs .word-count {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.editor-toolbar button {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.editor-toolbar button:hover {
+  color: var(--ink);
+  background: var(--bg-sunken);
+}
+
+.editor-toolbar svg {
+  width: 15px;
+  height: 15px;
+}
+
+.editor-toolbar .divider {
+  width: 1px;
+  height: 18px;
+  margin: 0 6px;
+  background: var(--line);
+}
+
+html[data-palette] .editor-toolbar {
+  border-color: var(--line);
+}
+
+html[data-palette] .editor-tabs {
+  border-color: var(--line);
+}
+
+html[data-palette] .editor-toolbar button {
+  border-radius: 0;
+}
+}

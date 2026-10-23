@@ -1,0 +1,286 @@
+/* admin/galleries.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.gallery-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.gallery-admin-card {
+  display: grid;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.gallery-admin-card__media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border-bottom: 1px solid var(--line);
+}
+
+.gallery-admin-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-admin-card__media .badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--bg);
+}
+
+.gallery-admin-card__body {
+  display: grid;
+  gap: 6px;
+  padding: 13px 14px;
+}
+
+.gallery-admin-card__body strong {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.gallery-admin-card__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.gallery-admin-card__actions {
+  display: flex;
+  gap: 6px;
+  padding: 0 14px 14px;
+}
+
+.photo-manager {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.photo-row {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1.6fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.photo-row:last-child {
+  border-bottom: 0;
+}
+
+.photo-row__thumb {
+  width: 84px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  cursor: zoom-in;
+}
+
+.photo-row__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-row__fields {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.photo-row__fields input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 6px 8px;
+  font-size: 12px;
+  border-radius: 0;
+}
+
+.photo-row__fields input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.photo-exif-panel {
+  border-top: 1px dashed var(--line);
+  padding-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.photo-exif-panel summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+
+.photo-exif-panel__body {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px 10px;
+  padding-top: 7px;
+}
+
+.photo-exif-panel__body label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.photo-exif-panel__body input[type="checkbox"] {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .photo-exif-panel__body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.photo-row__fields input[data-field="title"] {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.photo-row__side {
+  display: grid;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.photo-row__side input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 6px 8px;
+  font-size: 11.5px;
+  border-radius: 0;
+}
+
+.photo-row__actions {
+  display: flex;
+  gap: 4px;
+}
+
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 2px;
+}
+
+.picker-tile {
+  position: relative;
+  display: block;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+  cursor: pointer;
+  padding: 0;
+  overflow: hidden;
+}
+
+.picker-tile img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+}
+
+.picker-tile.is-selected {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.picker-tile span {
+  display: block;
+  padding: 5px 6px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.picker-tile.is-selected::after {
+  content: "✓";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 10px;
+}
+
+.picker-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+@media (max-width: 900px) {
+  .photo-row {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .photo-row__side {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .photo-row__actions {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .photo-row__thumb {
+    width: 64px;
+  }
+}
+}

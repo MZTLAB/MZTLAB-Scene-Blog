@@ -13,6 +13,7 @@ interface Props {
 
 const { post, site = null, label = 'MZTLAB', eager = false } = Astro.props;
 const category = post.categories?.[0]?.name || (site ? 'Writing' : 'Journal');
+import '../styles/site/cards/story-card.css';
 ---
 <article class="story-card">
   <a class="story-card__media" href={post.url} aria-label={post.title}>

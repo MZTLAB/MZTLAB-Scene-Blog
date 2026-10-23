@@ -6,6 +6,7 @@ import { guardAdmin } from '../../lib/auth';
 const guard = await guardAdmin(Astro, 'settings.manage');
 if (guard instanceof Response) return guard;
 const user = guard;
+import '../../styles/admin/settings.css';
 ---
 <AdminLayout user={user} title="设置" subtitle="Site / Settings" active="settings" showCompose={false}>
   <Fragment slot="actions">

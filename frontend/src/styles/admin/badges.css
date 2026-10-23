@@ -1,0 +1,84 @@
+/* admin/badges.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.badge::before {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.badge--published {
+  color: var(--color-35734c);
+  background: var(--color-rgba-67-132-88-0-1);
+}
+
+.badge--approved {
+  color: var(--color-35734c);
+  background: var(--color-rgba-67-132-88-0-1);
+}
+
+html[data-color-mode="dark"] .badge--published {
+  color: var(--color-8fc79c);
+}
+
+html[data-color-mode="dark"] .badge--approved {
+  color: var(--color-8fc79c);
+}
+
+.badge--draft {
+  color: var(--color-9a6a25);
+  background: var(--color-rgba-184-132-47-0-1);
+}
+
+.badge--pending {
+  color: var(--color-9a6a25);
+  background: var(--color-rgba-184-132-47-0-1);
+}
+
+html[data-color-mode="dark"] .badge--draft {
+  color: var(--color-d8b36e);
+}
+
+html[data-color-mode="dark"] .badge--pending {
+  color: var(--color-d8b36e);
+}
+
+.badge--scheduled {
+  color: var(--color-4a64a8);
+  background: var(--color-rgba-74-100-168-0-1);
+}
+
+.badge--spam {
+  color: var(--color-a24439);
+  background: var(--color-rgba-162-68-57-0-1);
+}
+
+.badge--muted {
+  color: var(--ink-faint);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+html[data-palette] .badge {
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+}
+}

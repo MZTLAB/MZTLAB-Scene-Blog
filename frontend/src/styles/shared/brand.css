@@ -1,0 +1,49 @@
+/* shared/brand.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  flex: none;
+}
+
+.brand-logo {
+  width: 26px;
+  height: 26px;
+  object-fit: cover;
+}
+
+.brand-mark {
+  display: block;
+  width: 50px;
+  height: 50px;
+  flex: none;
+  object-fit: cover;
+  background: var(--ink);
+  border-radius: 10%;
+}
+
+.brand-text {
+  display: grid;
+  gap: 1px;
+  line-height: 1;
+}
+
+.brand-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.brand-sub {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.3em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+}

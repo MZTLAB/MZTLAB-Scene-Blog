@@ -1,0 +1,215 @@
+/* admin/toolbar.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+
+.filter-tabs button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 11px;
+  transition: all 0.16s ease;
+}
+
+.filter-tabs a {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 11px;
+  transition: all 0.16s ease;
+}
+
+.filter-tabs button small {
+  margin-left: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.78;
+}
+
+.filter-tabs a small {
+  margin-left: 5px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: 0.78;
+}
+
+.filter-tabs button:hover {
+  color: var(--ink);
+}
+
+.filter-tabs a:hover {
+  color: var(--ink);
+}
+
+.filter-tabs button.is-active {
+  color: var(--ink);
+  background: var(--bg);
+  box-shadow: 0 1px 4px var(--color-rgba-40-32-22-0-08);
+}
+
+.filter-tabs a.is-active {
+  color: var(--ink);
+  background: var(--bg);
+  box-shadow: 0 1px 4px var(--color-rgba-40-32-22-0-08);
+}
+
+.toolbar-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-elevated);
+}
+
+.admin-search svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-faint);
+}
+
+.admin-search input {
+  width: 180px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 11.5px;
+}
+
+.admin-search input::placeholder {
+  color: var(--ink-faint);
+}
+
+.segmented {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+}
+
+.segmented button {
+  flex: 1;
+  padding: 7px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 9.5px;
+}
+
+.segmented button.is-active {
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: 0 1px 4px var(--color-rgba-40-32-22-0-14);
+}
+
+@media (max-width: 620px) {
+  .filter-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .toolbar-group {
+    width: 100%;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-search {
+    flex: 1;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-search input {
+    width: 100%;
+  }
+}
+
+html[data-palette] .admin-search {
+  border-radius: 0;
+}
+
+html[data-palette] .segmented {
+  border-radius: 0;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+html[data-palette] .segmented button {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+html[data-palette] .segmented button.is-active {
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+html[data-palette] .segmented button.is-selected {
+  background: var(--ink);
+  color: var(--bg);
+  box-shadow: none;
+}
+
+html[data-palette] .filter-tabs {
+  border-radius: 0;
+}
+
+html[data-palette] .filter-tabs button {
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+html[data-palette] .filter-tabs button.is-active {
+  background: var(--ink);
+  color: var(--bg);
+  border-color: var(--ink);
+}
+
+html[data-palette] .pagination button {
+  border-radius: 0;
+}
+}

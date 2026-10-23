@@ -1,0 +1,12 @@
+/* site/shell/refinements-late.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.gallery-header h1 {
+  letter-spacing: -0.075em;
+}
+
+.page-hero h1 {
+  letter-spacing: -0.075em;
+}
+}

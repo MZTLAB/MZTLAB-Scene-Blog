@@ -6,6 +6,7 @@ import { guardAdmin } from '../../lib/auth';
 const guard = await guardAdmin(Astro);
 if (guard instanceof Response) return guard;
 const user = guard;
+import '../../styles/admin/users.css';
 ---
 <AdminLayout user={user} title="个人资料" subtitle="Account / Profile" active="" showCompose={false}>
   <div class="page-head-row">

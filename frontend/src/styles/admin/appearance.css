@@ -1,0 +1,114 @@
+/* admin/appearance.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.appearance-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 20px;
+  align-items: start;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.theme-option {
+  position: relative;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  text-align: left;
+  transition: all 0.18s ease;
+}
+
+.theme-option:hover {
+  border-color: var(--line-strong);
+}
+
+.theme-option.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-wash);
+}
+
+.theme-swatch {
+  display: flex;
+  gap: 3px;
+  height: 52px;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.theme-swatch span {
+  flex: 1;
+}
+
+.theme-option strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.theme-option small {
+  display: block;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-row input[type="color"] {
+  width: 38px;
+  height: 34px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.color-row input[type="text"] {
+  flex: 1;
+}
+
+@media (max-width: 1180px) {
+  .appearance-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 860px) {
+  .theme-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .theme-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+html[data-palette] .theme-option {
+  border-radius: 0;
+}
+
+html[data-palette] .theme-option.is-selected {
+  border-color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+html[data-palette] .theme-option.is-active {
+  border-color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+}

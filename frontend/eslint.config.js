@@ -87,4 +87,14 @@ export default defineConfig(
       globals: globals.node,
     },
   },
+  {
+    // `scripts/` holds Node-only developer tooling (CSS snapshot/diff/check
+    // pipeline); it never runs in the browser bundle.
+    name: 'mztlab/node-scripts',
+    files: ['scripts/**/*.{js,mjs,cjs,ts}'],
+    languageOptions: {
+      globals: globals.node,
+      ecmaVersion: 'latest',
+    },
+  },
 );

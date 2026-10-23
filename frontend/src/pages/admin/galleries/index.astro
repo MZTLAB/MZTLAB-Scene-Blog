@@ -6,6 +6,8 @@ import { guardAdmin } from '../../../lib/auth';
 const guard = await guardAdmin(Astro, 'gallery.manage');
 if (guard instanceof Response) return guard;
 const user = guard;
+import '../../../styles/admin/galleries.css';
+import '../../../styles/admin/users.css';
 ---
 <AdminLayout user={user} title="影像" subtitle="Photography / Galleries" active="photography">
   <div data-galleries-page>

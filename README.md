@@ -1,6 +1,6 @@
 # MZTLAB · Scene
 
-> 适用版本：3.0.0-beta2
+> 适用版本：3.0.0-beta3
 
 影像、项目与文字。Astro 7 负责页面，FastAPI + SQLite 负责内容、认证与权限。
 

@@ -11,6 +11,8 @@ const { site: siteSettings } = site.settings;
 const copy = copyReader(site.settings);
 const galleries = galleryPage.items;
 const columns = Math.min(4, Math.max(2, Number(siteSettings.gallery_columns) || 3));
+import '../styles/site/pages/page-hero.css';
+import '../styles/site/ui/empty-state.css';
 ---
 <BaseLayout site={site} title={copy('photos_title', '影像')} description={`${siteSettings.site_title} 的影像相册。`}>
   <section class="container page-hero page-hero--code">

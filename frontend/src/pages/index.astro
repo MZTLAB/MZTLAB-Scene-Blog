@@ -42,6 +42,9 @@ const heroPreload =
   heroCover.formats.includes('avif')
     ? imageSrcset(heroCover, 'hero', 'avif')
     : '';
+import '../styles/site/home/pillars.css';
+import '../styles/site/home/cta-band.css';
+import '../styles/site/ui/empty-state.css';
 ---
 <BaseLayout site={site} description={siteSettings.description || siteSettings.seo_description}>
   {heroPreload && (

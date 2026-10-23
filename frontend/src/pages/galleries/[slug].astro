@@ -66,6 +66,9 @@ const range = dates.length
     ? '—'
     : formatMonth(gallery.created_at);
 const description = gallery.description || site.settings.site.description;
+import '../../styles/site/photos/gallery-page.css';
+import '../../styles/site/ui/empty-state.css';
+import '../../styles/site/ui/section-headings.css';
 ---
 <BaseLayout
   site={site}

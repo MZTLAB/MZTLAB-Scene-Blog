@@ -1,0 +1,133 @@
+/* admin/taxonomy.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.tag-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 36px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: text;
+}
+
+.tag-input-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-size: 9.5px;
+}
+
+.tag-chip button {
+  display: inline-grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: currentColor;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tag-input-wrap input {
+  flex: 1;
+  min-width: 70px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-size: 10.5px;
+}
+
+.taxonomy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  align-items: start;
+}
+
+.term-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.term-row:last-child {
+  border-bottom: 0;
+}
+
+.term-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.term-row__main strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.term-row__main span {
+  display: block;
+  margin-top: 1px;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+}
+
+.term-row__count {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.term-row__actions {
+  display: flex;
+  gap: 3px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.term-row:hover .term-row__actions {
+  opacity: 1;
+}
+
+.term-row__actions button {
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+.term-row__actions button:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+@media (max-width: 1020px) {
+  .taxonomy-grid {
+    grid-template-columns: 1fr;
+  }
+}
+}

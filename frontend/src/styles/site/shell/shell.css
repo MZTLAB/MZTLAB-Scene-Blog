@@ -1,0 +1,16 @@
+/* site/shell/shell.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.site-body h1 {
+  letter-spacing: -0.065em;
+}
+
+.site-body h2 {
+  letter-spacing: -0.065em;
+}
+
+.site-body h3 {
+  letter-spacing: -0.065em;
+}
+}

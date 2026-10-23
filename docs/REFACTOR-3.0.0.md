@@ -11,13 +11,13 @@
 
 ### 本次修订（相对初版）对照
 
-| 决策 | 内容 | 主要影响章节 |
-| --- | --- | --- |
-| D1 | 不考虑存量数据、不向后兼容 | 1.2、1.3、3.3.1、5、6、7、8、附录 B（原导入桥删除） |
-| D2 | 移除 **Astro 的代理/中转角色**（Astro 前端框架本身保留），**不采用 Caddy**，仓库不提交 nginx 配置，只在文档中写明 | 3.1 全节、3.10、4（BC-11/27/28/31/32）、5 Phase 0、7.4、8、10（ADR-2/8/12）、11 |
-| D3 | 移除整个评论功能 | 2.1（P-S1）、3.4、3.10、4（BC-35）、5 Phase 2、7、附录 B/B.3 |
-| D4 | SSG 暂缓；详细分析框架主体迁移 SSG 的可行性；本版开发做预留 | 0.3、3.6、3.7、5 Phase 4、6.2、附录 B |
-| D5 | 存量图像除非手动触发，否则不重编码 | 3.7.1、3.7.3、4（BC-34/37）、5 Phase 3、8、10（ADR-10） |
+| 决策 | 内容                                                                                                              | 主要影响章节                                                                    |
+| ---- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| D1   | 不考虑存量数据、不向后兼容                                                                                        | 1.2、1.3、3.3.1、5、6、7、8、附录 B（原导入桥删除）                             |
+| D2   | 移除 **Astro 的代理/中转角色**（Astro 前端框架本身保留），**不采用 Caddy**，仓库不提交 nginx 配置，只在文档中写明 | 3.1 全节、3.10、4（BC-11/27/28/31/32）、5 Phase 0、7.4、8、10（ADR-2/8/12）、11 |
+| D3   | 移除整个评论功能                                                                                                  | 2.1（P-S1）、3.4、3.10、4（BC-35）、5 Phase 2、7、附录 B/B.3                    |
+| D4   | SSG 暂缓；详细分析框架主体迁移 SSG 的可行性；本版开发做预留                                                       | 0.3、3.6、3.7、5 Phase 4、6.2、附录 B                                           |
+| D5   | 存量图像除非手动触发，否则不重编码                                                                                | 3.7.1、3.7.3、4（BC-34/37）、5 Phase 3、8、10（ADR-10）                         |
 
 > D2 的范围已明确：**只移除 Astro 在请求链路中的代理/中转角色**（删除 `pages/api/[...path].ts`、`pages/media/[...path].ts`、`lib/proxy.ts`），**Astro 作为前端框架与 SSR 运行体完整保留**（公共页、`/admin`、`/_astro` 资产继续由它提供），后续 SSG 预留（附录 B）也以 Astro 的预渲染能力为目标。不引入 Caddy，接入层只保留一层由运维维护的 nginx。
 
@@ -52,25 +52,25 @@
 
 ### 0.2 三个根因
 
-| 编号 | 根因 | 表现 | 3.0.0 处置 |
-| --- | --- | --- | --- |
-| R1 | **配置系统没有 schema** | 142 个设置键、31 分支 if/elif 校验、默认值存在三份、迁移靠“值等于旧默认才覆盖” | 用 Pydantic 分组模型统一读写，密钥移出数据库，前端类型由后端生成 |
-| R2 | **跨端契约靠人肉同步** | 响应无 `response_model`、`types.ts` 手写、权限矩阵两份、默认值三份、文档 4 天即漂移 | OpenAPI 作为唯一契约，`openapi-typescript` 生成前端类型，CI 检查漂移 |
-| R3 | **读路径没有缓存、写路径没有事务** | 公共页全量 SSR + 每页 1+N 次进程内 HTTP；删除媒体跨存储无事务；每请求写 sessions | 页面对接单一聚合数据接口 + ETag/短缓存（**不做 SSG**，见附录 B）；跨存储操作引入补偿流程；去掉读请求写库 |
+| 编号 | 根因                               | 表现                                                                                | 3.0.0 处置                                                                                               |
+| ---- | ---------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| R1   | **配置系统没有 schema**            | 142 个设置键、31 分支 if/elif 校验、默认值存在三份、迁移靠“值等于旧默认才覆盖”      | 用 Pydantic 分组模型统一读写，密钥移出数据库，前端类型由后端生成                                         |
+| R2   | **跨端契约靠人肉同步**             | 响应无 `response_model`、`types.ts` 手写、权限矩阵两份、默认值三份、文档 4 天即漂移 | OpenAPI 作为唯一契约，`openapi-typescript` 生成前端类型，CI 检查漂移                                     |
+| R3   | **读路径没有缓存、写路径没有事务** | 公共页全量 SSR + 每页 1+N 次进程内 HTTP；删除媒体跨存储无事务；每请求写 sessions    | 页面对接单一聚合数据接口 + ETag/短缓存（**不做 SSG**，见附录 B）；跨存储操作引入补偿流程；去掉读请求写库 |
 
 ### 0.3 预期收益（量化目标）
 
-| 指标 | 2.3.0 | 3.0.0 目标 |
-| --- | --- | --- |
-| 公共页渲染 | 每次请求 SSR + 最多 4 次后端往返 | 仍为 SSR，但每页 **1 次聚合请求** + ETag/`Cache-Control`（SSG 预留见附录 B） |
-| 评论功能 | 表/接口/审核/反垃圾/文案/前后台十余处 | **整体移除**（0 维护面、0 攻击面） |
-| 设置项新增成本 | 6 处改动 | 1 处（模型定义） |
-| 新增一个后台字段的改动点 | 5~7 处 | 2~3 处（模型 + 模板；结构变更另有 SQL 文件） |
-| 后端 HTTP 集成测试 | 0 | 覆盖全部鉴权/所有权/上传/写入路径 |
-| Python 静态检查 | 无 | `ruff` + `mypy --strict`（新代码；存量代码用渐进清单） |
-| CSS 行数 | 9,985（实测 8,466） | 本版不做收口：沿用 2.x `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`（见 3.9） |
-| 迁移函数数量 | 13 | 0（无存量迁移；结构变更走版本化 SQL + 显式执行） |
-| 存量图像自动重编码 | 改配置即全站失效 | **0**（只有手动触发 `reencode` 任务才会重编码） |
+| 指标                     | 2.3.0                                 | 3.0.0 目标                                                                                                  |
+| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 公共页渲染               | 每次请求 SSR + 最多 4 次后端往返      | 仍为 SSR，但每页 **1 次聚合请求** + ETag/`Cache-Control`（SSG 预留见附录 B）                                |
+| 评论功能                 | 表/接口/审核/反垃圾/文案/前后台十余处 | **整体移除**（0 维护面、0 攻击面）                                                                          |
+| 设置项新增成本           | 6 处改动                              | 1 处（模型定义）                                                                                            |
+| 新增一个后台字段的改动点 | 5~7 处                                | 2~3 处（模型 + 模板；结构变更另有 SQL 文件）                                                                |
+| 后端 HTTP 集成测试       | 0                                     | 覆盖全部鉴权/所有权/上传/写入路径                                                                           |
+| Python 静态检查          | 无                                    | `ruff` + `mypy --strict`（新代码；存量代码用渐进清单）                                                      |
+| CSS 行数                 | 9,985（实测 8,466）                   | 本版不做收口：沿用 2.x `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`（见 3.9） |
+| 迁移函数数量             | 13                                    | 0（无存量迁移；结构变更走版本化 SQL + 显式执行）                                                            |
+| 存量图像自动重编码       | 改配置即全站失效                      | **0**（只有手动触发 `reencode` 任务才会重编码）                                                             |
 
 ### 0.4 工作量估算
 
@@ -133,68 +133,68 @@
 
 级别：**P0** 数据/安全/可用性缺陷；**P1** 结构性债务；**P2** 卫生问题。
 
-| 编号 | 子系统 | 问题 | 级别 |
-| --- | --- | --- | --- |
-| P-A1 | 运行时 | 用 98 行 TS 手写反向代理，重实现 hop-by-hop/Set-Cookie/超时/IP 信任 | P1 |
-| P-A2 | 运行时 | 上传 body 在 Astro 与 FastAPI 各整块缓冲一次（200MB 级双份内存） | P1 |
-| P-A3 | 运行时 | 公共页每页 1+N 次进程内 HTTP + JSON 往返，无聚合、无缓存 | P1 |
-| P-A4 | 运行时 | 安全响应头在三处重复定义，改一处会漏 | P2 |
-| P-B1 | 配置 | 142 键无 schema，校验是 31 分支 if/elif | P1 |
-| P-B2 | 配置 | 默认值存在三份（`defaults.py` / `config.ts` / `types.ts`），强调色已出现 4 个不同值 | P0 |
-| P-B3 | 配置 | 密钥与文案同表，靠手工 mask 与手工 private 键集合 | P1 |
-| P-B4 | 配置 | `/api/site` 每请求全量返回 142 键（含 60KB `custom_css`、30KB `head_html`） | P2 |
-| P-C1 | 数据层 | 13 个 schema 版本中 4 个仅挪动 AVIF 质量默认值；版本号被当设置变更日志 | P1 |
-| P-C2 | 数据层 | 迁移函数每次启动运行，部分无版本守卫，重渲染演示数据 | P1 |
-| P-C3 | 数据层 | 生产启动逻辑依赖演示 fixtures（`_migrate_scene_demo_project` ← `seed.PROJECTS`） | P1 |
-| P-C4 | 数据层 | 跨存储删除无事务边界；一个请求多次开连接/提交 | P1 |
-| P-D1 | 认证 | 登录退避用 `time.sleep`（最多 3s）阻塞线程池，40 并发失败登录即可打满 | P0 |
-| P-D2 | 认证 | 限流器为进程内内存，多 worker 静默失效，无启动检查 | P1 |
-| P-D3 | 认证 | 每个带会话请求都 `UPDATE sessions`，读请求写库并争抢 WAL 写锁 | P1 |
-| P-D4 | 认证 | `is_blocked()` + `record()` 非原子，并发可越限 | P2 |
-| P-E1 | 授权 | 所有权检查存在三份实现，403 文案与判定入口不一致 | P1 |
-| P-E2 | 授权 | 权限矩阵前端手写镜像，靠注释“必须同步” | P1 |
-| P-E3 | 授权 | 77 个路由的权限散落，无“路由 → 权限”可审计清单 | P2 |
-| P-F1 | 内容 | `serialize_post` 与 `_list_item` 两份字段映射，已可漂移 | P0 |
-| P-F2 | 内容 | 详情读路径重跑图片改写 + 每图重算 token；列表页对全文跑正则算阅读时长 | P1 |
-| P-F3 | 内容 | 单表继承无任何数据库约束，类型行为全靠代码分支 | P1 |
-| P-F4 | 内容 | `_post_request` 返回无类型 dict，`user_id` 实为作者 id | P2 |
-| P-F5 | 内容 | 用 `assert` 做控制流；bleach 后用正则补 `rel`/`target` | P2 |
-| P-G1 | 影像 | `PhotoUpdateIn` 是伪部分更新：漏传 `gallery_id` 会把照片移出相册 | P0 |
-| P-G2 | 影像 | 相册详情把照片查询与序列化做两遍 | P1 |
-| P-G3 | 影像 | EXIF 有四个真相层（media / photos 快照 / exif_fields / 前端再过滤） | P1 |
-| P-G4 | 影像 | 媒体删除后照片保留 filename 快照，前台回退 URL 必然 404 | P2 |
-| P-H1 | 媒体 | 唯一 `async def` 路由承载 200MB 读 + Pillow 解码 + EXIF + 取色，阻塞事件循环 | P0 |
-| P-H2 | 媒体 | “可执行文件降级为下载”只在上传后的服务层实现，新出口可绕过 | P1 |
-| P-H3 | 媒体 | 上传策略校验存在三处，空值回退语义不一致 | P1 |
-| P-H4 | 媒体 | 后台任务状态是进程内全局字典，无持久化/无 job id/不可取消 | P2 |
-| P-I1 | 图片管线 | token 包含全局配置，改一次质量滑块即全站 URL 失效并全量重编码 | P1 |
-| P-I2 | 图片管线 | 每图最多约 21 次编码；缺图时在请求线程同步编码（6K full 可阻塞数十秒） | P1 |
-| P-I3 | 图片管线 | 旧 token 产物变孤儿，只能手动 `prune_derivatives.py` 清理 | P1 |
-| P-I4 | 图片管线 | 编码参数硬编码；3.0.0 起改为有意的不可变全局默认（ADR-10） | P2 |
-| P-J1 | 存储 | `Storage` Protocol 泄漏：`local_path()` 对 S3 返回 None、`stream()` 对本地抛错 | P1 |
-| P-J2 | 存储 | 媒体永久公开，`allow_download` 只隐藏入口，命名让人误以为是访问控制 | P1 |
-| P-J3 | 存储 | 无公网域名时每张图一次 302 预签名，浏览器多一次 RTT | P2 |
-| P-K1 | 公共读 | 浏览量裸自增且可被刷；3.0.0 直接移除该功能（BC-18） | P1 |
-| P-K2 | 公共读 | 搜索为 11 个 `LIKE '%…%'` 全表扫描，无 FTS、无分词 | P1 |
-| P-K3 | 公共读 | `/api/site` 每请求重算 taxonomy 计数与媒体计数 | P2 |
-| P-L1 | 后台 API | 路由即服务层即仓储层：1,125 行承担 7 类业务 | P1 |
-| P-L2 | 后台 API | `update_settings` 是手写类型系统（31 分支） | P1 |
-| P-L3 | 后台 API | 导出单向，无导入 | P1 |
-| P-M1 | 前端渲染 | 全站 `output: 'server'`，博客却无渲染缓存；SSG 暂缓，本版只做预留（附录 B） | P1 |
-| P-M2 | 前端渲染 | 布局令牌归一化逻辑在两个 Layout 逐行重复 | P1 |
-| P-M3 | 前端渲染 | 页面把后端错误吞成 200 并展示“离线”，SEO/监控失真 | P2 |
-| P-N1 | 前端交互 | 15 个后台脚本各写一套 DOM/状态/错误处理 | P1 |
-| P-N2 | 前端交互 | 字符串拼 HTML + `innerHTML`，XSS 依赖逐个调用 `escapeHtml` | P1 |
-| P-O1 | 样式 | CSS 9,985 行（实测 8,466），为全仓最大模块；三层覆盖式主题无隔离 | P1 |
-| P-O2 | 样式 | 默认强调色 4 处不一致；两套主题机制并存 | P2 |
-| P-P1 | 契约 | 响应无 `response_model`，OpenAPI 关闭，前端类型手写，契约不可验证 | P0 |
-| P-P2 | 契约 | 错误体为 `{detail: 中文}`，UI 文案与 API 耦合 | P2 |
-| P-Q1 | 部署 | compose 硬编码 `BLOG_COOKIE_SECURE=false`，无 TLS/备份/日志/前端健康检查 | P1 |
-| P-Q2 | 部署 | 图片预热/清理/迁移/同步有 CLI 与后台按钮两套入口 | P1 |
-| P-R1 | 测试 | 85 个单测全为纯函数，且直接 import 私有函数；无 HTTP 集成测试 | P1 |
-| P-R2 | 测试 | 无 CI、无 ruff/mypy/eslint，Python 侧零静态检查 | P1 |
-| P-R3 | 文档 | 文档已漂移（schema 8 vs 13、2.2 vs 2.3、StaticFiles 已不存在、PRIVATE 键数量不符） | P1 |
-| P-S1 | 评论 | 评论功能维护面大（表/公开提交/审核/反垃圾/IP 记录/文案/前后台 UI/导出），与站点定位不成比例；3.0.0 整体移除（BC-35） | P1 |
+| 编号 | 子系统   | 问题                                                                                                                 | 级别 |
+| ---- | -------- | -------------------------------------------------------------------------------------------------------------------- | ---- |
+| P-A1 | 运行时   | 用 98 行 TS 手写反向代理，重实现 hop-by-hop/Set-Cookie/超时/IP 信任                                                  | P1   |
+| P-A2 | 运行时   | 上传 body 在 Astro 与 FastAPI 各整块缓冲一次（200MB 级双份内存）                                                     | P1   |
+| P-A3 | 运行时   | 公共页每页 1+N 次进程内 HTTP + JSON 往返，无聚合、无缓存                                                             | P1   |
+| P-A4 | 运行时   | 安全响应头在三处重复定义，改一处会漏                                                                                 | P2   |
+| P-B1 | 配置     | 142 键无 schema，校验是 31 分支 if/elif                                                                              | P1   |
+| P-B2 | 配置     | 默认值存在三份（`defaults.py` / `config.ts` / `types.ts`），强调色已出现 4 个不同值                                  | P0   |
+| P-B3 | 配置     | 密钥与文案同表，靠手工 mask 与手工 private 键集合                                                                    | P1   |
+| P-B4 | 配置     | `/api/site` 每请求全量返回 142 键（含 60KB `custom_css`、30KB `head_html`）                                          | P2   |
+| P-C1 | 数据层   | 13 个 schema 版本中 4 个仅挪动 AVIF 质量默认值；版本号被当设置变更日志                                               | P1   |
+| P-C2 | 数据层   | 迁移函数每次启动运行，部分无版本守卫，重渲染演示数据                                                                 | P1   |
+| P-C3 | 数据层   | 生产启动逻辑依赖演示 fixtures（`_migrate_scene_demo_project` ← `seed.PROJECTS`）                                     | P1   |
+| P-C4 | 数据层   | 跨存储删除无事务边界；一个请求多次开连接/提交                                                                        | P1   |
+| P-D1 | 认证     | 登录退避用 `time.sleep`（最多 3s）阻塞线程池，40 并发失败登录即可打满                                                | P0   |
+| P-D2 | 认证     | 限流器为进程内内存，多 worker 静默失效，无启动检查                                                                   | P1   |
+| P-D3 | 认证     | 每个带会话请求都 `UPDATE sessions`，读请求写库并争抢 WAL 写锁                                                        | P1   |
+| P-D4 | 认证     | `is_blocked()` + `record()` 非原子，并发可越限                                                                       | P2   |
+| P-E1 | 授权     | 所有权检查存在三份实现，403 文案与判定入口不一致                                                                     | P1   |
+| P-E2 | 授权     | 权限矩阵前端手写镜像，靠注释“必须同步”                                                                               | P1   |
+| P-E3 | 授权     | 77 个路由的权限散落，无“路由 → 权限”可审计清单                                                                       | P2   |
+| P-F1 | 内容     | `serialize_post` 与 `_list_item` 两份字段映射，已可漂移                                                              | P0   |
+| P-F2 | 内容     | 详情读路径重跑图片改写 + 每图重算 token；列表页对全文跑正则算阅读时长                                                | P1   |
+| P-F3 | 内容     | 单表继承无任何数据库约束，类型行为全靠代码分支                                                                       | P1   |
+| P-F4 | 内容     | `_post_request` 返回无类型 dict，`user_id` 实为作者 id                                                               | P2   |
+| P-F5 | 内容     | 用 `assert` 做控制流；bleach 后用正则补 `rel`/`target`                                                               | P2   |
+| P-G1 | 影像     | `PhotoUpdateIn` 是伪部分更新：漏传 `gallery_id` 会把照片移出相册                                                     | P0   |
+| P-G2 | 影像     | 相册详情把照片查询与序列化做两遍                                                                                     | P1   |
+| P-G3 | 影像     | EXIF 有四个真相层（media / photos 快照 / exif_fields / 前端再过滤）                                                  | P1   |
+| P-G4 | 影像     | 媒体删除后照片保留 filename 快照，前台回退 URL 必然 404                                                              | P2   |
+| P-H1 | 媒体     | 唯一 `async def` 路由承载 200MB 读 + Pillow 解码 + EXIF + 取色，阻塞事件循环                                         | P0   |
+| P-H2 | 媒体     | “可执行文件降级为下载”只在上传后的服务层实现，新出口可绕过                                                           | P1   |
+| P-H3 | 媒体     | 上传策略校验存在三处，空值回退语义不一致                                                                             | P1   |
+| P-H4 | 媒体     | 后台任务状态是进程内全局字典，无持久化/无 job id/不可取消                                                            | P2   |
+| P-I1 | 图片管线 | token 包含全局配置，改一次质量滑块即全站 URL 失效并全量重编码                                                        | P1   |
+| P-I2 | 图片管线 | 每图最多约 21 次编码；缺图时在请求线程同步编码（6K full 可阻塞数十秒）                                               | P1   |
+| P-I3 | 图片管线 | 旧 token 产物变孤儿，只能手动 `prune_derivatives.py` 清理                                                            | P1   |
+| P-I4 | 图片管线 | 编码参数硬编码；3.0.0 起改为有意的不可变全局默认（ADR-10）                                                           | P2   |
+| P-J1 | 存储     | `Storage` Protocol 泄漏：`local_path()` 对 S3 返回 None、`stream()` 对本地抛错                                       | P1   |
+| P-J2 | 存储     | 媒体永久公开，`allow_download` 只隐藏入口，命名让人误以为是访问控制                                                  | P1   |
+| P-J3 | 存储     | 无公网域名时每张图一次 302 预签名，浏览器多一次 RTT                                                                  | P2   |
+| P-K1 | 公共读   | 浏览量裸自增且可被刷；3.0.0 直接移除该功能（BC-18）                                                                  | P1   |
+| P-K2 | 公共读   | 搜索为 11 个 `LIKE '%…%'` 全表扫描，无 FTS、无分词                                                                   | P1   |
+| P-K3 | 公共读   | `/api/site` 每请求重算 taxonomy 计数与媒体计数                                                                       | P2   |
+| P-L1 | 后台 API | 路由即服务层即仓储层：1,125 行承担 7 类业务                                                                          | P1   |
+| P-L2 | 后台 API | `update_settings` 是手写类型系统（31 分支）                                                                          | P1   |
+| P-L3 | 后台 API | 导出单向，无导入                                                                                                     | P1   |
+| P-M1 | 前端渲染 | 全站 `output: 'server'`，博客却无渲染缓存；SSG 暂缓，本版只做预留（附录 B）                                          | P1   |
+| P-M2 | 前端渲染 | 布局令牌归一化逻辑在两个 Layout 逐行重复                                                                             | P1   |
+| P-M3 | 前端渲染 | 页面把后端错误吞成 200 并展示“离线”，SEO/监控失真                                                                    | P2   |
+| P-N1 | 前端交互 | 15 个后台脚本各写一套 DOM/状态/错误处理                                                                              | P1   |
+| P-N2 | 前端交互 | 字符串拼 HTML + `innerHTML`，XSS 依赖逐个调用 `escapeHtml`                                                           | P1   |
+| P-O1 | 样式     | CSS 9,985 行（实测 8,466），为全仓最大模块；三层覆盖式主题无隔离                                                     | P1   |
+| P-O2 | 样式     | 默认强调色 4 处不一致；两套主题机制并存                                                                              | P2   |
+| P-P1 | 契约     | 响应无 `response_model`，OpenAPI 关闭，前端类型手写，契约不可验证                                                    | P0   |
+| P-P2 | 契约     | 错误体为 `{detail: 中文}`，UI 文案与 API 耦合                                                                        | P2   |
+| P-Q1 | 部署     | compose 硬编码 `BLOG_COOKIE_SECURE=false`，无 TLS/备份/日志/前端健康检查                                             | P1   |
+| P-Q2 | 部署     | 图片预热/清理/迁移/同步有 CLI 与后台按钮两套入口                                                                     | P1   |
+| P-R1 | 测试     | 85 个单测全为纯函数，且直接 import 私有函数；无 HTTP 集成测试                                                        | P1   |
+| P-R2 | 测试     | 无 CI、无 ruff/mypy/eslint，Python 侧零静态检查                                                                      | P1   |
+| P-R3 | 文档     | 文档已漂移（schema 8 vs 13、2.2 vs 2.3、StaticFiles 已不存在、PRIVATE 键数量不符）                                   | P1   |
+| P-S1 | 评论     | 评论功能维护面大（表/公开提交/审核/反垃圾/IP 记录/文案/前后台 UI/导出），与站点定位不成比例；3.0.0 整体移除（BC-35） | P1   |
 
 ### 2.2 分域详述
 
@@ -437,20 +437,20 @@
 
 **3.1.2 职责切分（每项只有一个 owner）**
 
-| 能力 | owner | 说明 |
-| --- | --- | --- |
-| TLS / 证书 / HSTS | 运维 nginx | TLS 终止点；HSTS 语义在此；应用不设置 HSTS |
-| `client_max_body_size` | 运维 nginx | ≥ 应用上限（默认 210m），越早拒绝越省资源 |
-| 路由（`/api`、`/media`、其余） | 运维 nginx | 仓库不提交配置；见 3.1.3 契约 |
-| 真实 IP 归一 | 运维 nginx 覆盖写 XFF → 应用信任名单 | 后端以 `--proxy-headers --forwarded-allow-ips=<nginx 地址>` 启动；禁止 `$proxy_add_x_forwarded_for` |
-| 压缩（gzip/brotli） | 运维 nginx（可选） | 只在一层压缩；不要与应用重复 |
-| 边缘限流 | 运维 nginx（**可选加固**） | 应用层限流是必需的兜底，不依赖此层 |
-| 访问日志 | 运维 nginx（+ 应用日志） | 用 `X-Request-ID` 关联 |
-| 页面渲染 + 页面安全头 | Astro | HTML 响应头（CSP/XFO/Referrer/Permissions 等）在 Astro middleware 中单一定义 |
-| API / 媒体安全头与缓存头 | FastAPI | 由 `main.py` 中间件与 `media_serve.py` 分别负责，共享常量 |
-| `X-Request-ID` | nginx（可选生成）→ 应用兜底生成 | 缺失时应用生成并回写响应头 |
-| 应用层限流 | FastAPI | 登录（IP + 账号）、预览、上传；单进程强制 |
-| 响应缓存头 / ETag | 应用（页面与公开 API） | 不依赖 nginx 缓存 |
+| 能力                           | owner                                | 说明                                                                                                |
+| ------------------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| TLS / 证书 / HSTS              | 运维 nginx                           | TLS 终止点；HSTS 语义在此；应用不设置 HSTS                                                          |
+| `client_max_body_size`         | 运维 nginx                           | ≥ 应用上限（默认 210m），越早拒绝越省资源                                                           |
+| 路由（`/api`、`/media`、其余） | 运维 nginx                           | 仓库不提交配置；见 3.1.3 契约                                                                       |
+| 真实 IP 归一                   | 运维 nginx 覆盖写 XFF → 应用信任名单 | 后端以 `--proxy-headers --forwarded-allow-ips=<nginx 地址>` 启动；禁止 `$proxy_add_x_forwarded_for` |
+| 压缩（gzip/brotli）            | 运维 nginx（可选）                   | 只在一层压缩；不要与应用重复                                                                        |
+| 边缘限流                       | 运维 nginx（**可选加固**）           | 应用层限流是必需的兜底，不依赖此层                                                                  |
+| 访问日志                       | 运维 nginx（+ 应用日志）             | 用 `X-Request-ID` 关联                                                                              |
+| 页面渲染 + 页面安全头          | Astro                                | HTML 响应头（CSP/XFO/Referrer/Permissions 等）在 Astro middleware 中单一定义                        |
+| API / 媒体安全头与缓存头       | FastAPI                              | 由 `main.py` 中间件与 `media_serve.py` 分别负责，共享常量                                           |
+| `X-Request-ID`                 | nginx（可选生成）→ 应用兜底生成      | 缺失时应用生成并回写响应头                                                                          |
+| 应用层限流                     | FastAPI                              | 登录（IP + 账号）、预览、上传；单进程强制                                                           |
+| 响应缓存头 / ETag              | 应用（页面与公开 API）               | 不依赖 nginx 缓存                                                                                   |
 
 **3.1.3 接入层契约（写入 `docs/EDGE.md` 的必须项）**
 
@@ -636,12 +636,12 @@ project_details(post_id PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
 
 #### 3.4.2 API 资源拆分
 
-| 2.3.0 | 3.0.0 |
-| --- | --- |
-| `POST /api/admin/posts?type=project` | `POST /api/admin/projects` |
-| `POST /api/admin/posts?type=page` | `POST /api/admin/pages` |
-| `PUT /api/admin/posts/{id}` | `PATCH /api/admin/{posts\|projects\|pages}/{id}`（未提供字段保留） |
-| `POST /api/posts/{id}/comments` 等 | 删除（评论功能移除） |
+| 2.3.0                                | 3.0.0                                                              |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `POST /api/admin/posts?type=project` | `POST /api/admin/projects`                                         |
+| `POST /api/admin/posts?type=page`    | `POST /api/admin/pages`                                            |
+| `PUT /api/admin/posts/{id}`          | `PATCH /api/admin/{posts\|projects\|pages}/{id}`（未提供字段保留） |
+| `POST /api/posts/{id}/comments` 等   | 删除（评论功能移除）                                               |
 
 每个资源一个 router 文件、一个 `Request`/`Response` 模型、一个权限声明。
 
@@ -659,7 +659,13 @@ project_details(post_id PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
 - 错误体：
 
 ```json
-{ "error": { "code": "content.slug_taken", "message": "别名已被占用", "field": "slug" } }
+{
+  "error": {
+    "code": "content.slug_taken",
+    "message": "别名已被占用",
+    "field": "slug"
+  }
+}
 ```
 
 - 前端只按 `code` 做分支，`message` 仅作兜底；中文文案集中在前端 `i18n/zh-CN.ts`（后端不再关心 UI 文案）。
@@ -680,15 +686,15 @@ project_details(post_id PRIMARY KEY REFERENCES posts(id) ON DELETE CASCADE,
 
 #### 3.6.2 SSG 预留（本版必须落地，验收见 6.2）
 
-| # | 预留项 | 3.0.0 要做的事 | 为什么现在做 |
-| --- | --- | --- | --- |
-| R1 | 构建期可取数的单一数据接口 | `/api/bootstrap`（公开、只读、无会话依赖）+ `page_data()` 服务；页面禁止散调多个接口 | 未来 SSG 的取数入口就是它；否则要在迁移时重写所有页面 |
-| R2 | 路径式分页 | 标签/分类分页由 `?page=N` 改为 `/tags/{tag}/page/{n}`（含 301 兼容映射到新路径） | `getStaticPaths` 只能产出路径；query 分页在静态托管下无法工作 |
-| R3 | 渲染不依赖请求上下文 | 公共页禁止读取 Cookie / session / UA / `Astro.request`；所有绝对 URL 来自 `SITE_URL` 配置；加 ESLint/grep 检查 | 静态 HTML 无法按请求变化 |
-| R4 | 派生图就绪信息物化 | `media.derivative_set`（JSON）在预热完成后写入；`image_payload` 只读该字段；页面不触发编码 | 构建期不能等编码，也不能烘焙占位 |
-| R5 | 后台重建任务形状 | 定义 `jobs.kind='rebuild_site'` 的枚举/状态机/API 形状（`GET /api/admin/jobs/{id}`），**本版不实现执行器** | 未来只补执行器，不改业务代码与前端 |
-| R6 | 公共页资产可静态化 | `/_astro/*` 现阶段仍由 Astro 提供；保证页面不引用运行期生成的临时路径；为“nginx 直接托管构建产物”留出结构 | 未来切换托管方式时不改模板 |
-| R7 | 增量失败语义 | 公共页渲染失败时返回 5xx（而非降级半成品），以便未来“构建失败保留上一版”的语义一致 | 与 SSG 的原子发布语义对齐 |
+| #   | 预留项                     | 3.0.0 要做的事                                                                                                 | 为什么现在做                                                  |
+| --- | -------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| R1  | 构建期可取数的单一数据接口 | `/api/bootstrap`（公开、只读、无会话依赖）+ `page_data()` 服务；页面禁止散调多个接口                           | 未来 SSG 的取数入口就是它；否则要在迁移时重写所有页面         |
+| R2  | 路径式分页                 | 标签/分类分页由 `?page=N` 改为 `/tags/{tag}/page/{n}`（含 301 兼容映射到新路径）                               | `getStaticPaths` 只能产出路径；query 分页在静态托管下无法工作 |
+| R3  | 渲染不依赖请求上下文       | 公共页禁止读取 Cookie / session / UA / `Astro.request`；所有绝对 URL 来自 `SITE_URL` 配置；加 ESLint/grep 检查 | 静态 HTML 无法按请求变化                                      |
+| R4  | 派生图就绪信息物化         | `media.derivative_set`（JSON）在预热完成后写入；`image_payload` 只读该字段；页面不触发编码                     | 构建期不能等编码，也不能烘焙占位                              |
+| R5  | 后台重建任务形状           | 定义 `jobs.kind='rebuild_site'` 的枚举/状态机/API 形状（`GET /api/admin/jobs/{id}`），**本版不实现执行器**     | 未来只补执行器，不改业务代码与前端                            |
+| R6  | 公共页资产可静态化         | `/_astro/*` 现阶段仍由 Astro 提供；保证页面不引用运行期生成的临时路径；为“nginx 直接托管构建产物”留出结构      | 未来切换托管方式时不改模板                                    |
+| R7  | 增量失败语义               | 公共页渲染失败时返回 5xx（而非降级半成品），以便未来“构建失败保留上一版”的语义一致                             | 与 SSG 的原子发布语义对齐                                     |
 
 > 明确不做（本版）：`astro build` 的预渲染、构建产物目录、原子切换、重建触发器、构建失败告警。这些属于附录 B 的未来工作，不在 3.0.0 预算内。
 
@@ -758,7 +764,20 @@ jobs(id, kind, payload, status CHECK(status IN ('queued','running','done','faile
 - 把三个最复杂页面（`PostEditor`、媒体库、相册详情）改为 `@astrojs/preact` 岛屿；其余页面继续服务端渲染 + 轻量脚本。
 - 迁移标准：页面交互状态 > 5 个或脚本 > 300 行时，评估岛屿化。
 
-### 3.9 样式系统（本版不实施）
+### 3.9 样式系统（在 3.0.0-beta3 之后实施）
+
+> **状态更新**：本节候选设计已在 3.0.0-beta3 之后落地（不提交 commit，以 `git stash` 记录中间态）。落地结果与本节原方案的主要差异：
+>
+> - 目录为 `styles/{tokens,base,shared,site,admin}/` + 单独保留的 `audio-player.css`；共 65 个文件，0 个文件超过 400 行。
+> - 层序为 `@layer tokens, base, components, pages, utilities;`；因为 Vite/rollup 会把 route chunk 中重复的 `@layer …;` 语句去重，权威声明放在三套 layout `<head>` 的内联 `<style>` 里，每个文件顶部的 banner 只用于可读性。
+> - 组件样式仍是全局分层文件 + 组件级 `import`（不走 Astro `<style>` 作用域，因为 Lightbox / GalleryViewer / 后台列表 / 编辑器 / 音频嵌入是脚本动态生成 DOM，拿不到 scope 属性）。
+> - `custom_css` 保持非分层、注入在所有样式表之后（原方案是挂到 utilities 之后）。
+> - 零视觉变化通过 `scripts/css/snapshot.mjs` + `diff.mjs` 验证：27 条路由 × 3 视口 × 6 套主题下，**每个元素每个属性的胜出声明与重构前完全一致**（57,931 个元素桶、486 组令牌；仅放行两个已删除的死令牌与新引入的 `--color-*` 别名）。快照基于 `BLOG_CSS_UNMINIFIED=1` 的未压缩构建（lightningcss 会合并简写/长写，导致声明级比较出现噪声）。
+> - 实测生产负载（minified，逐文件 gzip 相加）：公共页均值 74.4 → 22.7 KB raw（−69%）、15.2 → 6.2 KB gzip（−59%）；后台 105.5 → 40.9 KB raw（−61%）、19.6 → 9.9 KB gzip（−49%）；每页样式表请求从 3 个变为 4–8 个小文件（建议 HTTP/2）。
+>
+> 剩余后续项（本版不做，已记录在 `docs/CSS.md`）：字号刻度 95 → ~14（含 ≤0.5px 变化，需视觉验收）、断点 10 → 4 收敛、把 58 个 `--color-*` 精确别名收敛为语义色板、清理最后 2 个 `font-size !important`、合并后台/公共重复令牌、把多代际重复声明折叠为单规则。
+>
+> 以下为本节原始候选设计（保留作历史对照）。
 
 > 本版沿用 2.x 样式体系（`global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`），不做 `@layer` 重构、不拆分样式文件、不引入 Stylelint。以下内容仅作为后续版本候选设计保留。
 
@@ -812,45 +831,45 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ## 4. 破坏性变更清单
 
-| 编号 | 变更 | 旧行为 | 新行为 | 影响面 |
-| --- | --- | --- | --- | --- |
-| BC-01 | 版本号 | 2.3.0 | 3.0.0；`SCHEMA_VERSION = 1` | 全部 |
-| BC-02 | 数据库 | 启动时自动迁移 | **只支持空库初始化**；旧库启动即报错，无迁移/导入 | 运维 |
-| BC-03 | 设置存储 | 142 键扁平 KV | 5 组 JSON 文档 + Pydantic 模型 | 后端/前端/运维 |
-| BC-04 | 设置键 | `copy_*` 等扁平键 | 分组字段；评论/浏览量相关键删除 | 后台表单/前端 |
-| BC-05 | 密钥 | DB 存储 + 响应 mask | 仅环境变量 | 部署 |
-| BC-06 | API 错误体 | `{detail}` | `{error:{code,message,field?}}` | 前端/第三方 |
-| BC-07 | 内容 API | `/api/admin/posts?type=` | `/api/admin/{posts\|projects\|pages}` | 前端 |
-| BC-08 | 更新语义 | PUT 全量（部分字段 COALESCE） | PATCH 部分更新；`null` 表示清空 | 前端 |
-| BC-09 | 内容表 | 单表 + `project_*` 空列 | `posts` + `project_details` 类表继承 | 数据/查询 |
-| BC-10 | 所有者列 | `author_id` / `owner_id` / `uploaded_by` 并存 | 统一 `owner_id`；删除 `uploaded_by` | 数据/代码 |
-| BC-11 | 代理 | Astro 手写代理 + 共享密钥 | 删除代理与 `PROXY_SECRET`；**不引入 Caddy**；生产由运维 nginx 路由（文档化契约），本地用 Vite dev proxy | 部署/前端 |
-| BC-12 | 设置响应 | `/api/site` 全量 | `/api/bootstrap`（渲染必需，可缓存）+ `/api/site`（管理） | 前端 |
-| BC-13 | 图片 URL 语义 | token 含全局配置，读时重算 | token 记录在派生行，读路径只读已存在产物 | 前端/缓存 |
-| BC-14 | 图片未就绪 | 请求内同步生成 | 202 + 占位，后台生成 | 前端 |
-| BC-15 | 后台任务 | 内存状态 + 轮询自定义端点 | `jobs` 表 + `/api/admin/jobs/{id}` | 前端 |
-| BC-16 | 上传 | 整块读入内存 | 流式落盘；超限即断 | 前端/后端 |
-| BC-17 | 会话 | 每请求更新 user_agent | 仅登录/续期更新 | 后端 |
-| BC-18 | 浏览量 | 页面/相册浏览量自增（列 + 两个接口 + 统计 + 展示） | 功能整体移除 | 前端/后端/数据 |
-| BC-19 | 搜索 | LIKE 全表扫描 | FTS5 虚表 | 后端 |
-| BC-20 | 媒体下载开关 | `allow_download` | `hide_download_link`（语义不变） | 前端/数据 |
-| BC-21 | 可执行媒体 | 路由层按扩展名推断 | 入库时 `force_download` 列 | 后端/存储 |
-| BC-22 | 主题 | `data-theme` + `data-palette` + 别名 | 仅 `data-palette`；删除别名与 `data-theme` | 前端 |
-| BC-23 | `/galleries` | 301 → `/photos` | 路由不存在 | 外部链接 |
-| BC-24 | localStorage | 兼容 `ink-color-mode` | 仅 `scene-color-mode` | 前端 |
-| BC-25 | 前端类型 | 手写 `types.ts` + `fallbackSite` | 生成类型；删除前端默认值 | 前端 |
-| BC-26 | 权限矩阵 | 前后端各一份 | 后端唯一定义；前端读 `permissions` | 前端 |
-| BC-27 | 安全头 | 三处定义（含计划中的 Caddy 层） | 按“响应类别”各自单一定义：页面在 Astro、API/媒体在 FastAPI；nginx 只负责 HSTS/TLS；**不引入 Caddy** | 运维/后端/前端 |
-| BC-28 | 前端代理路由 | `/api`、`/media` 由 Astro 转发 | 删除两个 catch-all 页面；生产由 nginx 路由，本地由 Vite proxy | 前端 |
-| BC-29 | 导出格式 | `mztlab-scene-export` v2 | v3，含 `project_details` 与分组设置；**仅用于 3.x 备份/恢复**，不提供 2.x 导入 | 运维 |
-| BC-30 | 文档 | `DEVELOPMENT.md` 1,744 行含行号 | 重写为 ≤ 800 行，无行号引用；API 参考由 OpenAPI 生成；新增 `docs/EDGE.md` 写接入层要求 | 文档 |
-| BC-31 | 登录退避与限流 | `time.sleep` 退避；限流仅应用内存且多 worker 静默失效 | 退避删除，超限 429 + `Retry-After`；应用层限流为必需（单进程强制），nginx `limit_req` 为可选加固 | 后端/运维 |
-| BC-32 | 可观测性 | 各层独立日志，无关联 ID | nginx 可选生成 `X-Request-ID`，应用兜底生成；日志贯通 | 运维/后端 |
-| BC-33 | 公共页渲染 | 全站 SSR（`output: 'server'`） | **保持 SSR**；SSG 暂缓，本版只做可行性与 7 项预留（附录 B） | 前端/部署 |
-| BC-34 | AVIF 质量 | 每图 `avif_quality` / `avif_quality_auto`，后台可覆盖 | 全局常量 `PIPELINE_DEFAULTS`；删除单图覆盖 UI/API 与相关列；**存量图像不自动重编码** | 前端/后端/数据 |
-| BC-35 | 评论 | 表 + 公开提交 + 后台审核 + 设置 + 文案 + 前后台 UI + 导出 | 功能整体移除；无 `comments` 表、无 `/api/comments*`、无审核页、无 `allow_comments` | 前端/后端/数据 |
-| BC-36 | 演示播种 | 启动时按 `DEMO_SEED_VERSION` 补种/重渲染演示内容 | 仅 `BLOG_SEED_DEMO=true` 时首次播种；compose 默认 `false`；删除补种逻辑 | 数据/部署 |
-| BC-37 | 存量派生图 | 改配置即全站 token 变化、旧产物变孤儿 | 派生行带 token/pipeline_version；**存量不自动重编码**；手动 `reencode` 才生成新产物；旧产物继续服务直到 GC | 后端/运维 |
+| 编号  | 变更           | 旧行为                                                    | 新行为                                                                                                     | 影响面         |
+| ----- | -------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | -------------- |
+| BC-01 | 版本号         | 2.3.0                                                     | 3.0.0；`SCHEMA_VERSION = 1`                                                                                | 全部           |
+| BC-02 | 数据库         | 启动时自动迁移                                            | **只支持空库初始化**；旧库启动即报错，无迁移/导入                                                          | 运维           |
+| BC-03 | 设置存储       | 142 键扁平 KV                                             | 5 组 JSON 文档 + Pydantic 模型                                                                             | 后端/前端/运维 |
+| BC-04 | 设置键         | `copy_*` 等扁平键                                         | 分组字段；评论/浏览量相关键删除                                                                            | 后台表单/前端  |
+| BC-05 | 密钥           | DB 存储 + 响应 mask                                       | 仅环境变量                                                                                                 | 部署           |
+| BC-06 | API 错误体     | `{detail}`                                                | `{error:{code,message,field?}}`                                                                            | 前端/第三方    |
+| BC-07 | 内容 API       | `/api/admin/posts?type=`                                  | `/api/admin/{posts\|projects\|pages}`                                                                      | 前端           |
+| BC-08 | 更新语义       | PUT 全量（部分字段 COALESCE）                             | PATCH 部分更新；`null` 表示清空                                                                            | 前端           |
+| BC-09 | 内容表         | 单表 + `project_*` 空列                                   | `posts` + `project_details` 类表继承                                                                       | 数据/查询      |
+| BC-10 | 所有者列       | `author_id` / `owner_id` / `uploaded_by` 并存             | 统一 `owner_id`；删除 `uploaded_by`                                                                        | 数据/代码      |
+| BC-11 | 代理           | Astro 手写代理 + 共享密钥                                 | 删除代理与 `PROXY_SECRET`；**不引入 Caddy**；生产由运维 nginx 路由（文档化契约），本地用 Vite dev proxy    | 部署/前端      |
+| BC-12 | 设置响应       | `/api/site` 全量                                          | `/api/bootstrap`（渲染必需，可缓存）+ `/api/site`（管理）                                                  | 前端           |
+| BC-13 | 图片 URL 语义  | token 含全局配置，读时重算                                | token 记录在派生行，读路径只读已存在产物                                                                   | 前端/缓存      |
+| BC-14 | 图片未就绪     | 请求内同步生成                                            | 202 + 占位，后台生成                                                                                       | 前端           |
+| BC-15 | 后台任务       | 内存状态 + 轮询自定义端点                                 | `jobs` 表 + `/api/admin/jobs/{id}`                                                                         | 前端           |
+| BC-16 | 上传           | 整块读入内存                                              | 流式落盘；超限即断                                                                                         | 前端/后端      |
+| BC-17 | 会话           | 每请求更新 user_agent                                     | 仅登录/续期更新                                                                                            | 后端           |
+| BC-18 | 浏览量         | 页面/相册浏览量自增（列 + 两个接口 + 统计 + 展示）        | 功能整体移除                                                                                               | 前端/后端/数据 |
+| BC-19 | 搜索           | LIKE 全表扫描                                             | FTS5 虚表                                                                                                  | 后端           |
+| BC-20 | 媒体下载开关   | `allow_download`                                          | `hide_download_link`（语义不变）                                                                           | 前端/数据      |
+| BC-21 | 可执行媒体     | 路由层按扩展名推断                                        | 入库时 `force_download` 列                                                                                 | 后端/存储      |
+| BC-22 | 主题           | `data-theme` + `data-palette` + 别名                      | 仅 `data-palette`；删除别名与 `data-theme`                                                                 | 前端           |
+| BC-23 | `/galleries`   | 301 → `/photos`                                           | 路由不存在                                                                                                 | 外部链接       |
+| BC-24 | localStorage   | 兼容 `ink-color-mode`                                     | 仅 `scene-color-mode`                                                                                      | 前端           |
+| BC-25 | 前端类型       | 手写 `types.ts` + `fallbackSite`                          | 生成类型；删除前端默认值                                                                                   | 前端           |
+| BC-26 | 权限矩阵       | 前后端各一份                                              | 后端唯一定义；前端读 `permissions`                                                                         | 前端           |
+| BC-27 | 安全头         | 三处定义（含计划中的 Caddy 层）                           | 按“响应类别”各自单一定义：页面在 Astro、API/媒体在 FastAPI；nginx 只负责 HSTS/TLS；**不引入 Caddy**        | 运维/后端/前端 |
+| BC-28 | 前端代理路由   | `/api`、`/media` 由 Astro 转发                            | 删除两个 catch-all 页面；生产由 nginx 路由，本地由 Vite proxy                                              | 前端           |
+| BC-29 | 导出格式       | `mztlab-scene-export` v2                                  | v3，含 `project_details` 与分组设置；**仅用于 3.x 备份/恢复**，不提供 2.x 导入                             | 运维           |
+| BC-30 | 文档           | `DEVELOPMENT.md` 1,744 行含行号                           | 重写为 ≤ 800 行，无行号引用；API 参考由 OpenAPI 生成；新增 `docs/EDGE.md` 写接入层要求                     | 文档           |
+| BC-31 | 登录退避与限流 | `time.sleep` 退避；限流仅应用内存且多 worker 静默失效     | 退避删除，超限 429 + `Retry-After`；应用层限流为必需（单进程强制），nginx `limit_req` 为可选加固           | 后端/运维      |
+| BC-32 | 可观测性       | 各层独立日志，无关联 ID                                   | nginx 可选生成 `X-Request-ID`，应用兜底生成；日志贯通                                                      | 运维/后端      |
+| BC-33 | 公共页渲染     | 全站 SSR（`output: 'server'`）                            | **保持 SSR**；SSG 暂缓，本版只做可行性与 7 项预留（附录 B）                                                | 前端/部署      |
+| BC-34 | AVIF 质量      | 每图 `avif_quality` / `avif_quality_auto`，后台可覆盖     | 全局常量 `PIPELINE_DEFAULTS`；删除单图覆盖 UI/API 与相关列；**存量图像不自动重编码**                       | 前端/后端/数据 |
+| BC-35 | 评论           | 表 + 公开提交 + 后台审核 + 设置 + 文案 + 前后台 UI + 导出 | 功能整体移除；无 `comments` 表、无 `/api/comments*`、无审核页、无 `allow_comments`                         | 前端/后端/数据 |
+| BC-36 | 演示播种       | 启动时按 `DEMO_SEED_VERSION` 补种/重渲染演示内容          | 仅 `BLOG_SEED_DEMO=true` 时首次播种；compose 默认 `false`；删除补种逻辑                                    | 数据/部署      |
+| BC-37 | 存量派生图     | 改配置即全站 token 变化、旧产物变孤儿                     | 派生行带 token/pipeline_version；**存量不自动重编码**；手动 `reencode` 才生成新产物；旧产物继续服务直到 GC | 后端/运维      |
 
 ---
 
@@ -860,77 +879,77 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### Phase 0：地基（2~3 人日）
 
-| 任务 | 产出 | 验收 |
-| --- | --- | --- |
-| 删除 Astro 代理 | 删除 `pages/api/[...path].ts`、`pages/media/[...path].ts`、`lib/proxy.ts`、`BLOG_PROXY_SECRET` 相关代码 | 代码中 `grep` 不到 proxy secret；`/api`、`/media` 不再经 Astro 业务代码 |
-| 本地开发链路 | `astro.config.mjs` 的 dev-only `vite.server.proxy`（`xfwd: false`） | `npm run dev` 下登录、上传、媒体加载全部可用；浏览器同源 |
-| 真实 IP | 后端 `--proxy-headers --forwarded-allow-ips`；`/api/health/edge` | 应用能报告观测到的 `client_ip` / `X-Forwarded-Proto` |
-| 接入层文档 | `docs/EDGE.md`：路由、转发头、体积、缓冲、压缩、可选限流/缓存、上线核对清单、参考片段（不提交 nginx 配置文件） | 文档可独立指导运维配置；核对清单可逐条验证 |
-| 工具链 | `pyproject.toml`（ruff/mypy）、`eslint.config.js`、`prettier`、`.pre-commit-config.yaml`、GitHub Actions | `ruff check`、`mypy app`、`npm run lint`、`npm run check` 全绿（存量文件进渐进清单，见 6.2） |
-| 版本号 | `VERSION = "3.0.0"`、`package.json` 3.0.0、文档头 | 一致 |
+| 任务            | 产出                                                                                                           | 验收                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| 删除 Astro 代理 | 删除 `pages/api/[...path].ts`、`pages/media/[...path].ts`、`lib/proxy.ts`、`BLOG_PROXY_SECRET` 相关代码        | 代码中 `grep` 不到 proxy secret；`/api`、`/media` 不再经 Astro 业务代码                      |
+| 本地开发链路    | `astro.config.mjs` 的 dev-only `vite.server.proxy`（`xfwd: false`）                                            | `npm run dev` 下登录、上传、媒体加载全部可用；浏览器同源                                     |
+| 真实 IP         | 后端 `--proxy-headers --forwarded-allow-ips`；`/api/health/edge`                                               | 应用能报告观测到的 `client_ip` / `X-Forwarded-Proto`                                         |
+| 接入层文档      | `docs/EDGE.md`：路由、转发头、体积、缓冲、压缩、可选限流/缓存、上线核对清单、参考片段（不提交 nginx 配置文件） | 文档可独立指导运维配置；核对清单可逐条验证                                                   |
+| 工具链          | `pyproject.toml`（ruff/mypy）、`eslint.config.js`、`prettier`、`.pre-commit-config.yaml`、GitHub Actions       | `ruff check`、`mypy app`、`npm run lint`、`npm run check` 全绿（存量文件进渐进清单，见 6.2） |
+| 版本号          | `VERSION = "3.0.0"`、`package.json` 3.0.0、文档头                                                              | 一致                                                                                         |
 
 > 本阶段**不**引入 Caddy、**不**提交 `deploy/` 下任何 nginx 配置；生产接入层验证在 staging 按 `docs/EDGE.md` 执行。
 
 ### Phase 1：契约与配置（4~5 人日）
 
-| 任务 | 产出 | 验收 |
-| --- | --- | --- |
-| 响应模型 | **公开 API + 核心 DTO** 全量 `response_model` + 统一错误体（管理端路由的契约随 Phase 2 拆分同步补齐，避免重复劳动） | OpenAPI 生成无 `additionalProperties: true` 的漏网响应 |
-| 契约产物 | `openapi.json` + `api.types.gen.ts` + CI diff | 手改 `types.ts` 会被 CI 拦下 |
-| 设置模型 | `app/settings/models.py` + 分组存储 + 默认值单源；**无 2.x 迁移脚本** | 空库首启即得到 5 组默认文档；后台表单可读写 |
-| 删除设置键 | 评论/浏览量/旧作者字段/`home_*` 键清理 | 代码与表单中无残留键 |
-| 密钥外置 | 环境变量读取 + 状态展示 | 库中不存在密钥；`/api/site` 无密钥 |
-| 前端去默认值 | 删除 `fallbackSite`；后端不可用返回真实错误页 | 后端停机时页面返回 5xx 而非半成品 200 |
+| 任务         | 产出                                                                                                                | 验收                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 响应模型     | **公开 API + 核心 DTO** 全量 `response_model` + 统一错误体（管理端路由的契约随 Phase 2 拆分同步补齐，避免重复劳动） | OpenAPI 生成无 `additionalProperties: true` 的漏网响应 |
+| 契约产物     | `openapi.json` + `api.types.gen.ts` + CI diff                                                                       | 手改 `types.ts` 会被 CI 拦下                           |
+| 设置模型     | `app/settings/models.py` + 分组存储 + 默认值单源；**无 2.x 迁移脚本**                                               | 空库首启即得到 5 组默认文档；后台表单可读写            |
+| 删除设置键   | 评论/浏览量/旧作者字段/`home_*` 键清理                                                                              | 代码与表单中无残留键                                   |
+| 密钥外置     | 环境变量读取 + 状态展示                                                                                             | 库中不存在密钥；`/api/site` 无密钥                     |
+| 前端去默认值 | 删除 `fallbackSite`；后端不可用返回真实错误页                                                                       | 后端停机时页面返回 5xx 而非半成品 200                  |
 
 ### Phase 2：数据与授权（4~5 人日）
 
-| 任务 | 产出 | 验收 |
-| --- | --- | --- |
-| schema v1 | `migrations/0001_init.sql` + `scripts/db.py`（migrate/status/verify） | 空库一键建库；旧库启动即报错并给出清库指引 |
-| 类表继承 | `posts` + `project_details`；删除 `allow_comments` | 项目字段不再出现在文章行；CHECK 生效 |
-| 统一所有者 | `owner_id` 单列 + `authorize()` | 三份所有权检查删除；集成测试覆盖每种资源 × 每种角色 |
-| PATCH 语义 | 各更新接口 | 漏传字段保留；显式 `null` 清空；照片漏传 `gallery_id` 不再移出相册 |
-| 会话与限流 | 去掉 GET 写库；应用层 IP/账号双维度限流；429 语义 | 单 worker 下行为不变；多 worker 启动时明确拒绝；`Retry-After` 正确 |
-| 移除浏览量 | 删列、删接口、删后台统计与前台展示 | 数据库无 `view_count`；后台与前台均无浏览量入口 |
-| 移除评论 | 删表、删公开提交/读取接口、删后台审核页与导航、删设置与文案键、删评论限流器 | `grep -ri comment` 仅剩无关词；公开写入面只剩登录/上传/预览 |
+| 任务       | 产出                                                                        | 验收                                                               |
+| ---------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| schema v1  | `migrations/0001_init.sql` + `scripts/db.py`（migrate/status/verify）       | 空库一键建库；旧库启动即报错并给出清库指引                         |
+| 类表继承   | `posts` + `project_details`；删除 `allow_comments`                          | 项目字段不再出现在文章行；CHECK 生效                               |
+| 统一所有者 | `owner_id` 单列 + `authorize()`                                             | 三份所有权检查删除；集成测试覆盖每种资源 × 每种角色                |
+| PATCH 语义 | 各更新接口                                                                  | 漏传字段保留；显式 `null` 清空；照片漏传 `gallery_id` 不再移出相册 |
+| 会话与限流 | 去掉 GET 写库；应用层 IP/账号双维度限流；429 语义                           | 单 worker 下行为不变；多 worker 启动时明确拒绝；`Retry-After` 正确 |
+| 移除浏览量 | 删列、删接口、删后台统计与前台展示                                          | 数据库无 `view_count`；后台与前台均无浏览量入口                    |
+| 移除评论   | 删表、删公开提交/读取接口、删后台审核页与导航、删设置与文案键、删评论限流器 | `grep -ri comment` 仅剩无关词；公开写入面只剩登录/上传/预览        |
 
 ### Phase 3：媒体与图片（4~5 人日）
 
-| 任务 | 产出 | 验收 |
-| --- | --- | --- |
-| 流式上传 | `upload_media` 重写为同步 `def` + 临时文件 | 200MB 上传内存峰值 < 50MB；上传期间其他 API 正常响应 |
-| 派生图寻址 | `media_derivatives` 增加 `token/pipeline_version/quality`；读路径只按已有行组装 | 改 `PIPELINE_DEFAULTS` 后存量 URL 不变，不触发重编码 |
-| 手动重编码 | `jobs(kind='reencode')`（按媒体/相册/全站）+ `derivative_set` 更新 | 手动触发后才产生新产物；期间旧图仍可访问；可查询进度 |
-| 任务系统 | `jobs` 表 + worker + 心跳/回收 + kind 轮询隔离 | 进程被杀后 `running` 任务可回收重试；不再有全局字典 |
-| 未就绪降级 | `ready` 元数据 + 占位 | 首次访问不触发编码 |
-| 存储接口收窄 | 去 `local_path` 依赖 | `media_serve` 无后端分支 |
-| AVIF 质量常量化 | 删除每图参数与覆盖 UI/API；质量来自 `PIPELINE_DEFAULTS` | 后台/API 无质量覆盖入口；只有新上传或手动 `reencode` 会改变产物 |
+| 任务            | 产出                                                                            | 验收                                                            |
+| --------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 流式上传        | `upload_media` 重写为同步 `def` + 临时文件                                      | 200MB 上传内存峰值 < 50MB；上传期间其他 API 正常响应            |
+| 派生图寻址      | `media_derivatives` 增加 `token/pipeline_version/quality`；读路径只按已有行组装 | 改 `PIPELINE_DEFAULTS` 后存量 URL 不变，不触发重编码            |
+| 手动重编码      | `jobs(kind='reencode')`（按媒体/相册/全站）+ `derivative_set` 更新              | 手动触发后才产生新产物；期间旧图仍可访问；可查询进度            |
+| 任务系统        | `jobs` 表 + worker + 心跳/回收 + kind 轮询隔离                                  | 进程被杀后 `running` 任务可回收重试；不再有全局字典             |
+| 未就绪降级      | `ready` 元数据 + 占位                                                           | 首次访问不触发编码                                              |
+| 存储接口收窄    | 去 `local_path` 依赖                                                            | `media_serve` 无后端分支                                        |
+| AVIF 质量常量化 | 删除每图参数与覆盖 UI/API；质量来自 `PIPELINE_DEFAULTS`                         | 后台/API 无质量覆盖入口；只有新上传或手动 `reencode` 会改变产物 |
 
 ### Phase 4：前端与预留（3~4 人日）
 
 > 本阶段**不做样式收口**：`@layer` 重构、样式文件拆分、Stylelint/令牌规范均不实施，3.0.0 继续沿用 2.x 的 `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`。其余任务照常实施。
 
-| 任务 | 产出 | 验收 |
-| --- | --- | --- |
-| 聚合数据入口 | `/api/bootstrap` + `page_data()`，公共页改为单次取数 | 每个公共路由只调用 1 个数据接口；页面无散调 API |
-| HTTP 缓存头 | 页面 ETag/`Cache-Control`；`/api/bootstrap` 可缓存；admin 保持 `no-store` | `curl -I` 校验头正确；后台页面不被缓存 |
-| 路径式分页（R2） | `/tags/{tag}/page/{n}`、`/categories/{cat}/page/{n}` + 旧 query 301 | 静态托管形态下分页可工作（预留验收） |
-| 渲染上下文审计（R3） | 公共页禁止 cookie/session/UA；加 grep/ESLint 检查 | 检查规则在 CI 生效；公共页 HTML 与请求头无关 |
-| 派生图就绪物化（R4） | 预热完成后写 `derivative_set` | 页面取图不触发编码；未就绪有占位 |
-| 重建任务形状（R5） | `jobs.kind='rebuild_site'` 枚举/状态机/API 形状（不实现执行器） | 任务 API 可返回 `queued` 形状的预留记录；文档写明未来实现点 |
-| 前端原语 | `dom.ts` / `form.ts` + 脚本迁移；删除评论脚本/页面 | 无裸 `innerHTML`；ESLint 规则生效 |
-| 令牌归一化 | `lib/theme.ts` 单处 | 两个 Layout 无重复逻辑 |
+| 任务                 | 产出                                                                      | 验收                                                        |
+| -------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 聚合数据入口         | `/api/bootstrap` + `page_data()`，公共页改为单次取数                      | 每个公共路由只调用 1 个数据接口；页面无散调 API             |
+| HTTP 缓存头          | 页面 ETag/`Cache-Control`；`/api/bootstrap` 可缓存；admin 保持 `no-store` | `curl -I` 校验头正确；后台页面不被缓存                      |
+| 路径式分页（R2）     | `/tags/{tag}/page/{n}`、`/categories/{cat}/page/{n}` + 旧 query 301       | 静态托管形态下分页可工作（预留验收）                        |
+| 渲染上下文审计（R3） | 公共页禁止 cookie/session/UA；加 grep/ESLint 检查                         | 检查规则在 CI 生效；公共页 HTML 与请求头无关                |
+| 派生图就绪物化（R4） | 预热完成后写 `derivative_set`                                             | 页面取图不触发编码；未就绪有占位                            |
+| 重建任务形状（R5）   | `jobs.kind='rebuild_site'` 枚举/状态机/API 形状（不实现执行器）           | 任务 API 可返回 `queued` 形状的预留记录；文档写明未来实现点 |
+| 前端原语             | `dom.ts` / `form.ts` + 脚本迁移；删除评论脚本/页面                        | 无裸 `innerHTML`；ESLint 规则生效                           |
+| 令牌归一化           | `lib/theme.ts` 单处                                                       | 两个 Layout 无重复逻辑                                      |
 
 ### Phase 5：收尾（2~3 人日）
 
-| 任务 | 产出 | 验收 |
-| --- | --- | --- |
-| 搜索 FTS5 | `content_fts` + 写入同步（无评论内容） | 1 万篇内搜索 P95 < 100ms |
-| 导出/恢复 | `export` v3 + `import_3x`（仅 3.x 格式） | 3.0.0 导出 → 3.0.0 全量还原；**不提供 2.x 导入** |
-| GC 与备份 | `jobs` 型 GC + cron `sqlite3 .backup` + 恢复演练一次 | 孤儿产物可回收；备份可还原（含演练记录） |
+| 任务           | 产出                                                                                                                                                                                                  | 验收                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 搜索 FTS5      | `content_fts` + 写入同步（无评论内容）                                                                                                                                                                | 1 万篇内搜索 P95 < 100ms                                                             |
+| 导出/恢复      | `export` v3 + `import_3x`（仅 3.x 格式）                                                                                                                                                              | 3.0.0 导出 → 3.0.0 全量还原；**不提供 2.x 导入**                                     |
+| GC 与备份      | `jobs` 型 GC + cron `sqlite3 .backup` + 恢复演练一次                                                                                                                                                  | 孤儿产物可回收；备份可还原（含演练记录）                                             |
 | 文档归档与重写 | 旧 README / DEVELOPMENT / IMAGE-PIPELINE-PLAN 归档；重写 README、DEVELOPMENT（≤ 800 行）、`docs/SCHEMA.md`、`docs/EDGE.md`（nginx 接入指南）、OpenAPI 参考；附录 B 长期化为 `docs/SSG-FEASIBILITY.md` | 归档件可追溯；新文档无行号引用；README 与 3.0.0 行为一致（无评论、无 SSG、单层接入） |
-| 删除清单执行 | 见第 7 节 | `grep` 不到任何迁移/评论/代理/兼容代码 |
-| 验收脚本化 | 把 6.1/6.2 的检查写成 `scripts/verify.sh`（或 CI job） | 一条命令可复现验收结论 |
+| 删除清单执行   | 见第 7 节                                                                                                                                                                                             | `grep` 不到任何迁移/评论/代理/兼容代码                                               |
+| 验收脚本化     | 把 6.1/6.2 的检查写成 `scripts/verify.sh`（或 CI job）                                                                                                                                                | 一条命令可复现验收结论                                                               |
 
 ---
 
@@ -948,17 +967,17 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### 6.2 测试矩阵（最低要求）
 
-| 层 | 工具 | 覆盖 |
-| --- | --- | --- |
-| 纯函数单测 | `pytest` | Markdown 渲染、EXIF、slug、分页、权限矩阵 |
-| 服务层单测 | `pytest` | `authz`、`settings`、`jobs`（含心跳回收）、`artifact_token`、`reencode` 计划 |
-| HTTP 集成 | `pytest` + `httpx` `TestClient`（临时数据目录） | 认证/会话/CSRF/所有 admin 路由/所有权/上传/派生图/导出；**评论路由不存在（404 断言）** |
-| 契约 | `pytest` + OpenAPI diff | 响应字段与模型一致；前端类型与 OpenAPI 一致 |
-| 前端单测 | `vitest` | `dom.ts` 转义、`form.ts`、`images.ts` srcset 生成 |
-| E2E | `playwright`（3 条主流程） | 登录 → 新建文章并发布 → 前台可见；上传图片 → 建相册 → 前台可见；权限越权被拒 |
-| SSG 预留 | pytest + 脚本检查 | 公共页只调用 1 个聚合接口；分页无 `?page=`；页面不读 cookie/session/UA；`derivative_set` 就绪；`rebuild_site` 任务形状可查询 |
-| 边缘（staging，仅 CI） | `docs/EDGE.md` 核对清单 + curl 断言 | `X-Forwarded-For` 覆盖生效（伪造无效）、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲 |
-| 静态检查 | `ruff` + `mypy`（渐进清单）+ `eslint` | 新代码严格；存量文件在 ignore 清单中逐项减少 |
+| 层                     | 工具                                            | 覆盖                                                                                                                         |
+| ---------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| 纯函数单测             | `pytest`                                        | Markdown 渲染、EXIF、slug、分页、权限矩阵                                                                                    |
+| 服务层单测             | `pytest`                                        | `authz`、`settings`、`jobs`（含心跳回收）、`artifact_token`、`reencode` 计划                                                 |
+| HTTP 集成              | `pytest` + `httpx` `TestClient`（临时数据目录） | 认证/会话/CSRF/所有 admin 路由/所有权/上传/派生图/导出；**评论路由不存在（404 断言）**                                       |
+| 契约                   | `pytest` + OpenAPI diff                         | 响应字段与模型一致；前端类型与 OpenAPI 一致                                                                                  |
+| 前端单测               | `vitest`                                        | `dom.ts` 转义、`form.ts`、`images.ts` srcset 生成                                                                            |
+| E2E                    | `playwright`（3 条主流程）                      | 登录 → 新建文章并发布 → 前台可见；上传图片 → 建相册 → 前台可见；权限越权被拒                                                 |
+| SSG 预留               | pytest + 脚本检查                               | 公共页只调用 1 个聚合接口；分页无 `?page=`；页面不读 cookie/session/UA；`derivative_set` 就绪；`rebuild_site` 任务形状可查询 |
+| 边缘（staging，仅 CI） | `docs/EDGE.md` 核对清单 + curl 断言             | `X-Forwarded-For` 覆盖生效（伪造无效）、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲                |
+| 静态检查               | `ruff` + `mypy`（渐进清单）+ `eslint`           | 新代码严格；存量文件在 ignore 清单中逐项减少                                                                                 |
 
 覆盖率门禁：服务层与路由层 ≥ 80%，`frontend/src/lib` ≥ 70%；存量文件可采用“只卡改动行”的 ratchet 模式（见 8）。
 
@@ -976,41 +995,41 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### 7.1 后端
 
-| 位置 | 内容 | 原因 |
-| --- | --- | --- |
-| `app/db.py` | `_ADDED_COLUMNS`、`_ensure_columns`、13 个 `_migrate_*`、`_backfill_*`、`_ensure_default_settings` 的退役键删除逻辑、`DEMO_SEED_VERSION` 补种 | 3.0.0 只支持空库初始化 |
-| `app/db.py` | `load_settings` / `public_settings` / `save_settings` 的扁平实现、`_SETTINGS_CACHE` | 被分组模型取代 |
-| `app/defaults.py` | `LEGACY_DEFAULTS`、`LEGACY_PALETTES`、`SCENE_V1_COPY`、`SCENE_V2_COPY`、`SCENE_V2_NAV`、`SCENE_INDEX_COPY`、`PUBLIC_SETTING_KEYS`、`SECRET_SETTING_KEYS`、评论/浏览量相关默认键 | 历史债务/功能移除 |
-| `app/config.py` | `PROXY_SECRET`、`PROXY_SECRET_HEADER`、`REAL_IP_HEADER` | 单层 nginx 覆盖写 + `--forwarded-allow-ips` 接管 |
-| `app/deps.py` | 每请求 `UPDATE sessions`、`can()` 的 role-dict 回退、评论 IP 记录 | 见 P-D3 / P-E2 / BC-35 |
-| `app/routes/admin.py` | `update_settings` 31 分支、`_sanitize_*`（迁入模型校验）、`_post_request` | 拆分 |
-| `app/routes/admin.py` | 全部 handler 拆到 `routes/{posts,projects,pages,taxonomy,settings,profile,export}.py` | 见 P-L1 |
-| `app/routes/*.py` | 评论相关：公开提交/读取、后台审核/列表、统计卡片、`comment_moderation` 分支 | 评论功能移除（BC-35） |
-| `app/routes/public.py` | `record_view` / `record_gallery_view` / `view_count` 自增 | 浏览量功能移除（BC-18） |
-| `app/routes/admin.py` | `stats()` 的 `top_posts` / `views` 统计 | 浏览量功能移除（BC-18） |
-| `app/routes/media.py` + `app/images.py` | 每图 AVIF 质量覆盖（`avif_quality` / `avif_quality_auto`、`media_quality_override`） | 质量改为不可变常量（BC-34） |
-| `app/routes/media_serve.py` | 按扩展名推断可执行文件的 `ACTIVE_MEDIA_EXTENSIONS` 分支 | 改 `force_download` 列 |
-| `app/schemas.py` | `MediaAltIn.avif_quality` / `avif_quality_auto`、评论相关模型 | 功能移除 |
-| `app/security.py` | 评论限流器；登录退避的 `sleep` 逻辑 | BC-31 / BC-35 |
-| `app/seed.py` | `DEMO_SEED_VERSION` 与“旧库补种”逻辑、评论演示数据 | 3.0.0 只做首次播种 |
-| `app/routes/auth.py:70-77` | `author_name` 写入 | 已退役键 |
-| `backend/tests/test_*.py` | import 私有函数的测试、评论相关测试 | 改为服务层/HTTP 测试 |
+| 位置                                    | 内容                                                                                                                                                                            | 原因                                             |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `app/db.py`                             | `_ADDED_COLUMNS`、`_ensure_columns`、13 个 `_migrate_*`、`_backfill_*`、`_ensure_default_settings` 的退役键删除逻辑、`DEMO_SEED_VERSION` 补种                                   | 3.0.0 只支持空库初始化                           |
+| `app/db.py`                             | `load_settings` / `public_settings` / `save_settings` 的扁平实现、`_SETTINGS_CACHE`                                                                                             | 被分组模型取代                                   |
+| `app/defaults.py`                       | `LEGACY_DEFAULTS`、`LEGACY_PALETTES`、`SCENE_V1_COPY`、`SCENE_V2_COPY`、`SCENE_V2_NAV`、`SCENE_INDEX_COPY`、`PUBLIC_SETTING_KEYS`、`SECRET_SETTING_KEYS`、评论/浏览量相关默认键 | 历史债务/功能移除                                |
+| `app/config.py`                         | `PROXY_SECRET`、`PROXY_SECRET_HEADER`、`REAL_IP_HEADER`                                                                                                                         | 单层 nginx 覆盖写 + `--forwarded-allow-ips` 接管 |
+| `app/deps.py`                           | 每请求 `UPDATE sessions`、`can()` 的 role-dict 回退、评论 IP 记录                                                                                                               | 见 P-D3 / P-E2 / BC-35                           |
+| `app/routes/admin.py`                   | `update_settings` 31 分支、`_sanitize_*`（迁入模型校验）、`_post_request`                                                                                                       | 拆分                                             |
+| `app/routes/admin.py`                   | 全部 handler 拆到 `routes/{posts,projects,pages,taxonomy,settings,profile,export}.py`                                                                                           | 见 P-L1                                          |
+| `app/routes/*.py`                       | 评论相关：公开提交/读取、后台审核/列表、统计卡片、`comment_moderation` 分支                                                                                                     | 评论功能移除（BC-35）                            |
+| `app/routes/public.py`                  | `record_view` / `record_gallery_view` / `view_count` 自增                                                                                                                       | 浏览量功能移除（BC-18）                          |
+| `app/routes/admin.py`                   | `stats()` 的 `top_posts` / `views` 统计                                                                                                                                         | 浏览量功能移除（BC-18）                          |
+| `app/routes/media.py` + `app/images.py` | 每图 AVIF 质量覆盖（`avif_quality` / `avif_quality_auto`、`media_quality_override`）                                                                                            | 质量改为不可变常量（BC-34）                      |
+| `app/routes/media_serve.py`             | 按扩展名推断可执行文件的 `ACTIVE_MEDIA_EXTENSIONS` 分支                                                                                                                         | 改 `force_download` 列                           |
+| `app/schemas.py`                        | `MediaAltIn.avif_quality` / `avif_quality_auto`、评论相关模型                                                                                                                   | 功能移除                                         |
+| `app/security.py`                       | 评论限流器；登录退避的 `sleep` 逻辑                                                                                                                                             | BC-31 / BC-35                                    |
+| `app/seed.py`                           | `DEMO_SEED_VERSION` 与“旧库补种”逻辑、评论演示数据                                                                                                                              | 3.0.0 只做首次播种                               |
+| `app/routes/auth.py:70-77`              | `author_name` 写入                                                                                                                                                              | 已退役键                                         |
+| `backend/tests/test_*.py`               | import 私有函数的测试、评论相关测试                                                                                                                                             | 改为服务层/HTTP 测试                             |
 
 ### 7.2 前端
 
-| 位置 | 内容 | 原因 |
-| --- | --- | --- |
-| `src/lib/proxy.ts`、`pages/api/[...path].ts`、`pages/media/[...path].ts` | 手写代理 | 单层接入：生产 nginx、开发 Vite proxy |
-| `src/config.ts` | `fallbackSite`（150 行） | 第三份默认值 |
-| `src/types.ts` | 手写 API 类型 | 生成类型取代 |
-| `src/lib/permissions.ts` | 手写角色矩阵 | 后端唯一来源 |
-| `src/styles/mono.css`、`index.css` | 覆盖式主题层 | 保留（本版不做样式收口） |
-| `src/lib/*-esm.mjs` | CJS 桥接 shim | 依赖升级后删除；若必须保留则移入 `vite` 配置 |
-| `pages/galleries/index.astro` | `/galleries` 301 | BC-23 |
-| `components/admin/ImageQualityDialog.astro`、`lib/quality-dialog.ts` | 单图 AVIF 质量覆盖 UI | 删除（质量不可变，BC-34） |
-| `pages/posts/[slug].astro`、`pages/galleries/[slug].astro`、后台统计卡片 | 浏览量 UI 与 `show_views` 判断 | 删除（BC-18） |
-| `components/Comments.astro`、`scripts/admin-comments.ts`、`pages/admin/comments.astro`、`scripts/comments.ts`、评论样式 | 评论前后台全部实现 | 删除（BC-35） |
-| 导航/统计/图标中评论入口 | `admin` 导航项、`pending-comments` 卡片、图标引用 | 删除（BC-35） |
+| 位置                                                                                                                    | 内容                                              | 原因                                         |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------- |
+| `src/lib/proxy.ts`、`pages/api/[...path].ts`、`pages/media/[...path].ts`                                                | 手写代理                                          | 单层接入：生产 nginx、开发 Vite proxy        |
+| `src/config.ts`                                                                                                         | `fallbackSite`（150 行）                          | 第三份默认值                                 |
+| `src/types.ts`                                                                                                          | 手写 API 类型                                     | 生成类型取代                                 |
+| `src/lib/permissions.ts`                                                                                                | 手写角色矩阵                                      | 后端唯一来源                                 |
+| `src/styles/mono.css`、`index.css`                                                                                      | 覆盖式主题层                                      | 保留（本版不做样式收口）                     |
+| `src/lib/*-esm.mjs`                                                                                                     | CJS 桥接 shim                                     | 依赖升级后删除；若必须保留则移入 `vite` 配置 |
+| `pages/galleries/index.astro`                                                                                           | `/galleries` 301                                  | BC-23                                        |
+| `components/admin/ImageQualityDialog.astro`、`lib/quality-dialog.ts`                                                    | 单图 AVIF 质量覆盖 UI                             | 删除（质量不可变，BC-34）                    |
+| `pages/posts/[slug].astro`、`pages/galleries/[slug].astro`、后台统计卡片                                                | 浏览量 UI 与 `show_views` 判断                    | 删除（BC-18）                                |
+| `components/Comments.astro`、`scripts/admin-comments.ts`、`pages/admin/comments.astro`、`scripts/comments.ts`、评论样式 | 评论前后台全部实现                                | 删除（BC-35）                                |
+| 导航/统计/图标中评论入口                                                                                                | `admin` 导航项、`pending-comments` 卡片、图标引用 | 删除（BC-35）                                |
 
 ### 7.3 文档归档与重写
 
@@ -1033,22 +1052,22 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ## 8. 风险与回滚
 
-| 风险 | 概率 | 影响 | 缓解 |
-| --- | --- | --- | --- |
-| 生产 nginx 配置与 `docs/EDGE.md` 不符（仓库无法校验） | 中 | 高 | 上线核对清单逐条验证；`/api/health/edge` 观测真实 IP/协议；staging 与生产同构复查；把“接入层必须是单层且覆盖写 XFF”写进部署准入 |
-| 移除 Astro 代理后本地/生产链路回归 | 中 | 高 | dev 用 Vite proxy（仅 dev）并加 e2e；生产按 EDGE 清单核对；保留“接口路径不变”保证页面无需改动 |
-| 真实 IP 在接入层失效（限流被绕过） | 中 | 高 | 应用只信任 `--forwarded-allow-ips` 白名单；健康检查端点观测；集成测试断言伪造 XFF 无效 |
-| 应用层限流单进程假设被打破（多 worker） | 中 | 中 | 启动检测 `WEB_CONCURRENCY`，多 worker 直接拒绝启动；`RateLimitStore` 接口为将来外置留口 |
-| 存量图像不自动重编码导致“不同图像质量/格式不一致” | 高 | 低 | 派生行记录 `pipeline_version`，后台可筛选“旧版本产物”；`reencode` 任务可按范围执行；文档写明这是有意设计 |
-| 手动全量重编码时长/磁盘超预期（6K × 20+ 变体） | 中 | 中 | `reencode` 按配额分批执行 + 进度/取消；上线前用真实媒体验证一次；磁盘水位告警 |
-| 评论移除不彻底（导航/统计/文案/导出残留） | 中 | 中 | 删除清单 + `grep -ri comment` 检查；集成测试断言相关路由 404 |
-| SSG 预留不足导致未来返工 | 中 | 中 | 7 项预留逐项验收（6.2）；附录 B 的阻塞项清单作为迁移前置检查 |
-| Phase 1 为全部路由加 `response_model`、Phase 2 又拆路由 → 重复劳动 | 中 | 中 | Phase 1 只冻结公开 API 与核心 DTO；管理端契约随 router 拆分在 Phase 2 完成 |
-| `mypy --strict` / 80% 覆盖率 / e2e 在预算内不可达 | 中 | 中 | 采用 ratchet：新代码严格、存量文件 ignore 清单；覆盖率只卡改动行；playwright 放 nightly |
-| 设置模型遗漏键导致行为变化 | 中 | 中 | 由于无存量数据，风险降为“默认值是否符合预期”：用快照测试固定 5 组默认文档 |
-| 类表继承改动查询面大 | 中 | 中 | 保留视图 `v_posts_with_project` 供旧查询过渡一个阶段，Phase 2 结束删除 |
-| 事务与长操作混用导致 SQLite 写锁阻塞 | 中 | 中 | 规定“事务只包短临界区”；`busy_timeout` + 集成测试（上传期间写请求可用） |
-| 时间超支 | 中 | 中 | 每个 Phase 独立可发布；Phase 0/1 即可交付收益 |
+| 风险                                                               | 概率 | 影响 | 缓解                                                                                                                            |
+| ------------------------------------------------------------------ | ---- | ---- | ------------------------------------------------------------------------------------------------------------------------------- |
+| 生产 nginx 配置与 `docs/EDGE.md` 不符（仓库无法校验）              | 中   | 高   | 上线核对清单逐条验证；`/api/health/edge` 观测真实 IP/协议；staging 与生产同构复查；把“接入层必须是单层且覆盖写 XFF”写进部署准入 |
+| 移除 Astro 代理后本地/生产链路回归                                 | 中   | 高   | dev 用 Vite proxy（仅 dev）并加 e2e；生产按 EDGE 清单核对；保留“接口路径不变”保证页面无需改动                                   |
+| 真实 IP 在接入层失效（限流被绕过）                                 | 中   | 高   | 应用只信任 `--forwarded-allow-ips` 白名单；健康检查端点观测；集成测试断言伪造 XFF 无效                                          |
+| 应用层限流单进程假设被打破（多 worker）                            | 中   | 中   | 启动检测 `WEB_CONCURRENCY`，多 worker 直接拒绝启动；`RateLimitStore` 接口为将来外置留口                                         |
+| 存量图像不自动重编码导致“不同图像质量/格式不一致”                  | 高   | 低   | 派生行记录 `pipeline_version`，后台可筛选“旧版本产物”；`reencode` 任务可按范围执行；文档写明这是有意设计                        |
+| 手动全量重编码时长/磁盘超预期（6K × 20+ 变体）                     | 中   | 中   | `reencode` 按配额分批执行 + 进度/取消；上线前用真实媒体验证一次；磁盘水位告警                                                   |
+| 评论移除不彻底（导航/统计/文案/导出残留）                          | 中   | 中   | 删除清单 + `grep -ri comment` 检查；集成测试断言相关路由 404                                                                    |
+| SSG 预留不足导致未来返工                                           | 中   | 中   | 7 项预留逐项验收（6.2）；附录 B 的阻塞项清单作为迁移前置检查                                                                    |
+| Phase 1 为全部路由加 `response_model`、Phase 2 又拆路由 → 重复劳动 | 中   | 中   | Phase 1 只冻结公开 API 与核心 DTO；管理端契约随 router 拆分在 Phase 2 完成                                                      |
+| `mypy --strict` / 80% 覆盖率 / e2e 在预算内不可达                  | 中   | 中   | 采用 ratchet：新代码严格、存量文件 ignore 清单；覆盖率只卡改动行；playwright 放 nightly                                         |
+| 设置模型遗漏键导致行为变化                                         | 中   | 中   | 由于无存量数据，风险降为“默认值是否符合预期”：用快照测试固定 5 组默认文档                                                       |
+| 类表继承改动查询面大                                               | 中   | 中   | 保留视图 `v_posts_with_project` 供旧查询过渡一个阶段，Phase 2 结束删除                                                          |
+| 事务与长操作混用导致 SQLite 写锁阻塞                               | 中   | 中   | 规定“事务只包短临界区”；`busy_timeout` + 集成测试（上传期间写请求可用）                                                         |
+| 时间超支                                                           | 中   | 中   | 每个 Phase 独立可发布；Phase 0/1 即可交付收益                                                                                   |
 
 **回滚策略**：每个 Phase 独立 tag（`v3.0.0-p0`…`v3.0.0`）。由于不涉及存量数据迁移，数据库切换（Phase 2）不构成不可逆操作：回滚即切回旧 tag 并清空数据目录重建。接入层变更由运维独立回滚，应用不依赖其实现。
 
@@ -1103,24 +1122,24 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### 11.1 归档（先做，且必须在重写之前完成）
 
-| ID | 事项 | 产出 | 验收 |
-| --- | --- | --- | --- |
-| TODO-D01 | 归档当前 README（368 行） | `docs/archive/2.x/README.md` | 可访问；头部加“2.x 历史文档，请勿据此部署”说明；当前目录不再保留旧内容 |
-| TODO-D02 | 归档当前 DEVELOPMENT（1,744 行） | `docs/archive/2.x/DEVELOPMENT.md` | 原貌归档（不改内容）；头部加历史说明 |
-| TODO-D03 | 归档 IMAGE-PIPELINE-PLAN（653 行） | `docs/archive/2.x/IMAGE-PIPELINE-PLAN.md` | 内容已并入新 DEVELOPMENT 与 `docs/SCHEMA.md` 后移除 |
-| TODO-D04 | 建立归档索引 | `docs/archive/README.md` | 列出各版本目录、归档日期、差异摘要、当前文档入口 |
+| ID       | 事项                               | 产出                                      | 验收                                                                   |
+| -------- | ---------------------------------- | ----------------------------------------- | ---------------------------------------------------------------------- |
+| TODO-D01 | 归档当前 README（368 行）          | `docs/archive/2.x/README.md`              | 可访问；头部加“2.x 历史文档，请勿据此部署”说明；当前目录不再保留旧内容 |
+| TODO-D02 | 归档当前 DEVELOPMENT（1,744 行）   | `docs/archive/2.x/DEVELOPMENT.md`         | 原貌归档（不改内容）；头部加历史说明                                   |
+| TODO-D03 | 归档 IMAGE-PIPELINE-PLAN（653 行） | `docs/archive/2.x/IMAGE-PIPELINE-PLAN.md` | 内容已并入新 DEVELOPMENT 与 `docs/SCHEMA.md` 后移除                    |
+| TODO-D04 | 建立归档索引                       | `docs/archive/README.md`                  | 列出各版本目录、归档日期、差异摘要、当前文档入口                       |
 
 ### 11.2 重写（从零写，不做增量修补）
 
-| ID | 事项 | 产出 | 验收 |
-| --- | --- | --- | --- |
-| TODO-D05 | 彻底重写 README | `README.md`（≤ 250 行） | 面向使用者：定位、单层接入（nginx 由运维按 `docs/EDGE.md` 配置）、无评论、无浏览量、质量不可变、存量图像不自动重编码、SSG 暂缓、不兼容升级政策、常用命令；不得出现 `view_count`、评论、单图质量覆盖、手写代理、Caddy 等 2.x/初版描述 |
-| TODO-D06 | 彻底重写 DEVELOPMENT | `docs/DEVELOPMENT.md`（≤ 800 行） | 面向维护者：模块职责、数据流、契约生成、接入层契约、jobs/心跳、`reencode`、测试矩阵、SSG 预留与附录 B 索引；无行号引用、无迁移章节 |
-| TODO-D07 | 生成 schema 文档 | `docs/SCHEMA.md` | 由 `scripts/db.py` 从 `migrations/*.sql` 生成；CI `git diff --exit-code` |
-| TODO-D08 | 生成 API 参考 | `docs/API.md` 或站点内页面 | 由 `openapi.json` 生成；不手写请求/响应字段表 |
-| TODO-D09 | 接入层手册 | `docs/EDGE.md` | 路由/转发头/体积/缓冲/压缩/可选限流与缓存/上线核对清单/参考片段；明确本地开发不涉及 nginx；**不包含可部署配置** |
-| TODO-D10 | SSG 可行性文档 | `docs/SSG-FEASIBILITY.md` | 附录 B 的长期版本：阻塞项、预留闭环状态、未来工作量与验收 |
-| TODO-D11 | 版本号一致性 | `VERSION`、`package.json`、两份文档头部 | CI 校验三者与 git tag 一致 |
+| ID       | 事项                 | 产出                                    | 验收                                                                                                                                                                                                                                 |
+| -------- | -------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| TODO-D05 | 彻底重写 README      | `README.md`（≤ 250 行）                 | 面向使用者：定位、单层接入（nginx 由运维按 `docs/EDGE.md` 配置）、无评论、无浏览量、质量不可变、存量图像不自动重编码、SSG 暂缓、不兼容升级政策、常用命令；不得出现 `view_count`、评论、单图质量覆盖、手写代理、Caddy 等 2.x/初版描述 |
+| TODO-D06 | 彻底重写 DEVELOPMENT | `docs/DEVELOPMENT.md`（≤ 800 行）       | 面向维护者：模块职责、数据流、契约生成、接入层契约、jobs/心跳、`reencode`、测试矩阵、SSG 预留与附录 B 索引；无行号引用、无迁移章节                                                                                                   |
+| TODO-D07 | 生成 schema 文档     | `docs/SCHEMA.md`                        | 由 `scripts/db.py` 从 `migrations/*.sql` 生成；CI `git diff --exit-code`                                                                                                                                                             |
+| TODO-D08 | 生成 API 参考        | `docs/API.md` 或站点内页面              | 由 `openapi.json` 生成；不手写请求/响应字段表                                                                                                                                                                                        |
+| TODO-D09 | 接入层手册           | `docs/EDGE.md`                          | 路由/转发头/体积/缓冲/压缩/可选限流与缓存/上线核对清单/参考片段；明确本地开发不涉及 nginx；**不包含可部署配置**                                                                                                                      |
+| TODO-D10 | SSG 可行性文档       | `docs/SSG-FEASIBILITY.md`               | 附录 B 的长期版本：阻塞项、预留闭环状态、未来工作量与验收                                                                                                                                                                            |
+| TODO-D11 | 版本号一致性         | `VERSION`、`package.json`、两份文档头部 | CI 校验三者与 git tag 一致                                                                                                                                                                                                           |
 
 ### 11.3 依赖与完成定义
 
@@ -1133,31 +1152,31 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ## 附录 A：术语表
 
-| 术语 | 解释 |
-| --- | --- |
-| SSR / SSG / ISR | 服务端渲染 / 构建时静态生成 / 静态 + 定期重建 |
-| BFF / 反向代理 | 前端专用后端 / 位于客户端与上游之间的中间层 |
-| 同源 / CORS / CSRF | 浏览器同源策略 / 跨源放行头 / 借 Cookie 伪造请求 |
-| CSP / XSS | 内容来源白名单 / 注入可执行脚本 |
-| Session / Token 指纹 | 服务端会话 / DB 只存 token 哈希 |
-| scrypt / 盐 / 恒定时间比较 | 内存硬密码哈希 / 防彩虹表 / 防时序侧信道 |
-| WAL / 单写者 | SQLite 预写日志 / 同一时刻仅一个写事务 |
-| 迁移 / 幂等 | 结构版本化演进 / 重复执行结果一致 |
-| STI / 类表继承 | 单表靠 type 区分 / 共享列 + 子类型扩展表 |
-| DTO / OpenAPI / 代码生成 | 跨边界数据形状 / 机器可读契约 / 由契约生成类型 |
-| 派生图 / srcset / picture | 多尺寸格式副本 / 浏览器自选 / 格式回退 |
-| 不可变缓存 / 缓存键 | 内容哈希进 URL / 决定缓存命中的维度 |
-| 物化 | 把计算结果提前算好存库 |
-| single-flight / 背压 | 并发去重 / 限流保护下游 |
-| 事务 / 补偿 | ACID 原子提交 / 无法回滚时的显式修复动作 |
-| SSOT | 单一真相来源 |
-| ADR | 架构决策记录 |
-| 接入层 | 本文中的运维 nginx：负责 TLS、路由、体积、日志、可选限流/缓存；仓库不提交其配置 |
-| limit_req | nginx 自带的请求速率限制，按 key（如客户端 IP）分桶 |
-| X-Request-ID | 一次性请求标识，用于跨 nginx / 应用日志串联同一次请求 |
-| getStaticPaths | Astro 的预渲染接口：声明构建期要生成哪些动态路由 |
-| 预留（SSG） | 为将来迁移到 SSG 而在当前版本落实的结构性设计，见 3.6.2 |
-| reencode | 手动触发的存量图像重新编码任务（ADR-10） |
+| 术语                       | 解释                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------- |
+| SSR / SSG / ISR            | 服务端渲染 / 构建时静态生成 / 静态 + 定期重建                                   |
+| BFF / 反向代理             | 前端专用后端 / 位于客户端与上游之间的中间层                                     |
+| 同源 / CORS / CSRF         | 浏览器同源策略 / 跨源放行头 / 借 Cookie 伪造请求                                |
+| CSP / XSS                  | 内容来源白名单 / 注入可执行脚本                                                 |
+| Session / Token 指纹       | 服务端会话 / DB 只存 token 哈希                                                 |
+| scrypt / 盐 / 恒定时间比较 | 内存硬密码哈希 / 防彩虹表 / 防时序侧信道                                        |
+| WAL / 单写者               | SQLite 预写日志 / 同一时刻仅一个写事务                                          |
+| 迁移 / 幂等                | 结构版本化演进 / 重复执行结果一致                                               |
+| STI / 类表继承             | 单表靠 type 区分 / 共享列 + 子类型扩展表                                        |
+| DTO / OpenAPI / 代码生成   | 跨边界数据形状 / 机器可读契约 / 由契约生成类型                                  |
+| 派生图 / srcset / picture  | 多尺寸格式副本 / 浏览器自选 / 格式回退                                          |
+| 不可变缓存 / 缓存键        | 内容哈希进 URL / 决定缓存命中的维度                                             |
+| 物化                       | 把计算结果提前算好存库                                                          |
+| single-flight / 背压       | 并发去重 / 限流保护下游                                                         |
+| 事务 / 补偿                | ACID 原子提交 / 无法回滚时的显式修复动作                                        |
+| SSOT                       | 单一真相来源                                                                    |
+| ADR                        | 架构决策记录                                                                    |
+| 接入层                     | 本文中的运维 nginx：负责 TLS、路由、体积、日志、可选限流/缓存；仓库不提交其配置 |
+| limit_req                  | nginx 自带的请求速率限制，按 key（如客户端 IP）分桶                             |
+| X-Request-ID               | 一次性请求标识，用于跨 nginx / 应用日志串联同一次请求                           |
+| getStaticPaths             | Astro 的预渲染接口：声明构建期要生成哪些动态路由                                |
+| 预留（SSG）                | 为将来迁移到 SSG 而在当前版本落实的结构性设计，见 3.6.2                         |
+| reencode                   | 手动触发的存量图像重新编码任务（ADR-10）                                        |
 
 ---
 
@@ -1173,40 +1192,40 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### B.2 现状与目标差异
 
-| 维度 | 3.0.0（本版） | SSG 目标 |
-| --- | --- | --- |
-| 公共页渲染 | Astro SSR，每次请求组装 | `astro build` 预渲染为 HTML 文件 |
-| 数据来源 | 运行期 1 次 `/api/bootstrap` | 构建期同接口取数，写入构建产物 |
-| 托管 | Astro 进程（含 `/_astro` 资产） | 接入层 nginx `file_server` 静态托管（`/_astro` 可缓存 immutable） |
-| 发布延迟 | 即时 | 重建完成（目标 ≤ 2 分钟） |
-| `/admin` | Astro SSR | 保持 SSR（唯一需要 Node 的路径） |
-| 搜索 | SSR 页面 | 空壳 + 客户端 `fetch('/api/search')` |
-| 动态数据 | 无评论、无浏览量 | 无（本版已移除） |
+| 维度       | 3.0.0（本版）                   | SSG 目标                                                          |
+| ---------- | ------------------------------- | ----------------------------------------------------------------- |
+| 公共页渲染 | Astro SSR，每次请求组装         | `astro build` 预渲染为 HTML 文件                                  |
+| 数据来源   | 运行期 1 次 `/api/bootstrap`    | 构建期同接口取数，写入构建产物                                    |
+| 托管       | Astro 进程（含 `/_astro` 资产） | 接入层 nginx `file_server` 静态托管（`/_astro` 可缓存 immutable） |
+| 发布延迟   | 即时                            | 重建完成（目标 ≤ 2 分钟）                                         |
+| `/admin`   | Astro SSR                       | 保持 SSR（唯一需要 Node 的路径）                                  |
+| 搜索       | SSR 页面                        | 空壳 + 客户端 `fetch('/api/search')`                              |
+| 动态数据   | 无评论、无浏览量                | 无（本版已移除）                                                  |
 
 ### B.3 阻塞项清单（迁移前必须闭环）
 
-| # | 阻塞项 | 现状 | 3.0.0 预留 | 未来动作 |
-| --- | --- | --- | --- | --- |
-| B1 | 页面数据聚合 | 每页 1+N 次请求 | **R1** `/api/bootstrap` + `page_data()` | 构建期调用同一接口 |
-| B2 | query 分页 | `/tags/x?page=2` | **R2** 路径式分页 + 旧 URL 301 | `getStaticPaths` 按路径生成 |
-| B3 | 请求上下文依赖 | 未系统审计 | **R3** 公共页禁 cookie/session/UA + CI 检查 | 无（本版已保证） |
-| B4 | 派生图就绪 | 请求时可能触发编码；SSG 会把占位烘焙进 HTML | **R4** `derivative_set` 物化 + `image_payload` 只读 | 构建前置条件：目标媒体 ready；不 ready 则构建失败并保留上一版 |
-| B5 | 构建与发布管道 | 不存在（compose 只有 backend/frontend） | **R5** 定义 `jobs.kind='rebuild_site'` 形状，不实现执行器 | 新增 builder 容器（需 Node + 只读 API 访问 + 共享产物卷）+ 原子切换 + 失败保留上一版 + 告警 |
-| B6 | 静态资产托管切换 | `/_astro` 由 Astro 进程提供 | **R6** 页面不引用运行期临时路径 | 二选一并写入部署文档：nginx 托管 `/_astro`（需在重建后同步 frontend 进程/构建，否则 `/admin` 引用旧哈希）或继续由 Astro 提供资产（少一层静态化收益） |
-| B7 | 重建触发与延迟 | 无 | **R5** + `jobs` 表 + 内容变更事件 | 发布/取消发布/删除/外观/导航/SEO 写入 `rebuild_site`；合并 5s 内多次请求；定时发布到点触发 |
-| B8 | 搜索页 | SSR | 无（`/api/search` 已在） | `/search` 改成静态空壳 + 客户端取数 |
-| B9 | sitemap / RSS | SSR 生成 | R1 的同一数据接口 | 构建期生成文件 |
-| B10 | 404 / slug 变更重定向 | SSR 可动态判断 | 无 | 需 `redirects` 表或构建期生成的跳转清单（本次未决策，见 10.1） |
-| B11 | 草稿/定时发布的可见性 | SSR 天然正确 | `jobs` 已定义 | 构建只含 published；定时任务到点触发重建 |
-| B12 | 规模 | 未测 | 无 | 500 篇以内全量构建能否 ≤ 60s；超限评估增量构建/分区 |
+| #   | 阻塞项                | 现状                                        | 3.0.0 预留                                                | 未来动作                                                                                                                                             |
+| --- | --------------------- | ------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | 页面数据聚合          | 每页 1+N 次请求                             | **R1** `/api/bootstrap` + `page_data()`                   | 构建期调用同一接口                                                                                                                                   |
+| B2  | query 分页            | `/tags/x?page=2`                            | **R2** 路径式分页 + 旧 URL 301                            | `getStaticPaths` 按路径生成                                                                                                                          |
+| B3  | 请求上下文依赖        | 未系统审计                                  | **R3** 公共页禁 cookie/session/UA + CI 检查               | 无（本版已保证）                                                                                                                                     |
+| B4  | 派生图就绪            | 请求时可能触发编码；SSG 会把占位烘焙进 HTML | **R4** `derivative_set` 物化 + `image_payload` 只读       | 构建前置条件：目标媒体 ready；不 ready 则构建失败并保留上一版                                                                                        |
+| B5  | 构建与发布管道        | 不存在（compose 只有 backend/frontend）     | **R5** 定义 `jobs.kind='rebuild_site'` 形状，不实现执行器 | 新增 builder 容器（需 Node + 只读 API 访问 + 共享产物卷）+ 原子切换 + 失败保留上一版 + 告警                                                          |
+| B6  | 静态资产托管切换      | `/_astro` 由 Astro 进程提供                 | **R6** 页面不引用运行期临时路径                           | 二选一并写入部署文档：nginx 托管 `/_astro`（需在重建后同步 frontend 进程/构建，否则 `/admin` 引用旧哈希）或继续由 Astro 提供资产（少一层静态化收益） |
+| B7  | 重建触发与延迟        | 无                                          | **R5** + `jobs` 表 + 内容变更事件                         | 发布/取消发布/删除/外观/导航/SEO 写入 `rebuild_site`；合并 5s 内多次请求；定时发布到点触发                                                           |
+| B8  | 搜索页                | SSR                                         | 无（`/api/search` 已在）                                  | `/search` 改成静态空壳 + 客户端取数                                                                                                                  |
+| B9  | sitemap / RSS         | SSR 生成                                    | R1 的同一数据接口                                         | 构建期生成文件                                                                                                                                       |
+| B10 | 404 / slug 变更重定向 | SSR 可动态判断                              | 无                                                        | 需 `redirects` 表或构建期生成的跳转清单（本次未决策，见 10.1）                                                                                       |
+| B11 | 草稿/定时发布的可见性 | SSR 天然正确                                | `jobs` 已定义                                             | 构建只含 published；定时任务到点触发重建                                                                                                             |
+| B12 | 规模                  | 未测                                        | 无                                                        | 500 篇以内全量构建能否 ≤ 60s；超限评估增量构建/分区                                                                                                  |
 
 ### B.4 备选方案对比
 
-| 方案 | 收益 | 成本/风险 | 结论 |
-| --- | --- | --- | --- |
-| A. Astro 预渲染（SSG）+ 静态托管 | 运行期零渲染、TTFB 最优 | 构建/发布管道 + 资产托管切换 + 重建延迟 | **未来目标**，3.0.0 只做预留 |
-| B. 保留 SSR + 接入层短 TTL `proxy_cache` | 不改渲染模型，TTFB 改善明显 | 缓存失效与 Cookie/`Set-Cookie` 排除要正确；延迟以 TTL 计 | **可选过渡**，写进 `docs/EDGE.md` |
-| C. 保持 SSR + 应用侧 ETag/短缓存（本版默认） | 零新增基础设施，改动最小 | 每次请求仍有组装成本 | **3.0.0 采用** |
+| 方案                                         | 收益                        | 成本/风险                                                | 结论                              |
+| -------------------------------------------- | --------------------------- | -------------------------------------------------------- | --------------------------------- |
+| A. Astro 预渲染（SSG）+ 静态托管             | 运行期零渲染、TTFB 最优     | 构建/发布管道 + 资产托管切换 + 重建延迟                  | **未来目标**，3.0.0 只做预留      |
+| B. 保留 SSR + 接入层短 TTL `proxy_cache`     | 不改渲染模型，TTFB 改善明显 | 缓存失效与 Cookie/`Set-Cookie` 排除要正确；延迟以 TTL 计 | **可选过渡**，写进 `docs/EDGE.md` |
+| C. 保持 SSR + 应用侧 ETag/短缓存（本版默认） | 零新增基础设施，改动最小    | 每次请求仍有组装成本                                     | **3.0.0 采用**                    |
 
 ### B.5 未来迁移工作量（不含 3.0.0 预算）
 

@@ -27,6 +27,9 @@ function isActive(url: string): boolean {
   if (url === '/') return path === '/';
   return path === url || path.startsWith(`${url.replace(/\/$/, '')}/`);
 }
+import '../styles/shared/icon-btn.css';
+import '../styles/shared/brand.css';
+import '../styles/site/shell/header.css';
 ---
 <header class="site-header" id="siteHeader">
   <div class="container header-inner">

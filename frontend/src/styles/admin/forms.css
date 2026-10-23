@@ -1,0 +1,379 @@
+/* admin/forms.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.a-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.a-field label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.a-field label small {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 400;
+}
+
+.a-field input[type="text"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field input[type="url"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field input[type="email"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field input[type="password"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field input[type="number"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field input[type="datetime-local"] {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field select {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.a-field textarea {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 12.5px;
+  outline: 0;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  min-height: 100px;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.a-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.a-field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.a-field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.a-field input::placeholder {
+  color: var(--ink-faint);
+}
+
+.a-field textarea::placeholder {
+  color: var(--ink-faint);
+}
+
+.a-field .hint {
+  margin-top: 5px;
+  color: var(--ink-faint);
+  font-size: 9.5px;
+  line-height: 1.6;
+}
+
+.a-field--row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.check-row:last-child {
+  border-bottom: 0;
+}
+
+.check-row input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.check-row div {
+  flex: 1;
+}
+
+.check-row strong {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.check-row span {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-faint);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 19px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line-strong);
+  transition: background 0.2s ease;
+}
+
+.switch::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  content: "";
+  transition: transform 0.2s var(--ease);
+}
+
+.switch[aria-checked="true"] {
+  background: var(--accent);
+}
+
+.switch[aria-checked="true"]::after {
+  transform: translateX(15px);
+}
+
+input[type="range"] {
+  height: 4px;
+  appearance: none;
+  border-radius: 999px;
+  background: var(--line);
+  outline: 0;
+  accent-color: var(--accent);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  width: 17px;
+  height: 17px;
+  appearance: none;
+  border: 3px solid var(--bg-elevated);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 5px var(--color-rgba-33-30-25-0-24);
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 13px;
+  height: 13px;
+  border: 3px solid var(--bg-elevated);
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 1px 5px var(--color-rgba-33-30-25-0-24);
+  cursor: pointer;
+}
+
+@media (max-width: 620px) {
+  .a-field--row {
+    grid-template-columns: 1fr;
+  }
+}
+
+html[data-palette] .a-field label {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+html[data-palette] .a-field input {
+  border-radius: 0;
+  border-color: var(--line);
+  background: var(--bg);
+  font-size: 13px;
+}
+
+html[data-palette] .a-field select {
+  border-radius: 0;
+  border-color: var(--line);
+  background: var(--bg);
+  font-size: 13px;
+}
+
+html[data-palette] .a-field textarea {
+  border-radius: 0;
+  border-color: var(--line);
+  background: var(--bg);
+  font-size: 13px;
+}
+
+html[data-palette] .a-field input:focus {
+  border-color: var(--ink);
+  box-shadow: none;
+}
+
+html[data-palette] .a-field select:focus {
+  border-color: var(--ink);
+  box-shadow: none;
+}
+
+html[data-palette] .a-field textarea:focus {
+  border-color: var(--ink);
+  box-shadow: none;
+}
+
+html[data-palette] .a-field--row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+html[data-palette] .form-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.a-field input.is-locked {
+  background: var(--bg-sunken);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+.field-error {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--color-c0392b);
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .form-grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  html[data-palette] .a-field--row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+html[data-palette] input[type="range"] {
+  border-radius: 0;
+}
+
+html[data-palette] input[type="range"]::-webkit-slider-thumb {
+  border: 0;
+  border-radius: 0;
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+}
+
+html[data-palette] input[type="range"]::-moz-range-thumb {
+  border: 0;
+  border-radius: 0;
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+}
+}

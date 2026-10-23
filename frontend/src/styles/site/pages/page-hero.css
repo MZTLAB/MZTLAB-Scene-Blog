@@ -1,0 +1,82 @@
+/* site/pages/page-hero.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.page-hero {
+  padding-block: clamp(40px, 6vw, 88px) clamp(26px, 3vw, 42px);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: clamp(26px, 4vw, 48px);
+}
+
+.page-hero h1 {
+  font-size: clamp(2.1rem, 5.2vw, 4.2rem);
+  line-height: 1.02;
+  margin-top: 16px;
+  white-space: pre-line;
+}
+
+.page-hero p {
+  margin-top: 18px;
+  max-width: 60ch;
+  color: var(--ink-soft);
+  font-size: 15.5px;
+}
+
+.page-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 22px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.page-hero h1 {
+  font-size: clamp(2.6rem, 5.6vw, 5rem);
+}
+
+.page-hero p {
+  max-width: 38ch;
+  font-size: 13.5px;
+}
+
+.page-hero {
+  padding-block: clamp(42px, 6vw, 86px) clamp(28px, 4vw, 52px);
+}
+
+.page-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 5.6vw, 5.4rem);
+  line-height: 0.98;
+  margin-top: 12px;
+}
+
+.page-hero > p {
+  max-width: 42ch;
+  margin-top: 16px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+.page-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.page-hero__meta > span:nth-child(even) {
+  color: var(--line);
+}
+}

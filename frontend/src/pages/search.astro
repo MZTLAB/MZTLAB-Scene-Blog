@@ -26,6 +26,11 @@ const photoMeta = (photo: Photo) =>
   [photo.location, photo.camera, photo.taken_at?.slice(0, 10)]
     .filter(Boolean)
     .join(' / ');
+import '../styles/site/pages/search.css';
+import '../styles/site/journal/journal-list.css';
+import '../styles/site/pages/page-hero.css';
+import '../styles/site/ui/empty-state.css';
+import '../styles/site/cards/project-card.css';
 ---
 <BaseLayout
   site={site}

@@ -1,0 +1,221 @@
+/* site/home/masthead.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.masthead {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+  align-items: end;
+  gap: clamp(28px, 4.5vw, 72px);
+  padding-block: clamp(48px, 7vw, 104px) clamp(36px, 5vw, 72px);
+}
+
+.masthead__eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: clamp(20px, 3vw, 34px);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.masthead__eyebrow .mark {
+  color: var(--accent);
+}
+
+.masthead__title {
+  font-family: var(--font-display);
+  font-size: clamp(2.9rem, 7.4vw, 6.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.075em;
+  font-weight: 500;
+}
+
+.masthead__title em {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.masthead__lead {
+  max-width: 38ch;
+  margin-top: clamp(18px, 2.4vw, 28px);
+  color: var(--ink-soft);
+  font-size: clamp(13px, 1.05vw, 15px);
+  line-height: 1.8;
+  white-space: pre-line;
+}
+
+.masthead__actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: clamp(22px, 3vw, 34px);
+}
+
+.masthead__stats {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(20px, 3vw, 46px);
+  margin-top: clamp(30px, 4vw, 48px);
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.masthead__stats a {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+
+.masthead__stats strong {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.masthead__stats span {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+
+.masthead__stats a:hover span {
+  color: var(--accent);
+}
+
+.masthead__stats a:hover strong {
+  color: var(--accent);
+}
+
+.masthead__media {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.masthead__frame {
+  position: relative;
+  display: block;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+}
+
+.masthead__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s var(--ease);
+}
+
+.masthead__frame:hover img {
+  transform: scale(1.02);
+}
+
+.masthead__caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.masthead__caption span:last-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: right;
+}
+
+.masthead__caption span {
+  min-width: 0;
+}
+
+.masthead--minimal {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 900px;
+}
+
+.masthead--image {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.masthead--image .masthead__title {
+  font-size: clamp(2.8rem, 7vw, 6rem);
+}
+
+.masthead--minimal .masthead__title {
+  font-size: clamp(3rem, 8vw, 7rem);
+}
+
+.masthead__image {
+  margin-top: clamp(28px, 4vw, 48px);
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.masthead__image img {
+  width: 100%;
+  max-height: 74vh;
+  object-fit: cover;
+}
+
+@media (max-width: 1080px) {
+  .masthead {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 32px;
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 30px;
+    padding-block: 44px 30px;
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead__title {
+    font-size: clamp(2.6rem, 12vw, 4rem);
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead__frame {
+    aspect-ratio: 3 / 2;
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead__caption {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 760px) {
+  .masthead__caption span:last-child {
+    white-space: normal;
+    text-align: left;
+  }
+}
+}

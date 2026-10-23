@@ -78,6 +78,7 @@ const descriptionPrefix = adminUnrestricted
   : upload
     ? `支持 ${formatSummary}；单个文件不超过 ${maxMb}MB。上传规则在 设置 → 上传与媒体 中调整。`
     : '上传规则由服务端校验。';
+import '../../styles/admin/media.css';
 ---
 <AdminLayout user={user} title="媒体库" subtitle="Assets / Media" active="media">
   <div

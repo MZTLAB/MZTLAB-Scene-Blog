@@ -1,0 +1,41 @@
+/* site/pages/notfound.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.notfound {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 62vh;
+  gap: 14px;
+  text-align: center;
+  padding-block: 60px;
+}
+
+.notfound strong {
+  font-family: var(--font-display);
+  font-size: clamp(5rem, 20vw, 14rem);
+  font-weight: 600;
+  line-height: 0.8;
+  letter-spacing: -0.07em;
+  color: var(--ink);
+}
+
+.notfound p {
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+
+.notfound h1 {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 500;
+}
+
+.notfound-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+}

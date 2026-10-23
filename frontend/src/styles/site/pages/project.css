@@ -1,0 +1,81 @@
+/* site/pages/project.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.project-detail {
+  padding-block: clamp(34px, 5vw, 64px) var(--band);
+}
+
+.project-header {
+  max-width: 920px;
+  padding-bottom: clamp(24px, 3.4vw, 40px);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.project-header__back {
+  margin-bottom: 26px;
+}
+
+.project-header .eyebrow {
+  margin-bottom: 14px;
+}
+
+.project-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.3rem, 5.4vw, 4.9rem);
+  line-height: 0.98;
+  letter-spacing: -0.07em;
+}
+
+.project-header__deck {
+  max-width: 56ch;
+  margin-top: 18px;
+  color: var(--ink-soft);
+  font-size: clamp(13px, 1.15vw, 15px);
+  line-height: 1.8;
+}
+
+.project-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(20px, 3vw, 46px);
+  margin: clamp(26px, 3.4vw, 40px) 0 0;
+  padding: 0;
+}
+
+.project-meta > div {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.project-meta dt {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.project-meta dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.project-body {
+  display: grid;
+  grid-template-columns: minmax(0, 760px);
+  padding-top: clamp(28px, 4vw, 48px);
+}
+
+.project-body .prose {
+  max-width: var(--reading-width);
+}
+
+@media (max-width: 760px) {
+  .project-header h1 {
+    font-size: clamp(2rem, 10vw, 3rem);
+  }
+}
+}

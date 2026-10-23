@@ -1,0 +1,156 @@
+/* site/pages/archive.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.archive-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.archive-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.archive-years button {
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.18s var(--ease);
+}
+
+.archive-years button:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.archive-years button.is-active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+}
+
+.archive-year {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: clamp(16px, 3vw, 40px);
+  padding-block: clamp(22px, 3vw, 34px);
+  border-bottom: 1px solid var(--line);
+}
+
+.archive-year__label {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  position: sticky;
+  top: calc(var(--header-height) + 20px);
+  align-self: start;
+}
+
+.archive-year__label strong {
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+}
+
+.archive-year__label span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+@media (max-width: 900px) {
+  .archive-year {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .archive-year__label {
+    position: static;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+}
+
+.archive-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: clamp(20px, 3vw, 34px);
+}
+
+.archive-years {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.archive-years button {
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.archive-years button:hover {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.archive-years button.is-active {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+.archive-year {
+  margin-bottom: clamp(26px, 4vw, 44px);
+}
+
+.archive-year__label {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.archive-year__label strong {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  letter-spacing: -0.04em;
+}
+
+.archive-year__label span {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+}

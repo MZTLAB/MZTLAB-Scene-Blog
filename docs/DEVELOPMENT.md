@@ -1,6 +1,6 @@
 # MZTLAB · Scene 开发文档
 
-> 适用版本：3.0.0-beta2
+> 适用版本：3.0.0-beta3
 >
 > 面向维护者的工程手册：架构、数据层、配置、写入管线、授权、媒体管线、契约生成与测试。
 > 使用与部署见 [`README.md`](../README.md)；接入层要求见 [`EDGE.md`](EDGE.md)；数据库结构与 API 参考分别是脚本生成的 [`SCHEMA.md`](SCHEMA.md) 与 [`API.md`](API.md)。
@@ -28,28 +28,28 @@
 
 ## 1. 快速定位
 
-| 想改什么 | 去哪里改 |
-| --- | --- |
-| 站点名、导航、页脚、SEO、每页条数 | `backend/app/settings/models.py` 的 `SiteSettings`；后台“设置”页 |
-| 主题、明暗、强调色、宽度、Hero、自定义 CSS | `backend/app/settings/models.py` 的 `AppearanceSettings`；`frontend/src/styles/` |
-| 页面固定文案 | `backend/app/settings/models.py` 的 `CopySettings`；前端通过 `copyReader()` 读取 |
-| 上传大小与允许格式 | `backend/app/settings/models.py` 的 `UploadSettings` |
-| 派生图宽度阶梯、格式开关 | `ImagePipelineSettings`（`advanced.image`） |
-| 派生图编码质量/编码参数 | `backend/app/images.py` 的 `PIPELINE_DEFAULTS`（改后需提升 `PIPELINE_VERSION` 并手动 `reencode`） |
-| Markdown 渲染、摘录、slug、阅读时长 | `backend/app/content.py` |
-| 文章/项目/页面写入规则（发布、slug、标签、修订） | `backend/app/services/content_admin.py` |
-| 所有权与权限校验 | `backend/app/services/authz.py`、`backend/app/permissions.py` |
-| 文章/相册查询与 JSON 形状 | `backend/app/posts.py`、`backend/app/galleries.py` |
-| 图片派生、token、`derivative_set` | `backend/app/images.py` |
-| 媒体上传 | `backend/app/routes/media.py` |
-| 媒体读取（原图/派生图） | `backend/app/routes/media_serve.py`、`backend/app/storage.py` |
-| 后台任务（队列/心跳/恢复） | `backend/app/jobs.py`、`backend/app/routes/jobs.py` |
-| 公开页面数据聚合 | `backend/app/services/page_data.py`、`backend/app/routes/public.py` |
-| 页面结构 / 组件 | `frontend/src/pages/`、`frontend/src/components/`、`frontend/src/layouts/` |
-| 后台交互脚本 | `frontend/src/scripts/` |
-| 新增/修改 API 接口 | `backend/app/routes/*.py` + `backend/app/api/models.py`（响应模型） |
-| 数据表/索引 | `backend/migrations/*.sql`（新迁移文件，不修改已发布文件） |
-| 环境变量 | `backend/app/config.py`、`.env.example` |
+| 想改什么                                         | 去哪里改                                                                                          |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| 站点名、导航、页脚、SEO、每页条数                | `backend/app/settings/models.py` 的 `SiteSettings`；后台“设置”页                                  |
+| 主题、明暗、强调色、宽度、Hero、自定义 CSS       | `backend/app/settings/models.py` 的 `AppearanceSettings`；`frontend/src/styles/`                  |
+| 页面固定文案                                     | `backend/app/settings/models.py` 的 `CopySettings`；前端通过 `copyReader()` 读取                  |
+| 上传大小与允许格式                               | `backend/app/settings/models.py` 的 `UploadSettings`                                              |
+| 派生图宽度阶梯、格式开关                         | `ImagePipelineSettings`（`advanced.image`）                                                       |
+| 派生图编码质量/编码参数                          | `backend/app/images.py` 的 `PIPELINE_DEFAULTS`（改后需提升 `PIPELINE_VERSION` 并手动 `reencode`） |
+| Markdown 渲染、摘录、slug、阅读时长              | `backend/app/content.py`                                                                          |
+| 文章/项目/页面写入规则（发布、slug、标签、修订） | `backend/app/services/content_admin.py`                                                           |
+| 所有权与权限校验                                 | `backend/app/services/authz.py`、`backend/app/permissions.py`                                     |
+| 文章/相册查询与 JSON 形状                        | `backend/app/posts.py`、`backend/app/galleries.py`                                                |
+| 图片派生、token、`derivative_set`                | `backend/app/images.py`                                                                           |
+| 媒体上传                                         | `backend/app/routes/media.py`                                                                     |
+| 媒体读取（原图/派生图）                          | `backend/app/routes/media_serve.py`、`backend/app/storage.py`                                     |
+| 后台任务（队列/心跳/恢复）                       | `backend/app/jobs.py`、`backend/app/routes/jobs.py`                                               |
+| 公开页面数据聚合                                 | `backend/app/services/page_data.py`、`backend/app/routes/public.py`                               |
+| 页面结构 / 组件                                  | `frontend/src/pages/`、`frontend/src/components/`、`frontend/src/layouts/`                        |
+| 后台交互脚本                                     | `frontend/src/scripts/`                                                                           |
+| 新增/修改 API 接口                               | `backend/app/routes/*.py` + `backend/app/api/models.py`（响应模型）                               |
+| 数据表/索引                                      | `backend/migrations/*.sql`（新迁移文件，不修改已发布文件）                                        |
+| 环境变量                                         | `backend/app/config.py`、`.env.example`                                                           |
 
 ---
 
@@ -74,38 +74,38 @@
 
 ### 2.2 后端包职责
 
-| 模块 | 职责 |
-| --- | --- |
-| `app/config.py` | 环境变量、路径、版本、可信代理、上传上限等部署级常量 |
-| `app/db.py` | SQLite 连接与短事务上下文、迁移应用、启动结构校验 |
-| `app/settings/` | 五组设置模型（`models.py`）、存储与 PATCH 合并（`store.py`） |
-| `app/permissions.py` | 角色 → 权限矩阵（唯一来源） |
-| `app/services/authz.py` | 统一的 `owner_id` 所有权校验 |
-| `app/services/content_admin.py` | 文章/项目/页面共享写入管线（渲染物料化、slug、排期、标签、修订） |
-| `app/services/page_data.py` | 公共页聚合数据 `page_data()`（`/api/bootstrap` 的实现） |
-| `app/services/backup.py` | 3.0.0 导出格式的校验与恢复 |
-| `app/content.py` | Markdown 渲染（bleach 白名单）、摘录、阅读时长、TOC、slug |
-| `app/posts.py` / `app/galleries.py` | 内容/相册查询与序列化（公开与后台共用） |
-| `app/images.py` | 派生图计划、token、编码、`derivative_set`、srcset、GC、内联图重写 |
-| `app/storage.py` / `app/storage_sync.py` | 本地/S3 存储抽象与本地→远端同步 |
-| `app/jobs.py` | `jobs` 表队列、单 worker 线程、心跳、恢复、任务处理器 |
-| `app/routes/` | 每个资源一个路由模块，只处理 HTTP 关注点 |
-| `app/api/models.py` | 所有 `response_model` DTO（OpenAPI 契约来源） |
-| `app/scripts/` | 契约导出、契约审计、公共页渲染审计、文档生成 |
-| `migrations/*.sql` | 版本化建库 SQL（只新增，不修改已发布文件） |
+| 模块                                     | 职责                                                              |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `app/config.py`                          | 环境变量、路径、版本、可信代理、上传上限等部署级常量              |
+| `app/db.py`                              | SQLite 连接与短事务上下文、迁移应用、启动结构校验                 |
+| `app/settings/`                          | 五组设置模型（`models.py`）、存储与 PATCH 合并（`store.py`）      |
+| `app/permissions.py`                     | 角色 → 权限矩阵（唯一来源）                                       |
+| `app/services/authz.py`                  | 统一的 `owner_id` 所有权校验                                      |
+| `app/services/content_admin.py`          | 文章/项目/页面共享写入管线（渲染物料化、slug、排期、标签、修订）  |
+| `app/services/page_data.py`              | 公共页聚合数据 `page_data()`（`/api/bootstrap` 的实现）           |
+| `app/services/backup.py`                 | 3.0.0 导出格式的校验与恢复                                        |
+| `app/content.py`                         | Markdown 渲染（bleach 白名单）、摘录、阅读时长、TOC、slug         |
+| `app/posts.py` / `app/galleries.py`      | 内容/相册查询与序列化（公开与后台共用）                           |
+| `app/images.py`                          | 派生图计划、token、编码、`derivative_set`、srcset、GC、内联图重写 |
+| `app/storage.py` / `app/storage_sync.py` | 本地/S3 存储抽象与本地→远端同步                                   |
+| `app/jobs.py`                            | `jobs` 表队列、单 worker 线程、心跳、恢复、任务处理器             |
+| `app/routes/`                            | 每个资源一个路由模块，只处理 HTTP 关注点                          |
+| `app/api/models.py`                      | 所有 `response_model` DTO（OpenAPI 契约来源）                     |
+| `app/scripts/`                           | 契约导出、契约审计、公共页渲染审计、文档生成                      |
+| `migrations/*.sql`                       | 版本化建库 SQL（只新增，不修改已发布文件）                        |
 
 ### 2.3 前端分层
 
-| 目录 | 职责 |
-| --- | --- |
-| `src/pages/` | Astro 路由：公共页、`/admin/*`、`rss.xml` / `sitemap.xml` / `robots.txt` |
-| `src/layouts/` | `BaseLayout`（公共页壳）、`AdminLayout`、`AuthLayout` |
-| `src/components/` | 展示组件；`SmartImage` 负责 `<picture>`/srcset 与未就绪回退 |
-| `src/lib/` | 纯函数与客户端：`api.ts`（`getBootstrap()` 聚合取数、浏览器请求）、`images.ts`、`format.ts`、`auth.ts`、`jobs.ts`、`site.ts` |
-| `src/scripts/` | 后台页面的 DOM 交互脚本（原生 TypeScript） |
-| `src/api/` | 生成的 `openapi.json` 与 `types.gen.ts`（勿手改） |
-| `src/styles/` | 2.x 样式体系原样保留：`global.css`（令牌与基础排版）、`admin.css`（后台）、`mono.css`（场景覆盖）、`index.css`（页面）、`audio-player.css`；3.0.0 不做样式收口 |
-| `src/middleware.ts` | 页面安全响应头、旧 `?page=` → 路径式分页的 301、公共页弱 ETag/304 与 admin `no-store` 缓存策略、`X-Request-ID` 兜底 |
+| 目录                | 职责                                                                                                                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/pages/`        | Astro 路由：公共页、`/admin/*`、`rss.xml` / `sitemap.xml` / `robots.txt`                                                                                                                                                                   |
+| `src/layouts/`      | `BaseLayout`（公共页壳）、`AdminLayout`、`AuthLayout`                                                                                                                                                                                      |
+| `src/components/`   | 展示组件；`SmartImage` 负责 `<picture>`/srcset 与未就绪回退                                                                                                                                                                                |
+| `src/lib/`          | 纯函数与客户端：`api.ts`（`getBootstrap()` 聚合取数、浏览器请求）、`images.ts`、`format.ts`、`auth.ts`、`jobs.ts`、`site.ts`                                                                                                               |
+| `src/scripts/`      | 后台页面的 DOM 交互脚本（原生 TypeScript）                                                                                                                                                                                                 |
+| `src/api/`          | 生成的 `openapi.json` 与 `types.gen.ts`（勿手改）                                                                                                                                                                                          |
+| `src/styles/`       | 细粒度、按层组织的全局样式：`tokens/`（含 `tokens/admin/` 后台冻结值）、`base/`、`shared/`、`site/`、`admin/`、`audio-player.css`；每个组件 import 自己的样式，`@layer` 顺序由 layout `<head>` 的内联声明权威固定。详见 [`CSS.md`](CSS.md) |
+| `src/middleware.ts` | 页面安全响应头、旧 `?page=` → 路径式分页的 301、公共页弱 ETag/304 与 admin `no-store` 缓存策略、`X-Request-ID` 兜底                                                                                                                        |
 
 ---
 
@@ -123,17 +123,17 @@
 
 完整字段、外键与索引见脚本生成的 [`SCHEMA.md`](SCHEMA.md)（由 `python -m app.scripts.gen_docs` 从迁移文件生成，勿手改）。概念分组：
 
-| 组 | 表 | 说明 |
-| --- | --- | --- |
-| 账号 | `users`、`sessions` | 角色、权限、scrypt 密码哈希、会话 token 指纹 |
-| 内容 | `posts`、`project_details`、`revisions` | 文章/项目/页面共用 `posts`；项目字段类表继承；修订保留最近 25 条 |
-| 分类 | `taxonomy_terms`、`post_terms` | 分类与标签共用一张表，`kind` 区分 |
-| 媒体 | `media`、`media_derivatives` | 原图元数据 + 派生图行（token 寻址）；`media.derivative_set` 缓存已发布产物集合 |
-| 相册 | `galleries`、`photos` | 相册持有 `owner_id`，照片继承相册所有权 |
-| 配置 | `settings` | 五组 JSON 文档（`site`/`appearance`/`copy`/`upload`/`advanced`） |
-| 任务 | `jobs` | 持久任务队列：状态、进度、心跳、结果、错误 |
-| 搜索 | `content_fts`（FTS5） | trigram 分词全文索引；短于 3 字符的查询回退 LIKE |
-| 版本 | `schema_meta` | 结构版本与迁移记录 |
+| 组   | 表                                      | 说明                                                                           |
+| ---- | --------------------------------------- | ------------------------------------------------------------------------------ |
+| 账号 | `users`、`sessions`                     | 角色、权限、scrypt 密码哈希、会话 token 指纹                                   |
+| 内容 | `posts`、`project_details`、`revisions` | 文章/项目/页面共用 `posts`；项目字段类表继承；修订保留最近 25 条               |
+| 分类 | `taxonomy_terms`、`post_terms`          | 分类与标签共用一张表，`kind` 区分                                              |
+| 媒体 | `media`、`media_derivatives`            | 原图元数据 + 派生图行（token 寻址）；`media.derivative_set` 缓存已发布产物集合 |
+| 相册 | `galleries`、`photos`                   | 相册持有 `owner_id`，照片继承相册所有权                                        |
+| 配置 | `settings`                              | 五组 JSON 文档（`site`/`appearance`/`copy`/`upload`/`advanced`）               |
+| 任务 | `jobs`                                  | 持久任务队列：状态、进度、心跳、结果、错误                                     |
+| 搜索 | `content_fts`（FTS5）                   | trigram 分词全文索引；短于 3 字符的查询回退 LIKE                               |
+| 版本 | `schema_meta`                           | 结构版本与迁移记录                                                             |
 
 ### 3.3 事务与并发
 
@@ -193,13 +193,13 @@
 
 保存内容时同步物化以下列，读路径不再渲染 Markdown：
 
-| 字段 | 内容 |
-| --- | --- |
-| `content_html` | bleach 白名单清理后的 HTML |
-| `reading_time` | 估算阅读分钟数 |
-| `toc_json` | 标题大纲 JSON |
+| 字段             | 内容                                                   |
+| ---------------- | ------------------------------------------------------ |
+| `content_html`   | bleach 白名单清理后的 HTML                             |
+| `reading_time`   | 估算阅读分钟数                                         |
+| `toc_json`       | 标题大纲 JSON                                          |
 | `render_version` | 渲染管线版本 `RENDER_PIPELINE_VERSION`，用于批量重渲染 |
-| `excerpt` | 未提供时由正文生成 |
+| `excerpt`        | 未提供时由正文生成                                     |
 
 Markdown 渲染管线变更时提升 `RENDER_PIPELINE_VERSION`，通过 `rerender_content` 任务重写 `content_html`/`render_version`（`reencode` 任务结束时会自动入队一次）。
 
@@ -236,15 +236,15 @@ Markdown 渲染管线变更时提升 `RENDER_PIPELINE_VERSION`，通过 `rerende
 
 所有维护动作都是 `jobs` 表中的持久任务，由 FastAPI 生命周期里的**单 worker 线程**消费（`app/jobs.py`）：
 
-| kind | 作用 |
-| --- | --- |
-| `prewarm` | 为一张图片生成完整产物集 |
-| `reencode` | 强制重编码一个范围（媒体/相册/全部），结束后入队 `rerender_content` |
-| `rerender_content` | 重渲染引用了媒体的已发布文章 |
-| `gc_derivatives` | 删除不再被 `derivative_set` 引用的派生行/对象 |
-| `storage_sync` | 把本地原图/派生图强制同步到对象存储 |
-| `export` | 预留（执行器后续版本实现），任务以说明结果完成 |
-| `rebuild_site` | 预留（R5）：API 可创建，worker 永不 claim，行保持 `queued` |
+| kind               | 作用                                                                |
+| ------------------ | ------------------------------------------------------------------- |
+| `prewarm`          | 为一张图片生成完整产物集                                            |
+| `reencode`         | 强制重编码一个范围（媒体/相册/全部），结束后入队 `rerender_content` |
+| `rerender_content` | 重渲染引用了媒体的已发布文章                                        |
+| `gc_derivatives`   | 删除不再被 `derivative_set` 引用的派生行/对象                       |
+| `storage_sync`     | 把本地原图/派生图强制同步到对象存储                                 |
+| `export`           | 预留（执行器后续版本实现），任务以说明结果完成                      |
+| `rebuild_site`     | 预留（R5）：API 可创建，worker 永不 claim，行保持 `queued`          |
 
 队列语义：原子 claim（`UPDATE ... RETURNING`）、按 kind 的优先级（交互任务优先）、心跳（`heartbeat_at`）、启动时回收心跳超时的 `running` 行（超次数则失败）、只有 `queued` 任务可取消（取消 `running` 返回 409）。
 
@@ -300,19 +300,19 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 
 ## 10. 测试矩阵
 
-| 层 | 命令 | 内容 |
-| --- | --- | --- |
-| 后端静态检查 | `cd backend && python -m ruff check app`、`python -m mypy app` | 新代码严格；存量模块在 `pyproject.toml` 的 ratchet 清单中逐步减少 |
-| 后端单测/集成 | `cd backend && python -m pytest` | 内容渲染、EXIF、slug、设置、权限、jobs、媒体上传/读取、搜索、导出导入、HTTP 集成 |
-| 契约 | `export_contracts` + `gen:types` + `git diff` | 响应模型与前端类型一致 |
-| 公共页审计 | `check_public_render` | R3 渲染上下文约束 + 路径分页 |
-| 前端检查 | `cd frontend && npm run check` | Astro + TypeScript |
-| 前端 lint | `cd frontend && npm run lint` | ESLint；`npm run format:check` 检查 Prettier 格式 |
-| 前端样式 | 沿用 2.x CSS（`src/styles/global.css`、`admin.css` 等），无独立样式检查步骤 | — |
-| 前端单测 | `cd frontend && npm test` | vitest |
-| 前端构建 | `cd frontend && npm run build` | 生产构建必须成功 |
-| 一键验收 | `python scripts/verify.py [--skip-slow]` | 串联上述门禁（含契约/文档漂移）并执行运行时 smoke；`scripts/verify.sh`、`scripts/verify.ps1` 为等价包装 |
-| 接入层 | staging 按 [`EDGE.md`](EDGE.md) 核对清单 + curl | 伪造 XFF 无效、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲 |
+| 层            | 命令                                                                                                                                  | 内容                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 后端静态检查  | `cd backend && python -m ruff check app`、`python -m mypy app`                                                                        | 新代码严格；存量模块在 `pyproject.toml` 的 ratchet 清单中逐步减少                                       |
+| 后端单测/集成 | `cd backend && python -m pytest`                                                                                                      | 内容渲染、EXIF、slug、设置、权限、jobs、媒体上传/读取、搜索、导出导入、HTTP 集成                        |
+| 契约          | `export_contracts` + `gen:types` + `git diff`                                                                                         | 响应模型与前端类型一致                                                                                  |
+| 公共页审计    | `check_public_render`                                                                                                                 | R3 渲染上下文约束 + 路径分页                                                                            |
+| 前端检查      | `cd frontend && npm run check`                                                                                                        | Astro + TypeScript                                                                                      |
+| 前端 lint     | `cd frontend && npm run lint`                                                                                                         | ESLint；`npm run format:check` 检查 Prettier 格式                                                       |
+| 前端样式      | `npm run css:check`（结构 lint，`--strict` 才失败）+ `css:snapshot`/`css:diff`（级联等价性，改样式时使用）；说明见 [`CSS.md`](CSS.md) | —                                                                                                       |
+| 前端单测      | `cd frontend && npm test`                                                                                                             | vitest                                                                                                  |
+| 前端构建      | `cd frontend && npm run build`                                                                                                        | 生产构建必须成功                                                                                        |
+| 一键验收      | `python scripts/verify.py [--skip-slow]`                                                                                              | 串联上述门禁（含契约/文档漂移）并执行运行时 smoke；`scripts/verify.sh`、`scripts/verify.ps1` 为等价包装 |
+| 接入层        | staging 按 [`EDGE.md`](EDGE.md) 核对清单 + curl                                                                                       | 伪造 XFF 无效、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲                    |
 
 > CI（`.github/workflows/ci.yml`）分四个 job：backend（ruff/mypy/契约审计/公共页审计/pytest）、frontend（check/lint/build/vitest）、contracts（重新生成契约与类型后 `git diff --exit-code`）、acceptance（`python scripts/verify.py --skip-slow`，含运行时 smoke）。
 
@@ -341,15 +341,15 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 
 3.0.0 **不实现 SSG**，但完成了 7 项预留（详见 [`SSG-FEASIBILITY.md`](SSG-FEASIBILITY.md) 与重构方案附录 B）：
 
-| 预留 | 内容 | 当前实现 |
-| --- | --- | --- |
-| R1 | 单一聚合读接口 `/api/bootstrap`（`page_data()`） | 已实现：后端接口 + 所有公共页恰好调用一次 `getBootstrap()`，不再逐页拼接接口；无请求上下文、无 cookie，可构建期调用 |
-| R2 | 路径式分页 + 旧 `?page=` 301 | 已实现：`/tags/{tag}/page/{n}`、`/categories/{category}/page/{n}` 路由，旧 `?page=N` 由 `middleware.ts` 301 到路径；`Pagination.astro` 输出路径 URL。`/photos`、`/projects` 按设计保持第 1 页 |
-| R3 | 公共页禁读请求上下文 | 已实现：`check_public_render` 进 CI，当前 32 个文件 0 处请求上下文读取 |
-| R4 | `derivative_set` 物化 + 只读 `image_payload` | 已实现；读路径不编码，未就绪回退原图 |
-| R5 | `jobs.kind='rebuild_site'` 形状预留 | 已实现；worker 永不 claim，行保持 `queued` |
-| R6 | 页面不引用运行期临时路径 | 已实现；`/_astro` 与媒体 URL 稳定 |
-| R7 | 5xx 语义（页面错误页、API 统一错误体） | 已实现；`/500` 页面与统一错误体 |
+| 预留 | 内容                                             | 当前实现                                                                                                                                                                                      |
+| ---- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1   | 单一聚合读接口 `/api/bootstrap`（`page_data()`） | 已实现：后端接口 + 所有公共页恰好调用一次 `getBootstrap()`，不再逐页拼接接口；无请求上下文、无 cookie，可构建期调用                                                                           |
+| R2   | 路径式分页 + 旧 `?page=` 301                     | 已实现：`/tags/{tag}/page/{n}`、`/categories/{category}/page/{n}` 路由，旧 `?page=N` 由 `middleware.ts` 301 到路径；`Pagination.astro` 输出路径 URL。`/photos`、`/projects` 按设计保持第 1 页 |
+| R3   | 公共页禁读请求上下文                             | 已实现：`check_public_render` 进 CI，当前 32 个文件 0 处请求上下文读取                                                                                                                        |
+| R4   | `derivative_set` 物化 + 只读 `image_payload`     | 已实现；读路径不编码，未就绪回退原图                                                                                                                                                          |
+| R5   | `jobs.kind='rebuild_site'` 形状预留              | 已实现；worker 永不 claim，行保持 `queued`                                                                                                                                                    |
+| R6   | 页面不引用运行期临时路径                         | 已实现；`/_astro` 与媒体 URL 稳定                                                                                                                                                             |
+| R7   | 5xx 语义（页面错误页、API 统一错误体）           | 已实现；`/500` 页面与统一错误体                                                                                                                                                               |
 
 迁移前的完整检查清单、备选方案与工作量见 [`SSG-FEASIBILITY.md`](SSG-FEASIBILITY.md)。
 
@@ -400,7 +400,7 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 - 事务只包短数据库临界区；文件、编码、网络、构建等 I/O 放事务外。
 - 所有权只通过 `services.authz`；权限只通过 `permissions.can`；不要在路由里复制判断。
 - 设置字段只改模型一处；前端类型必须由生成器产生。
-- CSS 继续写在 `src/styles/` 的 2.x 文件中（`global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`）；3.0.0 不做 `@layer` 重构与样式拆分。
+- CSS 写在 `src/styles/` 的细粒度文件里（`tokens/` / `base/` / `shared/` / `site/` / `admin/`）；层序由 layout `<head>` 内联声明 + 文件 banner 固定，组件自己 import 自己的样式，单文件硬上限 400 行；规则与验证命令见 [`CSS.md`](CSS.md)。
 - 时间统一 ISO-8601 UTC 字符串（`YYYY-MM-DDTHH:MM:SSZ`）。
 - 生成物（`openapi.json`、`types.gen.ts`、`SCHEMA.md`、`API.md`）禁止手改。
 - 文档禁止行号引用；API/结构字段由脚本生成。

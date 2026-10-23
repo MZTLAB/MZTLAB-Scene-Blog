@@ -1,0 +1,28 @@
+@layer tokens, base, components, pages, utilities;
+
+@layer tokens {
+/* ==========================================================================
+   Typography tokens
+   Monospaced editorial type: the display and body faces are the same stack,
+   the "font pairing" setting only swaps the display face.
+   ========================================================================== */
+
+:root {
+  --font-mono:
+    'JetBrains Mono', 'IBM Plex Mono', 'Cascadia Code', 'Cascadia Mono', ui-monospace,
+    'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, 'Noto Sans Mono CJK SC',
+    'Sarasa Mono SC', 'Microsoft YaHei', monospace;
+  --font-display: var(--font-mono);
+  --font-body: var(--font-mono);
+}
+
+html[data-font='serif'] {
+  --font-display:
+    'Iowan Old Style', 'Palatino Linotype', 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC',
+    Georgia, serif;
+}
+
+html[data-font='mono'] {
+  --font-display: var(--font-mono);
+}
+}

@@ -1,0 +1,307 @@
+/* site/articles/article.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.reading-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: var(--accent);
+  z-index: 80;
+}
+
+.article-header {
+  padding-block: clamp(38px, 6vw, 88px) clamp(24px, 3vw, 40px);
+  max-width: 1040px;
+}
+
+.article-header h1 {
+  font-size: clamp(2rem, 4.6vw, 3.9rem);
+  line-height: 1.04;
+  margin-top: 18px;
+  max-width: 22ch;
+}
+
+.article-deck {
+  margin-top: 20px;
+  max-width: 62ch;
+  font-size: clamp(15px, 1.4vw, 17.5px);
+  line-height: 1.68;
+  color: var(--ink-soft);
+}
+
+.article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  margin-top: 26px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.article-meta > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.author-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+
+.article-cover {
+  width: 100%;
+  margin-bottom: clamp(24px, 4vw, 42px);
+}
+
+.article-cover .cover-art {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.article-cover img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+
+.article-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 232px;
+  gap: clamp(28px, 5vw, 76px);
+  max-width: 1040px;
+  margin-inline: auto;
+  padding: var(--gutter) var(--gutter) 0;
+  padding-top: clamp(32px, 5vw, 64px);
+}
+
+.article-main {
+  min-width: 0;
+  max-width: var(--reading-width);
+}
+
+.article-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 26px;
+  position: sticky;
+  top: calc(var(--header-height) + 26px);
+  align-self: start;
+}
+
+.article-footer {
+  margin-top: clamp(36px, 5vw, 64px);
+  display: grid;
+  gap: 28px;
+}
+
+.article-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.article-author {
+  display: flex;
+  gap: 14px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.article-author h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.article-author p {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  max-width: 56ch;
+}
+
+.post-nav {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+.post-nav a {
+  display: grid;
+  gap: 5px;
+  padding: 18px 0;
+  transition: color 0.18s var(--ease);
+}
+
+.post-nav a + a {
+  text-align: right;
+  border-left: 1px solid var(--line);
+  padding-left: 22px;
+}
+
+.post-nav a:hover {
+  color: var(--accent);
+}
+
+.nav-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.post-nav strong {
+  font-weight: 500;
+  font-size: 14.5px;
+  letter-spacing: -0.01em;
+}
+
+.toc {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.toc-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+
+.toc nav {
+  display: grid;
+  gap: 2px;
+}
+
+.toc a {
+  padding: 5px 0 5px 10px;
+  border-left: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  line-height: 1.45;
+  transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
+}
+
+.toc a[data-level="3"] {
+  padding-left: 22px;
+  font-size: 12px;
+}
+
+.toc a:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.toc a.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.share-box {
+  display: grid;
+  gap: 10px;
+}
+
+.share-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.share-actions button {
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.share-actions a {
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.share-actions button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.share-actions a:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.related-section {
+  padding-top: clamp(44px, 6vw, 84px);
+}
+
+@media (max-width: 1080px) {
+  .article-wrap {
+    grid-template-columns: minmax(0, 1fr) 200px;
+  }
+}
+
+@media (max-width: 900px) {
+  .article-wrap {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .article-sidebar {
+    position: static;
+    order: 2;
+    border-top: 1px solid var(--line);
+    padding-top: 22px;
+  }
+}
+
+@media (max-width: 620px) {
+  .article-header h1 {
+    font-size: clamp(1.8rem, 8.4vw, 2.5rem);
+  }
+}
+
+@media (max-width: 620px) {
+  .post-nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .post-nav a + a {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    text-align: left;
+  }
+}
+}

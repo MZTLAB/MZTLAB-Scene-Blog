@@ -44,6 +44,11 @@ const meta = [
   { label: copy('project_client', '上下文'), value: project.project_client || '' },
 ].filter((item) => item.value);
 const related = (project.related || []) as typeof project.related;
+import '../../styles/site/pages/project.css';
+import '../../styles/shared/prose.css';
+import '../../styles/site/ui/section-headings.css';
+import '../../styles/audio-player.css';
+import '../../styles/site/articles/article.css';
 ---
 <BaseLayout site={site} title={project.seo_title || project.title} description={description} type="article" author={project.author?.name}>
   <Fragment slot="head">

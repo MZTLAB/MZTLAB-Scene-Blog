@@ -1,0 +1,21 @@
+@layer tokens, base, components, pages, utilities;
+
+@layer tokens {
+/* ==========================================================================
+   Metrics tokens — public site.
+   Page width, reading measure, gutters and the vertical rhythm. The
+   `--header-height` value here is the public one; the admin workspace keeps
+   its own metrics file.
+   ========================================================================== */
+
+:root {
+  --layout-width: 1360px;
+  --reading-width: 680px;
+  --radius: 0px;
+  --header-height: 64px;
+  --gutter: clamp(20px, 3.6vw, 56px);
+  --grid-gap: clamp(14px, 1.6vw, 24px);
+  --band: clamp(56px, 7.5vw, 120px);
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+}

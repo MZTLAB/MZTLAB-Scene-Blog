@@ -1,0 +1,134 @@
+/* admin/feedback.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.toast-root {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 120;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 220px;
+  max-width: 380px;
+  padding: 11px 15px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  box-shadow: 0 18px 50px -20px var(--color-rgba-0-0-0-0-35);
+  color: var(--ink);
+  font-size: 11.5px;
+  animation: toast-in 0.25s var(--ease) both;
+  pointer-events: auto;
+}
+
+.toast::before {
+  width: 5px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+}
+
+.toast--success::before {
+  background: var(--color-4f8b5e);
+}
+
+.toast--error::before {
+  background: var(--color-b33a2b);
+}
+
+.toast.is-leaving {
+  animation: toast-out 0.2s ease both;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--bg-sunken);
+}
+
+.skeleton::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--color-rgba-255-255-255-0-3), transparent);
+  content: "";
+  transform: translateX(-100%);
+  animation: shimmer 1.4s infinite;
+}
+
+.admin-empty {
+  padding: 54px 20px;
+  color: var(--ink-faint);
+  text-align: center;
+}
+
+.admin-empty svg {
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 10px;
+  opacity: 0.6;
+}
+
+.admin-empty p {
+  font-size: 11.5px;
+}
+
+.admin-loading {
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+}
+
+.admin-loading .skeleton:nth-child(1) {
+  width: 45%;
+  height: 18px;
+}
+
+.admin-loading .skeleton:nth-child(2) {
+  width: 100%;
+  height: 12px;
+}
+
+.admin-loading .skeleton:nth-child(3) {
+  width: 80%;
+  height: 12px;
+}
+
+@media (max-width: 620px) {
+  .toast-root {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+  }
+}
+
+@media (max-width: 620px) {
+  .toast {
+    max-width: none;
+  }
+}
+
+html[data-palette] .toast {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--ink);
+  box-shadow: none;
+}
+
+html[data-palette] .toast--error {
+  border-color: var(--color-c0392b);
+  color: var(--color-c0392b);
+}
+}

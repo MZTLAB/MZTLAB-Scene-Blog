@@ -1,0 +1,188 @@
+/* admin/shell.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.admin-body {
+  min-height: 100vh;
+  background: color-mix(in srgb, var(--bg) 82%, var(--bg-sunken));
+}
+
+.admin-body::before {
+  display: none;
+}
+
+.admin-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 248px;
+  border-right: 1px solid var(--line);
+  background: var(--bg-elevated);
+}
+
+.admin-sidebar__foot {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-sidebar__foot a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-align: left;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.admin-sidebar__foot button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 12px;
+  text-align: left;
+  transition: color 0.18s ease, background 0.18s ease;
+}
+
+.admin-sidebar__foot a:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.admin-sidebar__foot button:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.admin-sidebar__foot svg {
+  width: 15px;
+  height: 15px;
+}
+
+.admin-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 248px;
+}
+
+.admin-content {
+  width: 100%;
+  max-width: 1440px;
+  margin-inline: auto;
+  padding: clamp(22px, 3.2vw, 40px);
+}
+
+.admin-page-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.admin-page-intro h2 {
+  font-family: var(--font-display);
+  font-size: clamp(27px, 3vw, 36px);
+  font-weight: 550;
+}
+
+.admin-page-intro p {
+  max-width: 60ch;
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+@media (max-width: 860px) {
+  .admin-sidebar {
+    transform: translateX(-105%);
+    transition: transform 0.25s var(--ease);
+    box-shadow: 20px 0 60px -30px var(--color-rgba-0-0-0-0-4);
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-shell.is-nav-open .admin-sidebar {
+    transform: none;
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-shell.is-nav-open .admin-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-main {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .admin-content {
+    padding: 18px 17px 36px;
+  }
+}
+
+html[data-palette] .admin-body {
+  background: var(--bg);
+}
+
+html[data-palette] .admin-sidebar {
+  width: 236px;
+  background: var(--bg);
+}
+
+html[data-palette] .admin-content {
+  max-width: 1280px;
+  padding: clamp(20px, 2.6vw, 38px);
+}
+
+html[data-palette] .admin-page-intro {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+
+html[data-palette] .admin-page-intro h2 {
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  letter-spacing: -0.03em;
+}
+
+html[data-palette] .admin-page-intro p {
+  color: var(--ink-soft);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+@media (max-width: 900px) {
+  html[data-palette] .admin-sidebar {
+    width: min(84vw, 286px);
+  }
+}
+}

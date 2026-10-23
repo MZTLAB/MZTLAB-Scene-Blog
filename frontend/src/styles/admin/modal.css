@@ -1,0 +1,108 @@
+/* admin/modal.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: var(--color-rgba-16-13-10-0-5);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.modal-backdrop.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  max-height: min(84vh, 760px);
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elevated);
+  box-shadow: 0 40px 100px -30px var(--color-rgba-0-0-0-0-5);
+  transform: translateY(12px) scale(0.98);
+  transition: transform 0.25s var(--ease);
+}
+
+.modal-backdrop.is-open .modal {
+  transform: none;
+}
+
+.modal--wide {
+  width: min(880px, 100%);
+}
+
+.modal__head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 15px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.modal__head h3 {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.modal__head button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+.modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+.modal__foot {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 18px;
+  border-top: 1px solid var(--line);
+}
+
+html[data-palette] .modal {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg);
+  box-shadow: none;
+}
+
+html[data-palette] .modal__head {
+  border-color: var(--line);
+}
+
+html[data-palette] .modal__foot {
+  border-color: var(--line);
+}
+
+html[data-palette] .modal-backdrop {
+  background: color-mix(in srgb, var(--ink) 45%, transparent);
+}
+}

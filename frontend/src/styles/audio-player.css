@@ -3,6 +3,8 @@
    Replaces the browser's native <audio> controls for editor embeds.
    The visual language matches the site: hairlines, mono labels, one accent.
    ========================================================================== */
+@layer tokens, base, components, pages, utilities;
+@layer components {
 
 .prose .audio-embed--enhanced,
 .audio-embed--enhanced {
@@ -342,4 +344,5 @@
     animation: none;
     height: 5px;
   }
+}
 }

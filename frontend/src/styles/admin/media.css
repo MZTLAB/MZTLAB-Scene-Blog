@@ -1,0 +1,290 @@
+/* admin/media.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 180px;
+  padding: 28px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+  color: var(--ink-faint);
+  text-align: center;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.upload-zone.is-dragging {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.upload-zone:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.upload-zone svg {
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+
+.upload-zone strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.upload-zone span {
+  font-size: 10.5px;
+}
+
+.upload-zone input {
+  display: none;
+}
+
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.media-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-elevated);
+}
+
+.media-card__image {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.media-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.45s var(--ease);
+}
+
+.media-card__audio {
+  display: grid;
+  place-items: center;
+  padding: 14px;
+}
+
+.media-card__audio audio {
+  display: block;
+  width: 100%;
+}
+
+.media-card__audio .media-card__actions {
+  top: 6px;
+  bottom: auto;
+}
+
+.media-card:hover .media-card__image img {
+  transform: scale(1.03);
+}
+
+.media-card__actions {
+  position: absolute;
+  inset: auto 6px 6px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.media-card:hover .media-card__actions {
+  opacity: 1;
+}
+
+.media-card__actions button {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: var(--color-rgba-22-19-15-0-78);
+  color: var(--color-fff);
+  backdrop-filter: blur(4px);
+}
+
+.media-card__actions button:hover {
+  background: var(--accent);
+}
+
+.media-card__actions svg {
+  width: 13px;
+  height: 13px;
+}
+
+.media-card__body {
+  padding: 9px 10px 10px;
+}
+
+.media-card__body strong {
+  display: block;
+  overflow: hidden;
+  font-size: 10.5px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-card__body span {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.media-card__alt {
+  width: 100%;
+  margin-top: 7px;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: var(--bg);
+  font-size: 9.5px;
+  outline: 0;
+}
+
+@media (max-width: 620px) {
+  .media-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 9px;
+  }
+}
+
+html[data-palette] .media-grid {
+  gap: 10px;
+}
+
+html[data-palette] .media-card {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg-elevated);
+  box-shadow: none;
+}
+
+html[data-palette] .media-card__actions {
+  border-radius: 0;
+}
+
+html[data-palette] .media-card__body strong {
+  font-size: 11px;
+}
+
+html[data-palette] .media-card__alt {
+  border-radius: 0;
+}
+
+html[data-palette] .media-card__body input {
+  border-radius: 0;
+}
+
+html[data-palette] .upload-zone {
+  border: 1px dashed var(--line);
+  border-radius: 0;
+  background: var(--bg-elevated);
+}
+
+html[data-palette] .upload-zone:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+html[data-palette] .upload-zone.is-dragging {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+.media-card__owner {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 8px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint) !important;
+}
+
+.media-card__exif {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 8px !important;
+  letter-spacing: 0.04em;
+  color: var(--accent) !important;
+}
+
+.media-card__file {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-sunken);
+}
+
+.media-card__file-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 120px;
+  padding: 14px;
+  border: 1px dashed var(--line);
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+
+.media-card__file-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.media-card__file-ext {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+
+.media-card__file-name {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+  word-break: break-all;
+}
+
+.media-card__file-hint {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+}

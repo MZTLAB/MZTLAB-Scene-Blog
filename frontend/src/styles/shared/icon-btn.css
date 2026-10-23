@@ -1,0 +1,22 @@
+/* shared/icon-btn.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.icon-btn {
+  display: grid;
+  place-content: center;
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: color 0.18s var(--ease), background 0.18s var(--ease);
+}
+
+.icon-btn:hover {
+  color: var(--ink);
+  background: var(--bg-sunken);
+}
+}

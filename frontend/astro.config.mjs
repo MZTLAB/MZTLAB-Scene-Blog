@@ -1,6 +1,5 @@
 import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
-import { fileURLToPath } from 'node:url';
 
 // Astro/Vite's dev server intentionally exposes source files. The audit report
 // showed /src/*, /astro.config.mjs and /package.json were downloadable. These
@@ -58,6 +57,10 @@ export default defineConfig({
     sourcemap: false,
   },
   vite: {
+    // `BLOG_CSS_UNMINIFIED=1` keeps CSS unminified for the cascade-equivalence
+    // snapshot (`scripts/css/snapshot.mjs`): lightningcss merges shorthand and
+    // longhand declarations, which makes declaration-level comparison noisy.
+    build: process.env.BLOG_CSS_UNMINIFIED === '1' ? { cssMinify: false } : {},
     server: {
       host: process.env.HOST || '127.0.0.1',
       fs: {

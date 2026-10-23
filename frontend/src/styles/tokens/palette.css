@@ -1,0 +1,76 @@
+@layer tokens, base, components, pages, utilities;
+
+@layer tokens {
+/* ==========================================================================
+   Palette tokens — public site.
+
+   Four palettes, one light/dark switch. `data-palette` selects a canvas and
+   `data-color-mode` swaps it for the night canvas; the dark rules come last so
+   dark mode always wins over stone/sand at equal specificity, which is the
+   behaviour the site shipped with.
+
+   The admin workspace keeps its own palette file (tokens/admin/palette.css):
+   its surfaces were derived from the older global values and are intentionally
+   left untouched by this refactor.
+   ========================================================================== */
+
+:root {
+  --bg: #f7f4ee;
+  --bg-elevated: #fffdf8;
+  --bg-sunken: #ece7dc;
+  --bg-inverse: #17160f;
+  --ink: #17160f;
+  --ink-soft: #5b574b;
+  --ink-faint: #8d8778;
+  --ink-inverse: #f7f4ee;
+  --line: #ddd6c7;
+  --line-soft: #e9e3d7;
+  --line-strong: #17160f;
+  --accent-ink: #fffdf8;
+  --accent-wash: color-mix(in srgb, var(--accent) 9%, transparent);
+}
+
+html[data-palette='stone'] {
+  --bg: #f0efec;
+  --bg-elevated: #f8f7f3;
+  --bg-sunken: #e5e3dd;
+  --ink: #1a1a1c;
+  --ink-soft: #57575b;
+  --ink-faint: #8b8b8f;
+  --line: #d8d5cd;
+  --line-soft: #e6e3dc;
+  --line-strong: #1a1a1c;
+}
+
+html[data-palette='sand'] {
+  --bg: #f5f0e4;
+  --bg-elevated: #fbf7ee;
+  --bg-sunken: #eae3d3;
+  --ink: #201d16;
+  --ink-soft: #5f5849;
+  --ink-faint: #918877;
+  --line: #ddd4c1;
+  --line-soft: #eae2d3;
+  --line-strong: #201d16;
+}
+
+html[data-palette='night'],
+html[data-color-mode='dark'] {
+  --bg: #131210;
+  --bg-elevated: #191813;
+  --bg-sunken: #0c0b09;
+  --bg-inverse: #f2eee3;
+  --ink: #f2eee3;
+  --ink-soft: #b2ac9d;
+  --ink-faint: #7d786b;
+  --ink-inverse: #131210;
+  --line: #2d2b24;
+  --line-soft: #201e18;
+  --line-strong: #f2eee3;
+  --accent-ink: #131210;
+}
+
+html[data-palette='night'] {
+  --bg-elevated: #191813;
+}
+}

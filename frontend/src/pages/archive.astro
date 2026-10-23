@@ -14,6 +14,10 @@ const groups = archivePage.years.map((year) => ({
   posts: archivePage.items.filter((post) => (post.published_at || '').startsWith(year.year)),
 }));
 const layout = appearance.post_layout === 'list' ? 'list' : 'grid';
+import '../styles/site/pages/archive.css';
+import '../styles/site/pages/page-hero.css';
+import '../styles/site/ui/empty-state.css';
+import '../styles/site/pages/search.css';
 ---
 <BaseLayout site={site} title="文章归档" description={`${siteSettings.site_title} 的全部文章归档。`}>
   <section class="container page-hero">

@@ -1,0 +1,149 @@
+/* admin/nav.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 76px;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-brand .brand-mark {
+  width: 34px;
+  height: 34px;
+}
+
+.admin-brand__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.admin-brand__text strong {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.admin-brand__text span {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.admin-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  padding: 18px 12px;
+  overflow-y: auto;
+}
+
+.admin-nav__label {
+  padding: 16px 12px 7px;
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.admin-nav a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 9px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.admin-nav a svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  opacity: 0.78;
+}
+
+.admin-nav a:hover {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+
+.admin-nav a.is-active {
+  color: var(--ink);
+  background: var(--accent-wash);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.admin-nav a.is-active svg {
+  color: var(--accent);
+  opacity: 1;
+}
+
+.admin-menu-btn {
+  display: none;
+}
+
+.admin-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  background: var(--color-rgba-12-10-8-0-45);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+@media (max-width: 860px) {
+  .admin-menu-btn {
+    display: inline-grid;
+  }
+}
+
+html[data-palette] .admin-brand {
+  height: 64px;
+  border-bottom: 1px solid var(--line);
+}
+
+html[data-palette] .admin-brand .brand-mark {
+  width: 30px;
+  height: 30px;
+}
+
+html[data-palette] .admin-brand__text strong {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+html[data-palette] .admin-brand__text span {
+  letter-spacing: 0.26em;
+  font-size: 8px;
+}
+
+html[data-palette] .admin-nav a {
+  min-height: 38px;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+html[data-palette] .admin-nav a.is-active {
+  background: var(--bg-sunken);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+}

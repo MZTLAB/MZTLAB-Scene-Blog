@@ -1,9 +1,6 @@
 ---
-
 import { normalizeTheme } from '../lib/theme';
 import type { SiteInfo } from '../types';
-import '../styles/global.css';
-import '../styles/admin.css';
 
 interface Props {
   site: SiteInfo;
@@ -14,7 +11,24 @@ const { site, mode = 'login' } = Astro.props;
 const { site: siteSettings, appearance } = site.settings;
 const tokens = normalizeTheme(appearance, siteSettings);
 const markSrc = siteSettings.favicon || '/favicon.svg';
+import '../styles/tokens/layers.css';
+import '../styles/tokens/typography.css';
+import '../styles/tokens/accent.css';
+import '../styles/tokens/palette.css';
+import '../styles/tokens/metrics.css';
+import '../styles/tokens/admin/palette.css';
+import '../styles/tokens/admin/metrics.css';
+import '../styles/base/reset.css';
+import '../styles/base/elements.css';
+import '../styles/base/layout.css';
+import '../styles/base/type-devices.css';
+import '../styles/shared/brand.css';
+import '../styles/shared/icon-btn.css';
+import '../styles/admin/auth.css';
+import '../styles/admin/buttons.css';
+import '../styles/admin/forms.css';
 ---
+
 <!doctype html>
 <html
   lang="zh-CN"
@@ -25,6 +39,9 @@ const markSrc = siteSettings.favicon || '/favicon.svg';
   style={`--accent:${tokens.accent};--radius:${tokens.radius}px`}
 >
   <head>
+    <style is:inline>
+      @layer tokens, base, components, pages, utilities;
+    </style>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
@@ -50,7 +67,15 @@ const markSrc = siteSettings.favicon || '/favicon.svg';
     <div class="auth-body">
       <aside class="auth-aside">
         <a class="brand" href="/" style="color: inherit">
-          <img class="brand-mark" src={markSrc} alt="" width="32" height="32" style="width:32px;height:32px" aria-hidden="true" />
+          <img
+            class="brand-mark"
+            src={markSrc}
+            alt=""
+            width="32"
+            height="32"
+            style="width:32px;height:32px"
+            aria-hidden="true"
+          />
           <span class="brand-text">
             <span class="brand-title">{siteSettings.site_title}</span>
             <span class="brand-sub">{siteSettings.site_subtitle || 'SCENE'}</span>
@@ -68,9 +93,14 @@ const markSrc = siteSettings.favicon || '/favicon.svg';
       </aside>
       <main class="auth-main">
         <div class="auth-card">
-          <span class="eyebrow"><span class="dot"></span>{mode === 'setup' ? 'First run' : 'Welcome back'}</span>
+          <span class="eyebrow">
+            <span class="dot"></span>
+            {mode === 'setup' ? 'First run' : 'Welcome back'}
+          </span>
           <slot />
-          <p class="auth-foot"><a href="/">← 返回网站</a></p>
+          <p class="auth-foot">
+            <a href="/">← 返回网站</a>
+          </p>
         </div>
       </main>
     </div>

@@ -22,6 +22,9 @@ const kindMeta = Array.from(kindCounts.entries())
   .sort((left, right) => right[1] - left[1])
   .slice(0, 3)
   .map(([kind, count]) => `${two(count)} ${kind}`);
+import '../../styles/site/cards/project-card.css';
+import '../../styles/site/pages/page-hero.css';
+import '../../styles/site/ui/empty-state.css';
 ---
 <BaseLayout site={site} title={copy('projects_title', '项目')} description={copy('projects_lead', '代码与设计，记录做法与结果。')}>
   <section class="container page-hero page-hero--code">

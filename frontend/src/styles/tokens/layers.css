@@ -1,0 +1,20 @@
+/* ==========================================================================
+   Layer order — the single place that defines cascade precedence.
+
+   Every stylesheet under `src/styles/` lives in exactly one top-level layer.
+   Declaring the order here makes cascade precedence independent of import
+   order, so a component can import its own stylesheet from anywhere and Astro
+   can ship only the CSS a route actually renders.
+
+   Layer intent:
+     tokens      design tokens only (palette, type, metrics)
+     base        reset, typography, layout primitives, shared type devices
+     components  site + admin component blocks
+     pages       page-only composition (reserved for future use)
+     utilities   small helpers that may override components deliberately
+
+   `custom_css` from admin settings is injected unlayered on purpose: operator
+   overrides win over everything below.
+   ========================================================================== */
+
+@layer tokens, base, components, pages, utilities;

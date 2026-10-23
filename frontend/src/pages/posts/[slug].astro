@@ -42,6 +42,12 @@ const jsonLd = {
   publisher: { '@type': 'Organization', name: siteSettings.site_title },
   ...(image ? { image } : {}),
 };
+import '../../styles/shared/avatar.css';
+import '../../styles/site/articles/article.css';
+import '../../styles/site/pages/project.css';
+import '../../styles/shared/prose.css';
+import '../../styles/site/ui/section-headings.css';
+import '../../styles/audio-player.css';
 ---
 <BaseLayout
   site={site}

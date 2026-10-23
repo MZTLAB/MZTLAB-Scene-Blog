@@ -5,9 +5,6 @@ import { getSite } from '../lib/api';
 import { initial } from '../lib/format';
 import { normalizeTheme } from '../lib/theme';
 import type { AdminUser, SiteInfo } from '../types';
-import '../styles/global.css';
-import '../styles/admin.css';
-import '../styles/audio-player.css';
 
 interface Props {
   user: AdminUser;
@@ -28,21 +25,74 @@ const can = (permission: string) => user.permissions?.includes(permission) ?? fa
 const canCompose = can('content.write');
 const nav = [
   { key: 'dashboard', label: '概览', href: '/admin', icon: 'dashboard', show: true },
-  { key: 'photography', label: '影像', href: '/admin/galleries', icon: 'camera', show: can('gallery.manage') },
+  {
+    key: 'photography',
+    label: '影像',
+    href: '/admin/galleries',
+    icon: 'camera',
+    show: can('gallery.manage'),
+  },
   { key: 'projects', label: '项目', href: '/admin/projects', icon: 'code', show: true },
   { key: 'posts', label: '文章', href: '/admin/posts', icon: 'file', show: true },
   { key: 'pages', label: '页面', href: '/admin/pages', icon: 'book', show: can('content.others') },
   { key: 'media', label: '媒体库', href: '/admin/media', icon: 'image', show: can('media.manage') },
-  { key: 'taxonomy', label: '分类与标签', href: '/admin/taxonomy', icon: 'folder', show: can('taxonomy.manage') },
+  {
+    key: 'taxonomy',
+    label: '分类与标签',
+    href: '/admin/taxonomy',
+    icon: 'folder',
+    show: can('taxonomy.manage'),
+  },
 ].filter((item) => item.show);
 const siteNav = [
-  { key: 'appearance', label: '外观', href: '/admin/appearance', icon: 'palette', show: can('settings.manage') },
+  {
+    key: 'appearance',
+    label: '外观',
+    href: '/admin/appearance',
+    icon: 'palette',
+    show: can('settings.manage'),
+  },
   { key: 'users', label: '成员', href: '/admin/users', icon: 'users', show: can('users.manage') },
-  { key: 'settings', label: '设置', href: '/admin/settings', icon: 'settings', show: can('settings.manage') },
+  {
+    key: 'settings',
+    label: '设置',
+    href: '/admin/settings',
+    icon: 'settings',
+    show: can('settings.manage'),
+  },
 ].filter((item) => item.show);
 const isActive = (key: string) => active === key;
 const composeHref = '/admin/posts/new';
+import '../styles/tokens/layers.css';
+import '../styles/tokens/typography.css';
+import '../styles/tokens/accent.css';
+import '../styles/tokens/palette.css';
+import '../styles/tokens/metrics.css';
+import '../styles/tokens/admin/palette.css';
+import '../styles/tokens/admin/metrics.css';
+import '../styles/base/reset.css';
+import '../styles/base/elements.css';
+import '../styles/base/layout.css';
+import '../styles/base/type-devices.css';
+import '../styles/shared/brand.css';
+import '../styles/shared/icon-btn.css';
+import '../styles/shared/avatar.css';
+import '../styles/shared/prose.css';
+import '../styles/admin/shell.css';
+import '../styles/admin/nav.css';
+import '../styles/admin/topbar.css';
+import '../styles/admin/cards.css';
+import '../styles/admin/dashboard.css';
+import '../styles/admin/tables.css';
+import '../styles/admin/badges.css';
+import '../styles/admin/toolbar.css';
+import '../styles/admin/buttons.css';
+import '../styles/admin/forms.css';
+import '../styles/admin/modal.css';
+import '../styles/admin/feedback.css';
+import '../styles/audio-player.css';
 ---
+
 <!doctype html>
 <html
   lang="zh-CN"
@@ -53,6 +103,9 @@ const composeHref = '/admin/posts/new';
   style={`--accent:${tokens.accent};--layout-width:${tokens.width}px;--radius:${tokens.radius}px`}
 >
   <head>
+    <style is:inline>
+      @layer tokens, base, components, pages, utilities;
+    </style>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex, nofollow" />
@@ -89,23 +142,19 @@ const composeHref = '/admin/posts/new';
 
         <nav class="admin-nav">
           <span class="admin-nav__label">Studio</span>
-          {
-            nav.map((item) => (
-              <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
-                <Icon name={item.icon} size={17} />
-                {item.label}
-              </a>
-            ))
-          }
+          {nav.map((item) => (
+            <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
+              <Icon name={item.icon} size={17} />
+              {item.label}
+            </a>
+          ))}
           {siteNav.length > 0 && <span class="admin-nav__label">Site</span>}
-          {
-            siteNav.map((item) => (
-              <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
-                <Icon name={item.icon} size={17} />
-                {item.label}
-              </a>
-            ))
-          }
+          {siteNav.map((item) => (
+            <a href={item.href} class:list={[{ 'is-active': isActive(item.key) }]}>
+              <Icon name={item.icon} size={17} />
+              {item.label}
+            </a>
+          ))}
         </nav>
 
         <div class="admin-sidebar__foot">
@@ -125,7 +174,12 @@ const composeHref = '/admin/posts/new';
 
       <div class="admin-main">
         <header class="admin-topbar">
-          <button class="icon-btn admin-menu-btn" type="button" data-admin-menu aria-label="打开菜单">
+          <button
+            class="icon-btn admin-menu-btn"
+            type="button"
+            data-admin-menu
+            aria-label="打开菜单"
+          >
             <Icon name="menu" />
           </button>
           <div class="admin-topbar__title">
@@ -139,7 +193,10 @@ const composeHref = '/admin/posts/new';
                 <Icon name="plus" size={14} /> 写文章
               </a>
             )}
-            <div class="admin-user" title={`${user.display_name} · ${user.role_label || user.role}`}>
+            <div
+              class="admin-user"
+              title={`${user.display_name} · ${user.role_label || user.role}`}
+            >
               <span class="avatar">
                 {user.avatar ? <img src={user.avatar} alt="" /> : initial(user.display_name)}
               </span>

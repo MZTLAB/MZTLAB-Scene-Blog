@@ -3,7 +3,7 @@
  *
  * Built on the existing plain-HTML conventions: named controls (`name="..."`),
  * `[data-setting]` style attributes, and the `.field-error` class already
- * rendered by `styles/admin.css`. No Preact/parity layer — just functions that
+ * rendered by `styles/admin/forms.css`. No Preact/parity layer — just functions that
  * remove the copy-pasted form plumbing from the page scripts.
  */
 
@@ -80,17 +80,23 @@ export function fillForm(
         const candidate = Array.isArray(value) ? value[0] : String(value ?? '');
         element.checked = element.value === candidate;
       } else if (element.type !== 'file') {
-        element.value = Array.isArray(value) ? value[0] ?? '' : String(value ?? '');
+        element.value = Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
       }
     } else if (element instanceof HTMLSelectElement) {
       const wanted = new Set(
-        Array.isArray(value) ? value.map(String) : value === null || value === undefined ? [] : [String(value)],
+        Array.isArray(value)
+          ? value.map(String)
+          : value === null || value === undefined
+            ? []
+            : [String(value)],
       );
       Array.from(element.options).forEach((option) => {
-        option.selected = element.multiple ? wanted.has(option.value) : option.value === [...wanted][0];
+        option.selected = element.multiple
+          ? wanted.has(option.value)
+          : option.value === [...wanted][0];
       });
     } else {
-      element.value = Array.isArray(value) ? value[0] ?? '' : String(value ?? '');
+      element.value = Array.isArray(value) ? (value[0] ?? '') : String(value ?? '');
     }
   }
 }

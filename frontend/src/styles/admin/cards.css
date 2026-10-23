@@ -1,0 +1,118 @@
+/* admin/cards.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+
+@layer components {
+.admin-card {
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: var(--bg-elevated);
+}
+
+.admin-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-card__head h3 {
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.admin-card__head a {
+  color: var(--ink-faint);
+  font-size: 10.5px;
+}
+
+.admin-card__head a:hover {
+  color: var(--accent);
+}
+
+.admin-card__body {
+  padding: 20px;
+}
+
+html[data-palette] .admin-card {
+  border: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--bg-elevated);
+  box-shadow: none;
+}
+
+html[data-palette] .admin-card__head {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 18px;
+}
+
+html[data-palette] .admin-card__head h3 {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+html[data-palette] .admin-card__head a {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+html[data-palette] .admin-card__head span {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+html[data-palette] .admin-card__body {
+  padding: 18px;
+}
+
+.page-head-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-head-row h2 {
+  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  letter-spacing: -0.03em;
+}
+
+.page-head-row p {
+  margin-top: 6px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  max-width: 68ch;
+}
+
+.admin-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
+.admin-callout strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.admin-callout--accent {
+  border-left: 2px solid var(--accent);
+}
+}

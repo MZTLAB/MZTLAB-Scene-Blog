@@ -1,0 +1,53 @@
+/* site/ui/section-headings.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.section-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  padding-bottom: clamp(18px, 2.6vw, 30px);
+  margin-bottom: clamp(22px, 3vw, 38px);
+  border-bottom: 1px solid var(--line);
+}
+
+.section-head h2 {
+  font-size: clamp(1.5rem, 2.6vw, 2.35rem);
+  margin-top: 8px;
+}
+
+.section-head p {
+  margin-top: 10px;
+  max-width: 52ch;
+  color: var(--ink-soft);
+  font-size: 14.5px;
+}
+
+.section-head__side {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding-bottom: 4px;
+}
+
+@media (max-width: 900px) {
+  .section-head {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 900px) {
+  .section-head > div:first-child {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  .section-head__side {
+    width: 100%;
+    padding-bottom: 0;
+  }
+}
+}

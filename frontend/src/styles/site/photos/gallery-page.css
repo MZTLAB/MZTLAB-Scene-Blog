@@ -1,0 +1,79 @@
+/* site/photos/gallery-page.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.gallery-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.75fr);
+  gap: clamp(20px, 4vw, 64px);
+  padding-block: clamp(34px, 5vw, 72px) clamp(26px, 3vw, 44px);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: clamp(22px, 3vw, 38px);
+}
+
+.gallery-header h1 {
+  font-size: clamp(2rem, 4.6vw, 3.6rem);
+  margin-top: 12px;
+}
+
+.gallery-header p {
+  color: var(--ink-soft);
+  font-size: 15px;
+  max-width: 52ch;
+  margin-top: 14px;
+}
+
+.gallery-facts {
+  display: grid;
+  align-content: end;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.gallery-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 9px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.gallery-fact span:last-child {
+  color: var(--ink-soft);
+  text-align: right;
+}
+
+@media (max-width: 1080px) {
+  .gallery-header {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1080px) {
+  .gallery-facts {
+    max-width: 420px;
+  }
+}
+
+.gallery-header p {
+  max-width: 42ch;
+  font-size: 13.5px;
+}
+
+.gallery-fact {
+  font-size: 8.5px;
+}
+
+.gallery-fact span:last-child {
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+}

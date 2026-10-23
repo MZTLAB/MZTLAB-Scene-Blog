@@ -1,0 +1,181 @@
+/* site/cards/story-card.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.story-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 2.4vw, 32px);
+}
+
+.story-card {
+  display: grid;
+  gap: 10px;
+}
+
+.story-card__media {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  aspect-ratio: 4 / 3;
+}
+
+.story-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s var(--ease);
+}
+
+.story-card:hover .story-card__media img {
+  transform: scale(1.02);
+}
+
+.story-card__body {
+  display: grid;
+  gap: 6px;
+}
+
+.story-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.story-card__title {
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.story-card:hover .story-card__title {
+  color: var(--accent);
+}
+
+.story-card__desc {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .story-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .story-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.story-layout {
+  display: grid;
+}
+
+.story-layout--grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(22px, 3vw, 38px);
+}
+
+.story-layout--list {
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.story-layout--list .story-card {
+  display: grid;
+  grid-template-columns: 148px minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding-block: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.story-layout--list .story-card__media {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: 1px solid var(--line);
+}
+
+.story-layout--list .story-card__media .cover-art {
+  min-height: 0;
+  padding: 8px;
+}
+
+.story-layout--list .cover-art-glyph {
+  font-size: 1.4rem;
+}
+
+.story-layout--list .story-card__body {
+  gap: 3px;
+}
+
+.story-layout--list .story-card__title {
+  font-size: clamp(1rem, 1.4vw, 1.2rem);
+}
+
+.story-layout--list .story-card__desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .story-layout--grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .story-layout--list .story-card {
+    grid-template-columns: 112px minmax(0, 1fr);
+    gap: 14px;
+  }
+}
+
+@media (max-width: 620px) {
+  .story-layout--grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .story-layout--list .story-card {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+
+.story-card {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.story-card__title a:hover {
+  color: var(--accent);
+}
+
+.story-layout--grid {
+  gap: clamp(24px, 3vw, 42px) clamp(16px, 2.2vw, 28px);
+}
+
+.story-layout--list .story-card {
+  border-bottom: 1px solid var(--line);
+}
+}

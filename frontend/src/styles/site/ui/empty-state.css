@@ -1,0 +1,63 @@
+/* site/ui/empty-state.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  padding-block: clamp(56px, 9vw, 120px);
+  text-align: center;
+}
+
+.empty-mark {
+  display: grid;
+  place-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.empty-state h2 {
+  font-size: clamp(1.3rem, 2.4vw, 1.8rem);
+}
+
+.empty-state p {
+  color: var(--ink-soft);
+  font-size: 14px;
+  max-width: 42ch;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: clamp(48px, 8vw, 110px) 0;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.empty-state .empty-mark {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.empty-state h2 {
+  font-size: clamp(1.3rem, 2vw, 1.7rem);
+  color: var(--ink);
+}
+
+.empty-state p {
+  font-size: 12px;
+  max-width: 46ch;
+}
+}

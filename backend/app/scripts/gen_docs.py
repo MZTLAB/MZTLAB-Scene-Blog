@@ -23,7 +23,7 @@ OPENAPI = ROOT_DIR / "frontend" / "src" / "api" / "openapi.json"
 SCHEMA_DOC = ROOT_DIR / "docs" / "SCHEMA.md"
 API_DOC = ROOT_DIR / "docs" / "API.md"
 
-HEADER = "> 适用版本：3.0.0-beta2。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。"
+HEADER = "> 适用版本：3.0.0-beta3。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。"
 
 
 def _build_database() -> tuple[sqlite3.Connection, list[str]]:

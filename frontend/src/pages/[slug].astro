@@ -17,6 +17,11 @@ if (contentPage.kind !== 'page') throw new Error('unexpected bootstrap payload f
 const page = contentPage.item;
 const settings = site.settings.site;
 const description = page.seo_description || '';
+import '../styles/shared/avatar.css';
+import '../styles/site/articles/article.css';
+import '../styles/site/pages/project.css';
+import '../styles/shared/prose.css';
+import '../styles/audio-player.css';
 ---
 <BaseLayout site={site} title={page.seo_title || page.title} description={description} image={page.cover_image} author={page.author?.name}>
   <article class="container">

@@ -1,7 +1,7 @@
 /**
  * Front-end configuration.
  *
- * Visual tokens live in `src/styles/global.css` ("Scene" design system);
+ * Visual tokens live in `src/styles/tokens/` ("Scene" design system);
  * runtime content comes from FastAPI. This file contains only things that are
  * easier to change in code than in the admin UI. Site defaults live in the
  * backend settings models — the frontend has no fallback site document.

@@ -1,0 +1,108 @@
+/* site/cards/cover-art.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.cover-art {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100%;
+  min-height: 120px;
+  padding: clamp(12px, 1.6vw, 20px);
+  background: var(--plate-bg, var(--bg-sunken));
+  color: var(--plate-ink, var(--ink));
+  overflow: hidden;
+}
+
+.cover-art--image {
+  padding: 0;
+  background: var(--bg-sunken);
+}
+
+.cover-art--image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-art--v0 {
+  --plate-bg: var(--color-e9e5dc);
+  --plate-ink: var(--color-1a1917);
+}
+
+.cover-art--v1 {
+  --plate-bg: var(--color-1b1b19);
+  --plate-ink: var(--color-efeadd);
+}
+
+.cover-art--v2 {
+  --plate-bg: var(--color-dedad0);
+  --plate-ink: var(--color-2b2f38);
+}
+
+.cover-art--v3 {
+  --plate-bg: var(--color-2a2d31);
+  --plate-ink: var(--color-e7e2d6);
+}
+
+.cover-art--v4 {
+  --plate-bg: var(--accent);
+  --plate-ink: var(--accent-ink);
+}
+
+.cover-art--v5 {
+  --plate-bg: var(--color-cfd3c6);
+  --plate-ink: var(--color-1f241f);
+}
+
+.cover-art-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.cover-art-glyph {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 3.4vw, 2.9rem);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  padding-left: 0.04em;
+  overflow: hidden;
+}
+
+.cover-art-caption {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  line-height: 1.35;
+  padding-top: 10px;
+  border-top: 1px solid currentColor;
+  opacity: 0.85;
+}
+
+.cover-art-caption > span:first-child {
+  max-width: 24ch;
+}
+
+.cover-no {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+}

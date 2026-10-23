@@ -19,6 +19,7 @@ const permissionLabels: Record<string, string> = {
   'data.export': '导出站点数据',
   'content.delete': '删除内容',
 };
+import '../../styles/admin/dashboard.css';
 ---
 <AdminLayout user={user} title="概览" subtitle={`${user.display_name} · ${user.role_label || user.role}`} active="dashboard">
   <div data-dashboard>

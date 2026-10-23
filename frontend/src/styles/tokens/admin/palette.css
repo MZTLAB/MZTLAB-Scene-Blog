@@ -1,0 +1,86 @@
+@layer tokens, base, components, pages, utilities;
+
+@layer tokens {
+/* ==========================================================================
+   Palette tokens — admin workspace.
+
+   The admin surfaces were derived from the older global palette and differ
+   slightly from the public site (e.g. a white canvas instead of paper). This
+   file is imported by AdminLayout/AuthLayout *after* tokens/palette.css so the
+   admin values win at equal specificity, exactly like the pre-refactor import
+   order did.
+
+   Fold this into a single palette once the design decides the admin should use
+   the public canvas (tracked in docs/CSS.md as an open decision).
+   ========================================================================== */
+
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #f4f3ef;
+  --bg-inverse: #12120f;
+  --ink: #12120f;
+  --ink-soft: #5a5951;
+  --ink-faint: #8d8b82;
+  --ink-inverse: #f7f5ef;
+  --line: #e3e1da;
+  --line-soft: #efede7;
+  --line-strong: #12120f;
+  --accent-ink: #ffffff;
+  --accent-wash: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+html[data-palette='stone'] {
+  --bg: #f3f2ef;
+  --bg-elevated: #f8f7f4;
+  --bg-sunken: #e9e8e3;
+  --ink: #17171a;
+  --ink-soft: #57575c;
+  --ink-faint: #8b8b90;
+  --line: #dedcd5;
+  --line-soft: #eae8e1;
+  --line-strong: #17171a;
+}
+
+html[data-palette='sand'] {
+  --bg: #f6f2e9;
+  --bg-elevated: #fbf8f1;
+  --bg-sunken: #ece6d9;
+  --ink: #1c1a15;
+  --ink-soft: #5b564a;
+  --ink-faint: #8e8778;
+  --line: #e2dccd;
+  --line-soft: #eee9dd;
+  --line-strong: #1c1a15;
+}
+
+html[data-palette='night'] {
+  --bg: #0c0c0b;
+  --bg-elevated: #121211;
+  --bg-sunken: #070706;
+  --bg-inverse: #f1efe8;
+  --ink: #f2f0e9;
+  --ink-soft: #aaa79d;
+  --ink-faint: #78766e;
+  --ink-inverse: #0c0c0b;
+  --line: #262624;
+  --line-soft: #1b1b1a;
+  --line-strong: #f2f0e9;
+  --accent-ink: #0c0c0b;
+}
+
+html[data-color-mode='dark'] {
+  --bg: #0c0c0b;
+  --bg-elevated: #121211;
+  --bg-sunken: #070706;
+  --bg-inverse: #f1efe8;
+  --ink: #f2f0e9;
+  --ink-soft: #aaa79d;
+  --ink-faint: #78766e;
+  --ink-inverse: #0c0c0b;
+  --line: #262624;
+  --line-soft: #1b1b1a;
+  --line-strong: #f2f0e9;
+  --accent-ink: #0c0c0b;
+}
+}

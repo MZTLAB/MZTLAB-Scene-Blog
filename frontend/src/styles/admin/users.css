@@ -1,0 +1,196 @@
+/* admin/users.css — split from admin.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.role-badge[data-role="admin"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+}
+
+.role-badge[data-role="editor"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.role-badge[data-role="author"] {
+  border-color: var(--line);
+  color: var(--ink-faint);
+}
+
+.role-badge[data-inactive="true"] {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+.member-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.member-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-elevated);
+  padding: 16px;
+}
+
+.member-card[data-self="true"] {
+  border-color: var(--ink);
+}
+
+.member-card__top {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.member-card__id {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.member-card__id strong {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-card__id span {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+}
+
+.member-card__top .role-badge {
+  margin-left: auto;
+}
+
+.member-card__meta {
+  display: grid;
+  gap: 5px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.member-card__meta div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.member-card__meta span:last-child {
+  color: var(--ink-soft);
+  text-align: right;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-body);
+  font-size: 11.5px;
+}
+
+.member-card__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.role-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.role-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.role-option:hover {
+  border-color: var(--ink-soft);
+}
+
+.role-option.is-selected {
+  border-color: var(--ink);
+  background: var(--bg-sunken);
+}
+
+.role-option input {
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+
+.role-option strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.role-option span {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-faint);
+  font-size: 11.5px;
+  line-height: 1.55;
+}
+
+.perm-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.perm-list code {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border: 1px solid var(--line-soft);
+  color: var(--ink-faint);
+}
+
+.member-form {
+  display: grid;
+  gap: 14px;
+}
+
+.member-form__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+}

@@ -39,6 +39,9 @@ const others = (isTag ? site.tags : site.categories)
   .slice(0, isTag ? 10 : undefined);
 const articleCount = term.count || total;
 const emptyMark = isTag ? '#' : '✳';
+import '../styles/site/pages/page-hero.css';
+import '../styles/site/ui/empty-state.css';
+import '../styles/site/ui/section-headings.css';
 ---
 
 <BaseLayout site={site} title={pageTitle} description={pageDescription}>

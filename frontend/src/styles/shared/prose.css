@@ -1,0 +1,238 @@
+/* shared/prose.css — split from global.css + mono.css + index.css during the CSS refactor. */
+@layer tokens, base, components, pages, utilities;
+@layer components {
+
+.prose {
+  font-size: 16.5px;
+  line-height: 1.8;
+  color: var(--ink);
+}
+
+.prose > * + * {
+  margin-top: 1.15em;
+}
+
+.prose h2 {
+  font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  margin-top: 2.2em;
+  padding-top: 0.9em;
+  border-top: 1px solid var(--line);
+}
+
+.prose h3 {
+  font-size: 1.15rem;
+  margin-top: 1.9em;
+}
+
+.prose h4 {
+  font-size: 1rem;
+  margin-top: 1.6em;
+}
+
+.prose p {
+  margin: 1.05em 0 0;
+}
+
+.prose a {
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent-wash-strong);
+  transition: border-color 0.18s var(--ease);
+}
+
+.prose a:hover {
+  border-color: var(--accent);
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.prose ul {
+  margin: 1.05em 0 0;
+  padding-left: 1.35em;
+}
+
+.prose ol {
+  margin: 1.05em 0 0;
+  padding-left: 1.35em;
+}
+
+.prose li + li {
+  margin-top: 0.4em;
+}
+
+.prose li::marker {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+
+.prose blockquote {
+  margin: 1.6em 0;
+  padding: 0.2em 0 0.2em 22px;
+  border-left: 2px solid var(--accent);
+  color: var(--ink-soft);
+  font-size: 1.06em;
+  line-height: 1.7;
+}
+
+.prose blockquote p {
+  margin: 0;
+}
+
+.prose .audio-embed {
+  margin: 1.6em 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+.prose .audio-embed figcaption {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.prose .audio-embed__label {
+  flex: none;
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+}
+
+.prose .audio-embed audio {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--bg-sunken);
+  padding: 0.16em 0.4em;
+  border-radius: var(--radius);
+}
+
+.prose pre {
+  position: relative;
+  margin: 1.6em 0;
+  padding: 18px 20px;
+  background: var(--bg-inverse);
+  color: var(--ink-inverse);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  border-radius: var(--radius);
+}
+
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: inherit;
+  color: inherit;
+}
+
+.prose .highlight {
+  position: relative;
+  margin: 1.6em 0;
+}
+
+.prose .highlight pre {
+  margin: 0;
+}
+
+.prose img {
+  width: 100%;
+  margin: 1.8em 0;
+  background: var(--bg-sunken);
+}
+
+.prose figure {
+  margin: 1.8em 0;
+}
+
+.prose figcaption {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.prose hr {
+  margin: 2.4em 0;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin: 1.6em 0;
+}
+
+.prose th {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 500;
+}
+
+.prose td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.prose details {
+  border: 1px solid var(--line);
+  padding: 12px 16px;
+  margin: 1.5em 0;
+}
+
+.prose summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.copy-code {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--ink-inverse) 30%, transparent);
+  background: transparent;
+  color: var(--ink-inverse);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease);
+}
+
+.prose pre:hover .copy-code {
+  opacity: 1;
+}
+
+.prose .highlight:hover .copy-code {
+  opacity: 1;
+}
+}

@@ -27,6 +27,8 @@ const roles = [
     permissions: ['自己的内容', '影像', '媒体库'],
   },
 ];
+import '../../styles/admin/users.css';
+import '../../styles/admin/galleries.css';
 ---
 <AdminLayout user={user} title="成员与权限" subtitle="Team / Roles" active="users" showCompose={false}>
   <div data-users-page data-self-id={user.id}>
