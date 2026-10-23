@@ -67,12 +67,23 @@ class LocalStorageTests(unittest.TestCase):
             self.storage.stream("2026/05/none.jpg")
 
     def test_path_traversal_is_rejected(self):
+        # Keys are rejected regardless of the host OS path semantics: a single
+        # backslash is a separator on Windows but a filename character on POSIX.
+        for key in (
+            "../../etc/passwd",
+            "..\\windows.txt",
+            "../outside.jpg",
+            "/etc/passwd",
+            "C:\\windows\\win.ini",
+            "2026/05/../../../etc/passwd",
+            "a\x00b",
+        ):
+            with self.assertRaises(StorageError):
+                self.storage.save(key, b"x", "text/plain")
+            with self.assertRaises(StorageError):
+                self.storage.size(key)
         with self.assertRaises(StorageError):
-            self.storage.save("../../etc/passwd", b"x", "text/plain")
-        with self.assertRaises(StorageError):
-            self.storage.save("..\\windows.txt", b"x", "text/plain")
-        with self.assertRaises(StorageError):
-            self.storage.size("../outside.jpg")
+            self.storage.delete_prefix("../outside")
 
     def test_missing_read_raises_storage_missing(self):
         with self.assertRaises(StorageMissing):

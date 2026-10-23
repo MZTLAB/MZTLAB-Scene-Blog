@@ -778,7 +778,6 @@ def rewrite_inline_images(html: str, conn: Any, settings: Settings | None = None
     """Upgrade `/media/...` `<img>` tags inside rendered Markdown to `<picture>`."""
     if not html or "/media/" not in html:
         return html
-    settings = settings or load_settings_cached()
     tags = list(_IMG_TAG.finditer(html))
     if not tags:
         return html
@@ -793,6 +792,10 @@ def rewrite_inline_images(html: str, conn: Any, settings: Settings | None = None
             filenames.append(filename)
     if not filenames:
         return html
+    # Loading settings (and therefore touching the DB) is only needed once we
+    # know at least one tag is actually going to be rewritten. Markup that only
+    # uses `?original=1` images must not require a database connection.
+    settings = settings or load_settings_cached()
     placeholders = ",".join("?" for _ in filenames)
     rows = conn.execute(
         f"SELECT * FROM media WHERE filename IN ({placeholders})", filenames
