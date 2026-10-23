@@ -49,7 +49,7 @@
 .theme-option strong {
   display: block;
   margin-top: 7px;
-  font-size: 10px;
+  font-size: var(--text-10);
   font-weight: 500;
 }
 
@@ -57,7 +57,7 @@
   display: block;
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 7.5px;
+  font-size: var(--text-7);
 }
 
 .color-row {
@@ -80,13 +80,13 @@
   flex: 1;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1080px) {
   .appearance-layout {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .theme-grid {
     grid-template-columns: repeat(2, 1fr);
   }

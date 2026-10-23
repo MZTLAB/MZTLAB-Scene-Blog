@@ -31,13 +31,13 @@
 }
 
 .project-card__plate-code {
-  font-size: 9px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.1em;
   color: var(--accent);
 }
 
 .project-card__plate-year {
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.08em;
   color: var(--ink-faint);
   writing-mode: vertical-rl;
@@ -55,7 +55,7 @@
   align-items: center;
   gap: 10px;
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -69,7 +69,7 @@
 
 .project-card__title {
   font-family: var(--font-display);
-  font-size: clamp(14px, 1.25vw, 17px);
+  font-size: clamp(var(--text-14-5), 1.25vw, var(--text-17-5));
   font-weight: 500;
   line-height: 1.3;
   letter-spacing: -0.03em;
@@ -81,7 +81,7 @@
 
 .project-card__desc {
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: var(--text-11-5);
   line-height: 1.65;
 }
 
@@ -94,7 +94,7 @@
   padding-top: 8px;
   border-top: 1px solid var(--line-soft);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -119,20 +119,20 @@
 }
 
 .project-card--compact .project-card__plate-code {
-  font-size: 8px;
+  font-size: var(--text-8-5);
 }
 
 .project-card--compact .project-card__plate-year {
-  font-size: 7px;
+  font-size: var(--text-7);
 }
 
 .project-card--compact .project-card__title {
-  font-size: 13.5px;
+  font-size: var(--text-13);
 }
 
 .project-card--compact .project-card__topline {
   gap: 7px;
-  font-size: 8px;
+  font-size: var(--text-8-5);
 }
 
 .project-card--compact .project-card__topline span + span::before {

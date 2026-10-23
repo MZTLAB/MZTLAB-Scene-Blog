@@ -1,6 +1,6 @@
 [project]
 name = "mztlab-backend"
-version = "3.0.0-beta3"
+version = "3.0.0"
 description = "MZTLAB Scene blog backend (FastAPI + SQLite)"
 requires-python = ">=3.11"
 # Runtime dependencies are intentionally not duplicated here: requirements.txt is

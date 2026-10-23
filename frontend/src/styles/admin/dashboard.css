@@ -41,7 +41,7 @@
   gap: 7px;
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -54,7 +54,7 @@
 .stat-card__value {
   margin-top: 13px;
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: var(--text-38);
   font-weight: 500;
   line-height: 1;
   letter-spacing: -0.03em;
@@ -63,7 +63,7 @@
 .stat-card__hint {
   margin-top: 8px;
   color: var(--ink-faint);
-  font-size: 10px;
+  font-size: var(--text-10);
 }
 
 .stat-card__hint a {
@@ -105,7 +105,7 @@
   border-radius: 10px;
   background: color-mix(in srgb, var(--bg) 55%, transparent);
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: var(--text-11-5);
   transition: all 0.2s ease;
 }
 
@@ -135,7 +135,7 @@
 .top-post__index {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
 }
 
 .top-post__body {
@@ -146,7 +146,7 @@
 .top-post__body strong {
   display: block;
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: var(--text-10);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -155,7 +155,7 @@
 .top-post__count {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
 }
 
 .side-card {
@@ -174,7 +174,7 @@
 
 .side-card__head h3 {
   font-family: var(--font-body);
-  font-size: 10.5px;
+  font-size: var(--text-10);
   font-weight: 650;
   letter-spacing: 0.03em;
 }
@@ -182,7 +182,7 @@
 .side-card__head span {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
 }
 
 .side-card__body {
@@ -194,35 +194,35 @@
 }
 
 .side-card .a-field label {
-  font-size: 10px;
+  font-size: var(--text-10);
 }
 
 .side-card .a-field input {
   min-height: 34px;
   padding: 7px 9px;
-  font-size: 11px;
+  font-size: var(--text-11-5);
 }
 
 .side-card .a-field select {
   min-height: 34px;
   padding: 7px 9px;
-  font-size: 11px;
+  font-size: var(--text-11-5);
 }
 
 .side-card .a-field textarea {
   min-height: 34px;
   padding: 7px 9px;
-  font-size: 11px;
+  font-size: var(--text-11-5);
   min-height: 74px;
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1080px) {
   .stat-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 1020px) {
+@media (max-width: 1080px) {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
@@ -243,7 +243,7 @@
 
 @media (max-width: 620px) {
   .stat-card__value {
-    font-size: 30px;
+    font-size: var(--text-30);
   }
 }
 
@@ -265,14 +265,14 @@ html[data-palette] .stat-card:hover {
 }
 
 html[data-palette] .stat-card__value {
-  font-size: 34px;
+  font-size: var(--text-34);
   font-weight: 500;
   letter-spacing: -0.04em;
 }
 
 html[data-palette] .stat-card__label {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }

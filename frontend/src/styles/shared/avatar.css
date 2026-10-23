@@ -11,7 +11,7 @@
   background: var(--bg-sunken);
   border: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-11-5);
   overflow: hidden;
   flex: none;
 }
@@ -25,6 +25,6 @@
 .avatar--large {
   width: 46px;
   height: 46px;
-  font-size: 15px;
+  font-size: var(--text-14-5);
 }
 }

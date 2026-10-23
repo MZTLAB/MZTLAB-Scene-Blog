@@ -2,13 +2,10 @@
 @layer tokens, base, components, pages, utilities;
 @layer base {
 
-:root {
-  --pillar-pad: clamp(16px, 2vw, 30px);
-}
 
 .section-code {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -52,7 +49,7 @@
 }
 
 body {
-  font-size: 15px;
+  font-size: var(--text-14-5);
   line-height: 1.72;
   letter-spacing: -0.005em;
 }
@@ -92,7 +89,7 @@ a {
 
 .section-code {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -101,7 +98,7 @@ a {
 
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -125,7 +122,7 @@ a {
   background: var(--ink);
   color: var(--ink-inverse);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-11-5);
   letter-spacing: 0.04em;
   border-radius: var(--radius);
   transition: background 0.18s var(--ease), color 0.18s var(--ease),
@@ -141,7 +138,7 @@ a {
   background: var(--ink);
   color: var(--ink-inverse);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--text-11-5);
   letter-spacing: 0.04em;
   border-radius: var(--radius);
   transition: background 0.18s var(--ease), color 0.18s var(--ease),
@@ -168,7 +165,7 @@ a {
 
 .btn--small {
   padding: 8px 14px;
-  font-size: 10px;
+  font-size: var(--text-10);
 }
 
 .text-link {
@@ -176,7 +173,7 @@ a {
   align-items: center;
   gap: 7px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--text-10);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink);

@@ -43,7 +43,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: var(--text-11-5);
   text-align: left;
   transition: color 0.18s ease, background 0.18s ease;
 }
@@ -59,7 +59,7 @@
   border-radius: 8px;
   background: transparent;
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: var(--text-11-5);
   text-align: left;
   transition: color 0.18s ease, background 0.18s ease;
 }
@@ -105,7 +105,7 @@
 
 .admin-page-intro h2 {
   font-family: var(--font-display);
-  font-size: clamp(27px, 3vw, 36px);
+  font-size: clamp(var(--text-26-5), 3vw, 36px);
   font-weight: 550;
 }
 
@@ -113,37 +113,37 @@
   max-width: 60ch;
   margin-top: 6px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .admin-sidebar {
     transform: translateX(-105%);
     transition: transform 0.25s var(--ease);
-    box-shadow: 20px 0 60px -30px var(--color-rgba-0-0-0-0-4);
+    box-shadow: 20px 0 60px -30px var(--shadow-overlay);
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .admin-shell.is-nav-open .admin-sidebar {
     transform: none;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .admin-shell.is-nav-open .admin-backdrop {
     opacity: 1;
     pointer-events: auto;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .admin-main {
     margin-left: 0;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .admin-content {
     padding: 18px 17px 36px;
   }
@@ -170,13 +170,13 @@ html[data-palette] .admin-page-intro {
 }
 
 html[data-palette] .admin-page-intro h2 {
-  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  font-size: clamp(var(--text-22-7), 2.4vw, var(--text-30));
   letter-spacing: -0.03em;
 }
 
 html[data-palette] .admin-page-intro p {
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--text-13);
   margin-top: 6px;
 }
 

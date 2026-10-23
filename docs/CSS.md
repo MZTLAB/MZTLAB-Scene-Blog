@@ -17,6 +17,7 @@
 - [6. 验证与护栏](#6-验证与护栏)
 - [7. 与其他文档的关系](#7-与其他文档的关系)
 - [8. 不做与边界](#8-不做与边界)
+- [9. Phase 5 语义收敛与 Phase 6 文档记录](#9-phase-5-语义收敛与-phase-6-文档记录)
 
 ## 1. 架构与目录
 
@@ -28,9 +29,10 @@
 frontend/src/styles/
 ├── tokens/              设计令牌：只有声明，不含组件外观（每文件 ≤ 80 行）
 │   ├── layers.css       层序说明（每条文件也带 banner，权威声明在 layout <head> 内联，见 §2.2）
-│   ├── typography.css · accent.css · palette.css · metrics.css · colors.css
-│   │                    字体栈与 data-font / 强调色 / palette × 明暗 / 尺寸节奏 /
-│   │                    从组件里抽出的 58 个精确色值别名（--color-*，零视觉变化）
+│   ├── typography.css   字体栈 + data-font + Phase 5 字号刻度（--text-*，16 档 + 3 个相对档，见 §3.4）
+│   ├── colors.css       Phase 5 语义色板（--feedback-* / --overlay-* / --shadow-* / --plate-* 等，见 §3.6）
+│   ├── accent.css · palette.css · metrics.css
+│   │                    强调色 / palette × 明暗 / 尺寸与节奏（含 --pillar-pad、--gallery-columns）
 │   └── admin/           palette.css、metrics.css（后台冻结值 + 2 个响应式覆盖）
 ├── base/                reset、elements、layout、type-devices（150–250 行/文件）
 ├── shared/              公共站与后台都用的组件：prose、brand、icon-btn、avatar
@@ -129,7 +131,49 @@ frontend/src/styles/
 
 做法：`tokens/admin/palette.css` 与 `tokens/admin/metrics.css` 是后台值的**冻结副本**，只在 `AdminLayout` / `AuthLayout` 引入，公共 token 文件保持公共站的值。想合并成一套是一次显式决策：改完跑 `css:diff`，差异只应落在后台，逐条确认后重拍基线并在本文件记录（`REFACTOR-3.0.0.md` §3.9 把它列为后续候选）。
 
-**使用规则**：组件文件只消费 `var(--token)`，不写字面色值与像素魔法数（例外：`1px` 发丝线、`0`、`100%`、`transparent`、`currentColor`）；新令牌按颜色→`palette`、字体→`typography`、尺寸与节奏→`metrics` 归位，后台专属进 `tokens/admin/`；组件内的局部变量必须同文件声明、同文件消费，命名以 `--local-` 开头且不放 `:root`。
+**使用规则**：组件文件只消费 `var(--token)`，不写字面色值与像素魔法数（例外：`1px` 发丝线、`0`、`100%`、`transparent`、`currentColor`）；新令牌按颜色→`colors`、字体→`typography`、尺寸与节奏→`metrics` 归位，后台专属进 `tokens/admin/`；组件内的局部变量必须同文件声明、同文件消费，命名以 `--local-` 开头且不放 `:root`。
+
+### 3.4 字号刻度（Phase 5）
+
+- 所有正文/UI 字号都走 `--text-*`，共 **16 档静态刻度 + 3 个相对档**（`--text-em-0-85/0-86/1-06`）；档位按 1px 窗口聚类生成，因此任何声明相对重构前最多移动 **0.5px**。
+- 命名即目标像素（`--text-13` = 13px，`--text-8-5` = 8.5px）；`tokens/typography.css` 的 "Phase 5 type scale" 区块是唯一来源。
+- 响应式标题用 `clamp(var(--text-*), Nvw, var(--text-*))`：端点引用刻度，vw 斜率保持原值；端点不在刻度附近的展示型流体字号（如 `clamp(120px, 18vw, 300px)`）保留字面值，共 21 处，注释在声明旁。
+- 加字号：优先复用现有档位；确实需要新档再加 token，不做"就地写 px"。
+
+### 3.5 断点（Phase 5）
+
+全站只保留 **4 个断点值**（全部 `max-width`，另有一个 `min-width: 1080px` 的窄屏反向查询）：
+
+| 断点     | 原值（9 个）                                   |
+| -------- | ---------------------------------------------- |
+| `620px`  | 560、620                                       |
+| `760px`  | 720、760                                       |
+| `900px`  | 860、900                                       |
+| `1080px` | 1020、1080、1180（`min-width: 1080px` 亦归入） |
+
+- CSS 自定义属性不能用在媒体查询里，所以断点只能是字面值；改动时全站统一按上表取最近档。
+- 与重构前的差异只发生在边界附近（原 560/720/860/1020/1180 的窗口最多平移 ±100px；1180→1080 是最大的一个），已在 §9 记录。
+
+### 3.6 语义颜色（Phase 5）
+
+`tokens/colors.css` 现在按角色命名，不再有 `--color-<hex>` 这类值名令牌；共 8 组、58 个令牌：
+
+| 组                                                                | 用途示例                                                              |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `--feedback-*`                                                    | 成功/警告/错误/信息、底板、边框、浅色底（后台徽标、表单、编辑器状态） |
+| `--surface-inverse-*` · `--border-inverse-*` · `--text-inverse-*` | 登录页 / 深色反白面板                                                 |
+| `--surface-cinema` / `--border-cinema` / `--text-cinema-*`        | 灯箱、Gallery Viewer 的影院式黑底                                     |
+| `--overlay-*`                                                     | 遮罩 scrim（0.45 / 0.5 / 0.78）                                       |
+| `--shadow-*`                                                      | 面板、模态、浮层、工具条的投影色                                      |
+| `--plate-v0…v5-bg/ink`                                            | CoverArt 六种版式的配色对（与 palette 无关，固定值）                  |
+| `--surface-pure` / `--surface-tint`                               | 纯白与 4% 提亮底                                                      |
+
+- 组件里写语义角色，不写色值；`--color-*` 旧别名已全部删除。
+- 与重构前的差异只有一处**有意合并**：`rgba(255,255,255,0.22)` 归入 `--border-inverse-strong`（0.24），其余 57 个值逐字保留；阴影/遮罩/版式色值完全不变（§9 有实测差异清单）。
+
+### 3.7 组件局部运行时变量
+
+以下变量只在组件文件内部声明/消费，不属于全局令牌，`css:check` 不要求进 `tokens/`：`--audio-progress` / `--volume-progress`（audio-player 进度条）、`--plate-bg` / `--plate-ink`（CoverArt 版式，值引用 `--plate-v*-*`）。
 
 ## 4. 文件粒度与归属
 
@@ -231,8 +275,8 @@ npm run css:diff ../.tmp/css-snap/baseline-unmin.json.gz ../.tmp/css-snap/after.
 - `css:inventory`（只读、不影响退出码）：逐文件大小、`@media` / `@layer` 密度、跨文件重复、`!important` 与硬编码颜色 —— 规划与"找归属"用，先看它再动手。
 - `css:check` 八条规则：① 层序 banner 存在且是第一条语句；② 规则都在已知层内（未分层或未知层报错）；③ 行数（> 250 警告、> 400 错误）；④ 单所有者（跨文件重复的选择器 + 属性）；⑤ `!important`；⑥ `tokens/` 之外的硬编码颜色；⑦ 孤儿样式表（没有任何 `.astro`/`.ts` import 它）；⑧ 遗留根文件（`global.css`、`mono.css`、`index.css`）。
 - `tokens/layers.css` 与 `styles/archive/` 豁免；输出格式固定为 `ERROR|WARN <文件>:<行> <规则> <详情>`，便于 CI 抓取。
-- 有意豁免已写进工具：④ 不会把 `tokens/admin/*` ↔ `tokens/*`、`site/shell/refinements*`/`site/shell/header.css` ↔ 它们的 `shared/*` 对应文件算作重复（这些是公共站/后台的零视觉变化冻结副本）；⑤ 用 `--allow-important animation,transition,animation-duration,transition-duration,width,height,color,letter-spacing` 放行 reduced-motion reset 与已知历史用法。
-- 当前基线（重构完成时）：`css:check` 剩 **2 个 ERROR**（`admin/media.css` 的 2 个 `font-size !important`，属于后续收敛项）+ 119 个 WARN（`duplicate-prop` 106 = 多代际规则按代际分开保存的预期结果；`size.warn` 13 = 250–400 行文件；其余规则 0）。硬编码颜色 0、孤儿 0、遗留根文件 0、层序 banner 65/65。`css:inventory` 报告 65 个文件、`!important` 共 23 条（集中在 5 个文件）。
+- 有意豁免已写进工具：④ 不会把 `tokens/admin/*` ↔ `tokens/*`、`site/shell/refinements*`/`site/shell/header.css` ↔ 它们的 `shared/*` 对应文件算作重复（这些是公共站/后台的零视觉变化冻结副本）；⑤ 用 `--allow-important animation,transition,animation-duration,transition-duration` 放行 reduced-motion reset（Phase 5 之后这是**唯一**允许的 `!important` 类别）。
+- 当前基线（Phase 5/6 完成时）：`css:check` 为 **0 ERROR**（带上述 `--allow-important`）+ 118 个 WARN（`duplicate-prop` 105 = 多代际规则按代际分开保存的预期结果；`size.warn` 13 = 250–400 行文件；其余规则 0）。硬编码颜色 0、孤儿 0、遗留根文件 0、层序 banner 65/65。`css:inventory` 报告 65 个文件、`!important` 15 条（全部在 reduced-motion reset 中）。
 
 ## 7. 与其他文档的关系
 
@@ -250,7 +294,44 @@ npm run css:diff ../.tmp/css-snap/baseline-unmin.json.gz ../.tmp/css-snap/after.
 - **不把已有全局类改成 Astro `<style>` 作用域**：Lightbox、GalleryViewer、后台列表、编辑器、音频嵌入的节点都是脚本动态生成的，拿不到 scope 属性，样式会静默失效。新组件即使不被脚本生成，也照样放全局分层文件以保持一致。
 - **不引入 stylelint**：`css:check` 覆盖本轮需要的结构规则；将来要做"令牌之外禁止硬编码"的完整规则集再评估。
 - **`audio-player.css` 不拆**：约 345 行、宿主清晰（prose 内的音频嵌入），拆开只会让 `<audio>` 相关规则分散。
-- **不做视觉改版（本轮已验收）**：级联快照与重构前 HEAD 构建逐元素逐属性一致；配色、断点、间距、类名不变。后续 Phase 5 语义收敛（字号刻度、断点、色板）需要单独开批次，按 `≤0.5px` 差异逐条视觉验收。
-- **生产负载实测**（minified，逐文件 gzip 相加）：公共页均值 74.4 → 22.7 KB raw（−69%）、15.2 → 6.2 KB gzip（−59%）；后台 105.5 → 40.9 KB raw（−61%）、19.6 → 9.9 KB gzip（−49%）；样式表请求 3 → 4–8 个小文件，部署端应开 HTTP/2 或 HTTP/3。
+- **不做视觉改版，但 Phase 5 语义收敛已执行**：Phase 1–4 的验收是"与重构前 HEAD 逐元素逐属性完全一致"；Phase 5 按约定允许 ≤0.5px 字号变化与近似颜色，实测结果见 §9（font-size 最大 0.5px、颜色仅一处 alpha 0.22→0.24、其余属性 0 差异）。
+- **生产负载实测**（minified，逐文件 gzip 相加）：Phase 1–4 后公共页均值 74.4 → 22.7 KB raw（−69%）、15.2 → 6.2 KB gzip（−59%）；后台 105.5 → 40.9 KB raw（−61%）、19.6 → 9.9 KB gzip（−49%）。Phase 5 引入字号/颜色令牌后增加约 +1.5% gzip（公共 6.2→6.3、后台 9.9→10.2 KB），换取语义令牌，属可接受交换。样式表请求 3 → 4–8 个小文件，部署端应开 HTTP/2 或 HTTP/3。
+- **`!important` 只允许出现在 reduced-motion 无障碍重置里**；组件层禁止用它抢优先级，需要更强覆盖时改所有者或提高选择器特异性（Phase 5 的 `.gallery-viewer .gallery-viewer__exif` 即示例）。
 - **不建子层、不写 600 行级大文件、不允许多个文件共同拥有一个选择器**。
 - 组件级 import 的硬性约定：路径相对组件文件，只 import 自己拥有的那一个文件；一个文件只属于一个宿主，文件名 = 宿主名（kebab-case）；`tokens/` 与 `base/` 只由三套 layout import，组件与页面不得直接 import；Astro 页面（`src/pages/**`）不 import 别的组件的样式；同一个 CSS 被多处 import 由 Astro/Vite 去重，但仍须满足"单层 + banner + 唯一所有者"。
+
+## 9. Phase 5 语义收敛与 Phase 6 文档记录
+
+Phase 1–4 的结构重构（拆分、组件 import、@layer）以"与重构前 HEAD 逐元素逐属性完全一致"验收。Phase 5 随后按批准的语义收敛范围执行，允许两类偏差：字号 ≤0.5px、颜色近似。以下是实际落地与实测结果（快照对象：Phase 4 末的 `final-verified.json.gz` → Phase 5 的 `phase5.json.gz`，27 路由 × 3 视口 × 6 主题）。
+
+### 9.1 执行清单
+
+| 项           | 结果                                                                                                                                                                                                                                                               |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 字号刻度     | 重构前 84 种不同 font-size（369 处声明）→ **16 档静态刻度 + 3 个相对档**（`--text-*` / `--text-em-*`）；348 处声明引用令牌；21 处展示型流体 clamp 保留字面端点（端点远离正文刻度，注释说明）                                                                       |
+| 字号偏差     | 所有字号变化的逐元素最大偏差 **0.5px**；快照共记录 3,132 个元素实例 + 6 个伪元素差异，全部为 font-size 且 ≤0.5px                                                                                                                                                   |
+| 断点         | 9 个旧值收敛为 **4 个**：560/620→620、720/760→760、860/900→900、1020/1080/1180→1080；32 处媒体查询重写，最大边界平移 100px（1180→1080）                                                                                                                            |
+| 颜色         | 58 个值名 `--color-*` 别名 → **58 个语义令牌**（feedback / inverse / cinema / overlay / shadow / plate / surface 共 7 组），替换 88 处引用；仅一处有意合并：`rgba(255,255,255,0.22)`→`--border-inverse-strong`(0.24)，快照中 36 个元素实例受影响，其余颜色逐字不变 |
+| `!important` | 23 → **15**，且 15 条全部在 reduced-motion 无障碍重置内；删除 8 条（admin/media ×4、gallery-viewer ×2、header ×2），其中 gallery-viewer exif 规则改为 `.gallery-viewer .gallery-viewer__exif` 提高特异性以保持原胜出值                                             |
+| 令牌归位     | `--pillar-pad`、`--gallery-columns: 3` 移入 `tokens/metrics.css`；新增 `--surface-tint`；`--accent` 兜底由 `#e8481d` 统一为后端默认 `#c2451f`                                                                                                                      |
+| 死属性       | 移除三套 layout 上无 CSS/脚本引用的 `data-theme="scene"` 属性；`data-font` / `data-palette` / `data-color-mode` 保留（仍是运行时主题接口）                                                                                                                         |
+| 快照工具     | snapshot 现在会解析 `tokens/{colors,typography}.css` 的字面令牌（含 var 链），因此校验的是渲染值而不是令牌名；`!imp` 标记在比较中归一化，避免"删 important、值不变"被误报                                                                                          |
+
+### 9.2 验收数据（Phase 5 vs Phase 4 快照）
+
+- 路由环境：81 个（27 路由 × 3 视口），主题矩阵 6 套。
+- DOM 签名差异：**0**；状态桶（`:hover`/`:focus` 等）差异：**0**；伪元素差异：6（仅 font-size，≤0.5px）。
+- 元素胜出声明差异：8,973 条，其中 font-size 3,132（全部 ≤0.5px）、颜色/背景/边框/阴影 36（全部是 .22→.24 合并）、html 自定义属性名 5,805（旧 `--color-*` 删除、语义令牌新增；值由 `tokens/` 定义，逐条对照见 `tokens/colors.css`）、**其他属性 0**。
+- `css:check`（带 reduced-motion allowlist）：**0 ERROR / 118 WARN**；硬编码颜色 0；`css:inventory`：65 文件、`!important` 15。
+- 生产负载（minified，gzip/页面均值）：公共 6.2 → 6.3 KB（+1.5%），后台 9.9 → 10.2 KB（+3.0%），来自新增的 77 个令牌声明；结构拆分带来的 −59%/−49% 收益保持不变。
+
+### 9.3 Phase 6：文档与工具同步
+
+- 本文件：新增 §3.4–3.7（字号/断点/语义颜色/局部变量）、§9（本节），更新目录、§1 目录树、§6.3 基线、§8 边界与负载数字。
+- `docs/REFACTOR-3.0.0.md` §3.9：状态更新为 Phase 5/6 已完成，列出与原候选方案的差异、验收数据与不再需要的后续项。
+- `docs/DEVELOPMENT.md`：§13 样式约定改为"字号/颜色必须走 token、断点只用 4 档、`!important` 仅限 reduced-motion"，样式检查命令补上 `--allow-important` 用法。
+- 工具：`scripts/css/snapshot.mjs` 增加令牌字面值解析；`scripts/css/check-structure.mjs` 的 important allowlist 默认建议只放行动画属性。
+
+不再保留的后续项：原 §3.9 列的"字号 95→14、断点 10→4、58 个色值别名收敛、清 2 个 font-size !important、合并多代际重复声明"中，前四项已完成；`duplicate-prop` 105 条 WARN 是"按代际保留同名规则"的预期结果，不影响胜出值，作为后续可选整理（合并时逐条跑 `css:diff`）。
+
+Phase 5/6 的改动已随 `chore(release): 3.0.0` 提交入库；实施过程的检查点保留在 git stash（`css-refactor/phase-*`），仅作历史参照。

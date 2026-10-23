@@ -1,6 +1,6 @@
 # MZTLAB · Scene
 
-> 适用版本：3.0.0-beta3
+> 适用版本：3.0.0
 
 影像、项目与文字。Astro 7 负责页面，FastAPI + SQLite 负责内容、认证与权限。
 
@@ -96,34 +96,35 @@ docker compose up -d --build
 
 ## 常用命令
 
-| 命令 | 用途 |
-| --- | --- |
-| `python scripts/setup.py` | 安装后端虚拟环境与前端依赖 |
-| `python scripts/run.py --dev` | 开发模式（Astro dev + FastAPI，热更新） |
-| `python scripts/run.py` | 生产模式（构建 Astro 后启动两进程） |
-| `python scripts/db.py migrate/status/verify` | 建库 / 查看结构版本与行数 / 完整性校验 |
-| `python scripts/backup.py [--include-media]` | 在线备份数据库（可选媒体） |
-| `python scripts/sync_storage.py` | 强制把本地媒体同步到对象存储 |
-| `python scripts/prune_derivatives.py` | 清理无引用的派生图 |
-| `python scripts/optimize_media.py` | 存量媒体维护（按需运行） |
-| `python scripts/verify.py` | **一键验收**：ruff/mypy/pytest、契约与文档漂移、公共页审计、前端 check/lint/build 与运行时 smoke；加 `--skip-slow` 跳过慢步骤（`scripts/verify.sh` / `scripts/verify.ps1` 为等价包装） |
-| `cd backend && python -m pytest` | 后端测试 |
-| `cd frontend && npm run check && npm run lint && npm test && npm run build` | 前端检查、测试与构建 |
-| `cd backend && python -m app.scripts.export_contracts` | 导出 `frontend/src/api/openapi.json` |
-| `cd frontend && npm run gen:types` | 由 OpenAPI 生成前端类型 |
-| `cd backend && python -m app.scripts.gen_docs` | 生成 `docs/SCHEMA.md` 与 `docs/API.md` |
+| 命令                                                                        | 用途                                                                                                                                                                                   |
+| --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `python scripts/setup.py`                                                   | 安装后端虚拟环境与前端依赖                                                                                                                                                             |
+| `python scripts/run.py --dev`                                               | 开发模式（Astro dev + FastAPI，热更新）                                                                                                                                                |
+| `python scripts/run.py`                                                     | 生产模式（构建 Astro 后启动两进程）                                                                                                                                                    |
+| `python scripts/db.py migrate/status/verify`                                | 建库 / 查看结构版本与行数 / 完整性校验                                                                                                                                                 |
+| `python scripts/backup.py [--include-media]`                                | 在线备份数据库（可选媒体）                                                                                                                                                             |
+| `python scripts/sync_storage.py`                                            | 强制把本地媒体同步到对象存储                                                                                                                                                           |
+| `python scripts/prune_derivatives.py`                                       | 清理无引用的派生图                                                                                                                                                                     |
+| `python scripts/optimize_media.py`                                          | 存量媒体维护（按需运行）                                                                                                                                                               |
+| `python scripts/verify.py`                                                  | **一键验收**：ruff/mypy/pytest、契约与文档漂移、公共页审计、前端 check/lint/build 与运行时 smoke；加 `--skip-slow` 跳过慢步骤（`scripts/verify.sh` / `scripts/verify.ps1` 为等价包装） |
+| `cd backend && python -m pytest`                                            | 后端测试                                                                                                                                                                               |
+| `cd frontend && npm run check && npm run lint && npm test && npm run build` | 前端检查、测试与构建                                                                                                                                                                   |
+| `cd backend && python -m app.scripts.export_contracts`                      | 导出 `frontend/src/api/openapi.json`                                                                                                                                                   |
+| `cd frontend && npm run gen:types`                                          | 由 OpenAPI 生成前端类型                                                                                                                                                                |
+| `cd backend && python -m app.scripts.gen_docs`                              | 生成 `docs/SCHEMA.md` 与 `docs/API.md`                                                                                                                                                 |
 
 ## 文档索引
 
-| 文档 | 内容 |
-| --- | --- |
-| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 维护者手册：架构、数据层、配置、写入管线、授权、媒体、契约生成、测试 |
-| [`docs/EDGE.md`](docs/EDGE.md) | 接入层（nginx）要求与上线核对清单（不含可部署配置） |
-| [`docs/SCHEMA.md`](docs/SCHEMA.md) | 数据库结构（脚本生成，勿手改） |
-| [`docs/API.md`](docs/API.md) | API 端点表（脚本生成，勿手改） |
-| [`docs/SSG-FEASIBILITY.md`](docs/SSG-FEASIBILITY.md) | 静态化可行性、阻塞项与 3.0.0 预留状态 |
-| [`docs/archive/`](docs/archive/README.md) | 2.x 历史文档归档（仅追溯，勿据此部署） |
-| [`docs/REFACTOR-3.0.0.md`](docs/REFACTOR-3.0.0.md) | 3.0.0 重构方案与决策记录（历史方案，保留原路径） |
+| 文档                                                 | 内容                                                                   |
+| ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md)         | 维护者手册：架构、数据层、配置、写入管线、授权、媒体、契约生成、测试   |
+| [`docs/CSS.md`](docs/CSS.md)                         | 样式系统维护手册：分层、令牌（字号/断点/语义颜色）、组件归属与级联验证 |
+| [`docs/EDGE.md`](docs/EDGE.md)                       | 接入层（nginx）要求与上线核对清单（不含可部署配置）                    |
+| [`docs/SCHEMA.md`](docs/SCHEMA.md)                   | 数据库结构（脚本生成，勿手改）                                         |
+| [`docs/API.md`](docs/API.md)                         | API 端点表（脚本生成，勿手改）                                         |
+| [`docs/SSG-FEASIBILITY.md`](docs/SSG-FEASIBILITY.md) | 静态化可行性、阻塞项与 3.0.0 预留状态                                  |
+| [`docs/archive/`](docs/archive/README.md)            | 2.x 历史文档归档（仅追溯，勿据此部署）                                 |
+| [`docs/REFACTOR-3.0.0.md`](docs/REFACTOR-3.0.0.md)   | 3.0.0 重构方案与决策记录（历史方案，保留原路径）                       |
 
 ## 预览
 

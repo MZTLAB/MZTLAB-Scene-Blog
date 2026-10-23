@@ -42,32 +42,36 @@ const SKIP_TAGS = new Set([
   'noscript',
 ]);
 
-// Component stylesheets reference exact-value colour tokens (`--color-*`) that
-// live in tokens/colors.css. Resolve them here so the cascade snapshot keeps
-// comparing rendered values rather than token names.
-const COLOUR_ALIASES = (() => {
-  try {
-    const text = readFileSync(
-      new URL('../../src/styles/tokens/colors.css', import.meta.url),
-      'utf8',
-    );
-    return new Map(
-      [...text.matchAll(/(--color-[a-z0-9-]+):\s*([^;]+);/g)].map((match) => [
-        match[1],
-        match[2].trim(),
-      ]),
-    );
-  } catch {
-    return new Map();
+// Generated token files (`tokens/colors.css`, `tokens/typography.css`) hold
+// literal values; resolve `var(--token)` references to them here so the cascade
+// snapshot compares rendered values (13px, rgba()) rather than token names.
+const LITERAL_TOKENS = (() => {
+  const map = new Map();
+  for (const relativePath of [
+    '../../src/styles/tokens/colors.css',
+    '../../src/styles/tokens/typography.css',
+  ]) {
+    try {
+      const text = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
+      for (const match of text.matchAll(/(--[a-z0-9-]+):\s*([^;]+);/g)) {
+        const value = match[2].trim();
+        if (/^(#[0-9a-f]{3,8}|rgba?\([^)]*\)|hsla?\([^)]*\)|[0-9.]+(px|rem|em|%))$/i.test(value))
+          map.set(match[1], value);
+      }
+    } catch {
+      // token files are optional for other checkouts
+    }
   }
+  return map;
 })();
 
-function resolveColourAliases(value) {
-  if (!COLOUR_ALIASES.size || typeof value !== 'string') return value;
-  return value.replace(
-    /var\((--color-[a-z0-9-]+)\)/g,
-    (whole, name) => COLOUR_ALIASES.get(name) ?? whole,
+function resolveTokenValues(value, depth = 0) {
+  if (!LITERAL_TOKENS.size || typeof value !== 'string' || depth > 4) return value;
+  const next = value.replace(
+    /var\((--[a-z0-9-]+)\)/g,
+    (whole, name) => LITERAL_TOKENS.get(name) ?? whole,
   );
+  return next === value ? next : resolveTokenValues(next, depth + 1);
 }
 
 const DEFAULT_ENVS = [
@@ -261,7 +265,7 @@ function applyTheme(htmlElement, attrs) {
 function serializeWinners(winners) {
   const entries = [...winners.entries()]
     .filter(([, winner]) => winner && typeof winner === 'object' && winner.value !== undefined)
-    .map(([prop, winner]) => [prop, resolveColourAliases(winner.value)])
+    .map(([prop, winner]) => [prop, resolveTokenValues(winner.value)])
     .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return entries.map(([prop, value]) => `${prop}=${value}`).join(';');
 }

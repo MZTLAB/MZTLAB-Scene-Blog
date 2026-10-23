@@ -9,7 +9,7 @@
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: var(--text-13);
 }
 
 .admin-table th {
@@ -17,7 +17,7 @@
   border-bottom: 1px solid var(--line);
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   font-weight: 500;
   letter-spacing: 0.1em;
   text-align: left;
@@ -55,7 +55,7 @@
   max-width: 40ch;
   overflow: hidden;
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 550;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -66,7 +66,7 @@
   margin-top: 3px;
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
 }
 
 .table-actions {
@@ -115,9 +115,9 @@
 }
 
 .table-actions .danger:hover {
-  color: var(--color-b33a2b);
-  border-color: var(--color-rgba-179-58-43-0-25);
-  background: var(--color-rgba-179-58-43-0-06);
+  color: var(--feedback-error-strong);
+  border-color: var(--feedback-error-border-strong);
+  background: var(--feedback-error-wash-faint);
 }
 
 .table-actions svg {
@@ -141,7 +141,7 @@
 
 html[data-palette] .admin-table th {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -150,7 +150,7 @@ html[data-palette] .admin-table th {
 
 html[data-palette] .admin-table td {
   border-bottom: 1px solid var(--line-soft);
-  font-size: 12.5px;
+  font-size: var(--text-13);
 }
 
 html[data-palette] .admin-table tbody tr:hover {

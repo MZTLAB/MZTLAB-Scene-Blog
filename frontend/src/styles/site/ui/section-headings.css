@@ -14,7 +14,7 @@
 }
 
 .section-head h2 {
-  font-size: clamp(1.5rem, 2.6vw, 2.35rem);
+  font-size: clamp(1.5rem, 2.6vw, var(--text-38));
   margin-top: 8px;
 }
 
@@ -22,7 +22,7 @@
   margin-top: 10px;
   max-width: 52ch;
   color: var(--ink-soft);
-  font-size: 14.5px;
+  font-size: var(--text-14-5);
 }
 
 .section-head__side {

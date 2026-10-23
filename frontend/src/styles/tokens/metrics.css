@@ -17,5 +17,9 @@
   --grid-gap: clamp(14px, 1.6vw, 24px);
   --band: clamp(56px, 7.5vw, 120px);
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --pillar-pad: clamp(16px, 2vw, 30px);
+  /* Cover-art cards are always a 3-up strip; the runtime photo-columns setting
+     intentionally does not apply here (it only drives photo grids). */
+  --gallery-columns: 3;
 }
 }

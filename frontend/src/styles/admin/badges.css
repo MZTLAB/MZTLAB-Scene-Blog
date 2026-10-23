@@ -9,7 +9,7 @@
   padding: 3px 8px;
   border-radius: 999px;
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.03em;
   white-space: nowrap;
 }
@@ -23,49 +23,49 @@
 }
 
 .badge--published {
-  color: var(--color-35734c);
-  background: var(--color-rgba-67-132-88-0-1);
+  color: var(--feedback-success-strong);
+  background: var(--feedback-success-wash);
 }
 
 .badge--approved {
-  color: var(--color-35734c);
-  background: var(--color-rgba-67-132-88-0-1);
+  color: var(--feedback-success-strong);
+  background: var(--feedback-success-wash);
 }
 
 html[data-color-mode="dark"] .badge--published {
-  color: var(--color-8fc79c);
+  color: var(--feedback-success-ink);
 }
 
 html[data-color-mode="dark"] .badge--approved {
-  color: var(--color-8fc79c);
+  color: var(--feedback-success-ink);
 }
 
 .badge--draft {
-  color: var(--color-9a6a25);
-  background: var(--color-rgba-184-132-47-0-1);
+  color: var(--feedback-warning);
+  background: var(--feedback-warning-wash);
 }
 
 .badge--pending {
-  color: var(--color-9a6a25);
-  background: var(--color-rgba-184-132-47-0-1);
+  color: var(--feedback-warning);
+  background: var(--feedback-warning-wash);
 }
 
 html[data-color-mode="dark"] .badge--draft {
-  color: var(--color-d8b36e);
+  color: var(--feedback-warning-ink);
 }
 
 html[data-color-mode="dark"] .badge--pending {
-  color: var(--color-d8b36e);
+  color: var(--feedback-warning-ink);
 }
 
 .badge--scheduled {
-  color: var(--color-4a64a8);
-  background: var(--color-rgba-74-100-168-0-1);
+  color: var(--feedback-info);
+  background: var(--feedback-info-wash);
 }
 
 .badge--spam {
-  color: var(--color-a24439);
-  background: var(--color-rgba-162-68-57-0-1);
+  color: var(--feedback-error-soft);
+  background: var(--feedback-error-wash);
 }
 
 .badge--muted {
@@ -76,7 +76,7 @@ html[data-color-mode="dark"] .badge--pending {
 html[data-palette] .badge {
   border-radius: 0;
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 2px 6px;

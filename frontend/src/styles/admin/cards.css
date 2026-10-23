@@ -19,14 +19,14 @@
 
 .admin-card__head h3 {
   font-family: var(--font-body);
-  font-size: 12px;
+  font-size: var(--text-11-5);
   font-weight: 650;
   letter-spacing: 0.02em;
 }
 
 .admin-card__head a {
   color: var(--ink-faint);
-  font-size: 10.5px;
+  font-size: var(--text-10);
 }
 
 .admin-card__head a:hover {
@@ -50,20 +50,20 @@ html[data-palette] .admin-card__head {
 }
 
 html[data-palette] .admin-card__head h3 {
-  font-size: 15px;
+  font-size: var(--text-14-5);
   letter-spacing: -0.01em;
 }
 
 html[data-palette] .admin-card__head a {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
 html[data-palette] .admin-card__head span {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
@@ -84,14 +84,14 @@ html[data-palette] .admin-card__body {
 }
 
 .page-head-row h2 {
-  font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+  font-size: clamp(var(--text-22-7), 2.4vw, var(--text-30));
   letter-spacing: -0.03em;
 }
 
 .page-head-row p {
   margin-top: 6px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--text-13);
   max-width: 68ch;
 }
 
@@ -103,7 +103,7 @@ html[data-palette] .admin-card__body {
   border: 1px solid var(--line);
   background: var(--bg-elevated);
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   line-height: 1.65;
 }
 

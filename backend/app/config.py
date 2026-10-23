@@ -19,7 +19,7 @@ load_dotenv(ROOT_DIR / ".env")
 load_dotenv(BASE_DIR / ".env", override=True)
 
 APP_NAME = "MZTLAB"
-VERSION = "3.0.0-beta3"
+VERSION = "3.0.0"
 
 # Largest integer SQLite can bind (signed 64-bit). Request parameters are
 # capped to this so oversized ids return 422 instead of an unhandled 500.

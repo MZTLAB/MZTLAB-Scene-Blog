@@ -31,7 +31,7 @@
   max-width: 56ch;
   margin-top: 18px;
   color: var(--ink-soft);
-  font-size: clamp(13px, 1.15vw, 15px);
+  font-size: clamp(var(--text-13), 1.15vw, var(--text-14-5));
   line-height: 1.8;
 }
 
@@ -51,7 +51,7 @@
 
 .project-meta dt {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -59,7 +59,7 @@
 
 .project-meta dd {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--text-11-5);
   color: var(--ink);
 }
 

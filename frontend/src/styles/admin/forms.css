@@ -15,14 +15,14 @@
   gap: 12px;
   margin-bottom: 6px;
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: var(--text-11-5);
   font-weight: 500;
 }
 
 .a-field label small {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   font-weight: 400;
 }
 
@@ -33,7 +33,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -45,7 +45,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -57,7 +57,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -69,7 +69,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -81,7 +81,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -93,7 +93,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -105,7 +105,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
@@ -117,7 +117,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--bg);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   outline: 0;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
   min-height: 100px;
@@ -151,7 +151,7 @@
 .a-field .hint {
   margin-top: 5px;
   color: var(--ink-faint);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   line-height: 1.6;
 }
 
@@ -194,7 +194,7 @@
 
 .check-row strong {
   display: block;
-  font-size: 11.5px;
+  font-size: var(--text-11-5);
   font-weight: 500;
 }
 
@@ -202,7 +202,7 @@
   display: block;
   margin-top: 2px;
   color: var(--ink-faint);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   line-height: 1.5;
 }
 
@@ -255,7 +255,7 @@ input[type="range"]::-webkit-slider-thumb {
   border: 3px solid var(--bg-elevated);
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 1px 5px var(--color-rgba-33-30-25-0-24);
+  box-shadow: 0 1px 5px var(--shadow-ring);
   cursor: pointer;
 }
 
@@ -265,7 +265,7 @@ input[type="range"]::-moz-range-thumb {
   border: 3px solid var(--bg-elevated);
   border-radius: 50%;
   background: var(--accent);
-  box-shadow: 0 1px 5px var(--color-rgba-33-30-25-0-24);
+  box-shadow: 0 1px 5px var(--shadow-ring);
   cursor: pointer;
 }
 
@@ -277,7 +277,7 @@ input[type="range"]::-moz-range-thumb {
 
 html[data-palette] .a-field label {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -287,21 +287,21 @@ html[data-palette] .a-field input {
   border-radius: 0;
   border-color: var(--line);
   background: var(--bg);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 html[data-palette] .a-field select {
   border-radius: 0;
   border-color: var(--line);
   background: var(--bg);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 html[data-palette] .a-field textarea {
   border-radius: 0;
   border-color: var(--line);
   background: var(--bg);
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 html[data-palette] .a-field input:focus {
@@ -339,9 +339,9 @@ html[data-palette] .form-grid-2 {
 
 .field-error {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.06em;
-  color: var(--color-c0392b);
+  color: var(--feedback-error);
   text-transform: uppercase;
 }
 

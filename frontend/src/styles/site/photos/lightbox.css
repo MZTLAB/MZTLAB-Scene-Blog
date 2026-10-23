@@ -8,8 +8,8 @@
   z-index: 120;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  background: var(--color-0b0b0a);
-  color: var(--color-f4f2ec);
+  background: var(--surface-cinema);
+  color: var(--text-cinema);
   padding: clamp(12px, 2vw, 24px);
 }
 
@@ -23,14 +23,14 @@
   justify-content: space-between;
   gap: 16px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-10);
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-9c9a92);
+  color: var(--text-cinema-muted);
 }
 
 .lightbox__bar strong {
-  color: var(--color-f4f2ec);
+  color: var(--text-cinema);
   font-weight: 500;
 }
 
@@ -39,18 +39,18 @@
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid var(--color-rgba-255-255-255-0-22);
-  color: var(--color-d8d5cb);
+  border: 1px solid var(--border-inverse-strong);
+  color: var(--text-cinema-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   transition: color 0.18s var(--ease), border-color 0.18s var(--ease);
 }
 
 .lightbox__download:hover {
-  color: var(--color-fff);
-  border-color: var(--color-fff);
+  color: var(--surface-pure);
+  border-color: var(--surface-pure);
 }
 
 .lightbox__download[hidden] {
@@ -85,19 +85,19 @@
   gap: 3px;
   text-align: center;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-10);
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-9c9a92);
+  color: var(--text-cinema-muted);
 }
 
 .lightbox__caption strong {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: var(--text-14-5);
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
-  color: var(--color-f4f2ec);
+  color: var(--text-cinema);
 }
 
 .lightbox__nav {
@@ -113,8 +113,8 @@
   width: 44px;
   height: 44px;
   background: transparent;
-  border: 1px solid var(--color-2a2a28);
-  color: var(--color-f4f2ec);
+  border: 1px solid var(--border-cinema);
+  color: var(--text-cinema);
   cursor: pointer;
   transition: border-color 0.18s var(--ease), background 0.18s var(--ease);
 }
@@ -145,7 +145,7 @@
 }
 
 .lightbox {
-  background: var(--color-0b0b0a);
+  background: var(--surface-cinema);
 }
 
 .lightbox__caption {
@@ -173,17 +173,17 @@
 
 .lightbox__exif dt {
   font-family: var(--font-mono);
-  font-size: 7.5px;
+  font-size: var(--text-7);
   letter-spacing: 0.12em;
-  color: var(--color-718376);
+  color: var(--text-cinema-faint);
 }
 
 .lightbox__exif dd {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
   line-height: 1.45;
-  color: var(--color-d7e3d9);
+  color: var(--feedback-success-soft);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

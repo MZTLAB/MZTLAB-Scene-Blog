@@ -1,6 +1,6 @@
 # MZTLAB · Scene 开发文档
 
-> 适用版本：3.0.0-beta3
+> 适用版本：3.0.0
 >
 > 面向维护者的工程手册：架构、数据层、配置、写入管线、授权、媒体管线、契约生成与测试。
 > 使用与部署见 [`README.md`](../README.md)；接入层要求见 [`EDGE.md`](EDGE.md)；数据库结构与 API 参考分别是脚本生成的 [`SCHEMA.md`](SCHEMA.md) 与 [`API.md`](API.md)。
@@ -300,19 +300,19 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 
 ## 10. 测试矩阵
 
-| 层            | 命令                                                                                                                                  | 内容                                                                                                    |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 后端静态检查  | `cd backend && python -m ruff check app`、`python -m mypy app`                                                                        | 新代码严格；存量模块在 `pyproject.toml` 的 ratchet 清单中逐步减少                                       |
-| 后端单测/集成 | `cd backend && python -m pytest`                                                                                                      | 内容渲染、EXIF、slug、设置、权限、jobs、媒体上传/读取、搜索、导出导入、HTTP 集成                        |
-| 契约          | `export_contracts` + `gen:types` + `git diff`                                                                                         | 响应模型与前端类型一致                                                                                  |
-| 公共页审计    | `check_public_render`                                                                                                                 | R3 渲染上下文约束 + 路径分页                                                                            |
-| 前端检查      | `cd frontend && npm run check`                                                                                                        | Astro + TypeScript                                                                                      |
-| 前端 lint     | `cd frontend && npm run lint`                                                                                                         | ESLint；`npm run format:check` 检查 Prettier 格式                                                       |
-| 前端样式      | `npm run css:check`（结构 lint，`--strict` 才失败）+ `css:snapshot`/`css:diff`（级联等价性，改样式时使用）；说明见 [`CSS.md`](CSS.md) | —                                                                                                       |
-| 前端单测      | `cd frontend && npm test`                                                                                                             | vitest                                                                                                  |
-| 前端构建      | `cd frontend && npm run build`                                                                                                        | 生产构建必须成功                                                                                        |
-| 一键验收      | `python scripts/verify.py [--skip-slow]`                                                                                              | 串联上述门禁（含契约/文档漂移）并执行运行时 smoke；`scripts/verify.sh`、`scripts/verify.ps1` 为等价包装 |
-| 接入层        | staging 按 [`EDGE.md`](EDGE.md) 核对清单 + curl                                                                                       | 伪造 XFF 无效、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲                    |
+| 层            | 命令                                                                                                                                                                                                                   | 内容                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| 后端静态检查  | `cd backend && python -m ruff check app`、`python -m mypy app`                                                                                                                                                         | 新代码严格；存量模块在 `pyproject.toml` 的 ratchet 清单中逐步减少                                       |
+| 后端单测/集成 | `cd backend && python -m pytest`                                                                                                                                                                                       | 内容渲染、EXIF、slug、设置、权限、jobs、媒体上传/读取、搜索、导出导入、HTTP 集成                        |
+| 契约          | `export_contracts` + `gen:types` + `git diff`                                                                                                                                                                          | 响应模型与前端类型一致                                                                                  |
+| 公共页审计    | `check_public_render`                                                                                                                                                                                                  | R3 渲染上下文约束 + 路径分页                                                                            |
+| 前端检查      | `cd frontend && npm run check`                                                                                                                                                                                         | Astro + TypeScript                                                                                      |
+| 前端 lint     | `cd frontend && npm run lint`                                                                                                                                                                                          | ESLint；`npm run format:check` 检查 Prettier 格式                                                       |
+| 前端样式      | `npm run css:check -- --allow-important animation,transition,animation-duration,transition-duration`（结构 lint，`--strict` 才失败）+ `css:snapshot`/`css:diff`（级联等价性，改样式时使用）；说明见 [`CSS.md`](CSS.md) | —                                                                                                       |
+| 前端单测      | `cd frontend && npm test`                                                                                                                                                                                              | vitest                                                                                                  |
+| 前端构建      | `cd frontend && npm run build`                                                                                                                                                                                         | 生产构建必须成功                                                                                        |
+| 一键验收      | `python scripts/verify.py [--skip-slow]`                                                                                                                                                                               | 串联上述门禁（含契约/文档漂移）并执行运行时 smoke；`scripts/verify.sh`、`scripts/verify.ps1` 为等价包装 |
+| 接入层        | staging 按 [`EDGE.md`](EDGE.md) 核对清单 + curl                                                                                                                                                                        | 伪造 XFF 无效、413 来自 nginx、Cookie `Secure`、`X-Request-ID` 贯通、`/media` 无缓冲                    |
 
 > CI（`.github/workflows/ci.yml`）分四个 job：backend（ruff/mypy/契约审计/公共页审计/pytest）、frontend（check/lint/build/vitest）、contracts（重新生成契约与类型后 `git diff --exit-code`）、acceptance（`python scripts/verify.py --skip-slow`，含运行时 smoke）。
 
@@ -400,7 +400,7 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 - 事务只包短数据库临界区；文件、编码、网络、构建等 I/O 放事务外。
 - 所有权只通过 `services.authz`；权限只通过 `permissions.can`；不要在路由里复制判断。
 - 设置字段只改模型一处；前端类型必须由生成器产生。
-- CSS 写在 `src/styles/` 的细粒度文件里（`tokens/` / `base/` / `shared/` / `site/` / `admin/`）；层序由 layout `<head>` 内联声明 + 文件 banner 固定，组件自己 import 自己的样式，单文件硬上限 400 行；规则与验证命令见 [`CSS.md`](CSS.md)。
+- CSS 写在 `src/styles/` 的细粒度文件里（`tokens/` / `base/` / `shared/` / `site/` / `admin/`）；层序由 layout `<head>` 内联声明 + 文件 banner 固定，组件自己 import 自己的样式，单文件硬上限 400 行。字号一律用 `--text-*` 刻度（16 档静态 + 3 个相对档），颜色一律用 `tokens/colors.css` 的语义令牌，`@media` 断点只用 `620/760/900/1080` 四档，`!important` 仅限 reduced-motion 重置。规则与验证命令见 [`CSS.md`](CSS.md)。
 - 时间统一 ISO-8601 UTC 字符串（`YYYY-MM-DDTHH:MM:SSZ`）。
 - 生成物（`openapi.json`、`types.gen.ts`、`SCHEMA.md`、`API.md`）禁止手改。
 - 文档禁止行号引用；API/结构字段由脚本生成。

@@ -13,7 +13,7 @@
   border-radius: 8px;
   background: var(--bg-elevated);
   color: var(--ink-soft);
-  font-size: 11.5px;
+  font-size: var(--text-11-5);
   font-weight: 500;
   transition: all 0.18s ease;
   white-space: nowrap;
@@ -43,19 +43,19 @@
 }
 
 .a-btn--danger {
-  color: var(--color-a24439);
+  color: var(--feedback-error-soft);
 }
 
 .a-btn--danger:hover {
-  border-color: var(--color-rgba-162-68-57-0-3);
-  background: var(--color-rgba-162-68-57-0-07);
-  color: var(--color-a24439);
+  border-color: var(--feedback-error-border);
+  background: var(--feedback-error-wash-soft);
+  color: var(--feedback-error-soft);
 }
 
 .a-btn--sm {
   min-height: 30px;
   padding: 0 10px;
-  font-size: 10.5px;
+  font-size: var(--text-10);
 }
 
 .a-btn:disabled {
@@ -70,7 +70,7 @@ html[data-palette] .a-btn {
   background: transparent;
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding-inline: 15px;
@@ -95,19 +95,19 @@ html[data-palette] .a-btn--primary:hover {
 }
 
 html[data-palette] .a-btn--danger {
-  color: var(--color-c0392b);
-  border-color: color-mix(in srgb, var(--color-c0392b) 35%, var(--line));
+  color: var(--feedback-error);
+  border-color: color-mix(in srgb, var(--feedback-error) 35%, var(--line));
 }
 
 html[data-palette] .a-btn--danger:hover {
-  background: var(--color-c0392b);
-  border-color: var(--color-c0392b);
-  color: var(--color-fff);
+  background: var(--feedback-error);
+  border-color: var(--feedback-error);
+  color: var(--surface-pure);
 }
 
 html[data-palette] .a-btn--sm {
   min-height: 30px;
-  font-size: 9px;
+  font-size: var(--text-8-5);
   padding-inline: 11px;
 }
 
@@ -134,8 +134,8 @@ html[data-palette] .a-btn--sm {
 }
 
 .icon-action--danger:hover {
-  border-color: var(--color-c0392b);
-  color: var(--color-c0392b);
+  border-color: var(--feedback-error);
+  color: var(--feedback-error);
 }
 
 .icon-action--text {
@@ -143,7 +143,7 @@ html[data-palette] .a-btn--sm {
   min-width: 32px;
   padding-inline: 5px;
   font-family: var(--font-mono);
-  font-size: 7.5px;
+  font-size: var(--text-7);
   letter-spacing: 0.06em;
 }
 }

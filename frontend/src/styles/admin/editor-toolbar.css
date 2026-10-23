@@ -18,7 +18,7 @@
   border: 0;
   background: transparent;
   color: var(--ink-faint);
-  font-size: 10.5px;
+  font-size: var(--text-10);
 }
 
 .editor-tabs button.is-active {
@@ -42,7 +42,7 @@
 .editor-tabs .word-count {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
 }
 
 .editor-toolbar {
@@ -65,7 +65,7 @@
   border-radius: 6px;
   background: transparent;
   color: var(--ink-faint);
-  font-size: 12px;
+  font-size: var(--text-11-5);
   transition: all 0.15s ease;
 }
 

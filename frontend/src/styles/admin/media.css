@@ -36,12 +36,12 @@
 
 .upload-zone strong {
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 550;
 }
 
 .upload-zone span {
-  font-size: 10.5px;
+  font-size: var(--text-10);
 }
 
 .upload-zone input {
@@ -117,8 +117,8 @@
   padding: 0;
   border: 0;
   border-radius: 7px;
-  background: var(--color-rgba-22-19-15-0-78);
-  color: var(--color-fff);
+  background: var(--overlay-media);
+  color: var(--surface-pure);
   backdrop-filter: blur(4px);
 }
 
@@ -138,7 +138,7 @@
 .media-card__body strong {
   display: block;
   overflow: hidden;
-  font-size: 10.5px;
+  font-size: var(--text-10);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -150,7 +150,7 @@
   overflow: hidden;
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -162,7 +162,7 @@
   border: 1px solid var(--line);
   border-radius: 5px;
   background: var(--bg);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   outline: 0;
 }
 
@@ -189,7 +189,7 @@ html[data-palette] .media-card__actions {
 }
 
 html[data-palette] .media-card__body strong {
-  font-size: 11px;
+  font-size: var(--text-11-5);
 }
 
 html[data-palette] .media-card__alt {
@@ -222,10 +222,10 @@ html[data-palette] .upload-zone.is-dragging {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 8px !important;
+  font-size: var(--text-8-5);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-faint) !important;
+  color: var(--ink-faint);
 }
 
 .media-card__exif {
@@ -234,9 +234,9 @@ html[data-palette] .upload-zone.is-dragging {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 8px !important;
+  font-size: var(--text-8-5);
   letter-spacing: 0.04em;
-  color: var(--accent) !important;
+  color: var(--accent);
 }
 
 .media-card__file {
@@ -266,7 +266,7 @@ html[data-palette] .upload-zone.is-dragging {
 
 .media-card__file-ext {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: var(--text-17-5);
   letter-spacing: 0.08em;
   color: var(--accent);
 }
@@ -274,7 +274,7 @@ html[data-palette] .upload-zone.is-dragging {
 .media-card__file-name {
   overflow: hidden;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-10);
   line-height: 1.5;
   color: var(--ink-soft);
   word-break: break-all;
@@ -282,7 +282,7 @@ html[data-palette] .upload-zone.is-dragging {
 
 .media-card__file-hint {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);

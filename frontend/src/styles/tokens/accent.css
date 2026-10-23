@@ -8,7 +8,7 @@
    ========================================================================== */
 
 :root {
-  --accent: #e8481d;
+  --accent: #c2451f;
   --accent-wash-strong: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 }

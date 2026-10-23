@@ -60,17 +60,17 @@
 
 ### 0.3 预期收益（量化目标）
 
-| 指标                     | 2.3.0                                 | 3.0.0 目标                                                                                                  |
-| ------------------------ | ------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| 公共页渲染               | 每次请求 SSR + 最多 4 次后端往返      | 仍为 SSR，但每页 **1 次聚合请求** + ETag/`Cache-Control`（SSG 预留见附录 B）                                |
-| 评论功能                 | 表/接口/审核/反垃圾/文案/前后台十余处 | **整体移除**（0 维护面、0 攻击面）                                                                          |
-| 设置项新增成本           | 6 处改动                              | 1 处（模型定义）                                                                                            |
-| 新增一个后台字段的改动点 | 5~7 处                                | 2~3 处（模型 + 模板；结构变更另有 SQL 文件）                                                                |
-| 后端 HTTP 集成测试       | 0                                     | 覆盖全部鉴权/所有权/上传/写入路径                                                                           |
-| Python 静态检查          | 无                                    | `ruff` + `mypy --strict`（新代码；存量代码用渐进清单）                                                      |
-| CSS 行数                 | 9,985（实测 8,466）                   | 本版不做收口：沿用 2.x `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`（见 3.9） |
-| 迁移函数数量             | 13                                    | 0（无存量迁移；结构变更走版本化 SQL + 显式执行）                                                            |
-| 存量图像自动重编码       | 改配置即全站失效                      | **0**（只有手动触发 `reencode` 任务才会重编码）                                                             |
+| 指标                     | 2.3.0                                 | 3.0.0 目标                                                                            |
+| ------------------------ | ------------------------------------- | ------------------------------------------------------------------------------------- |
+| 公共页渲染               | 每次请求 SSR + 最多 4 次后端往返      | 仍为 SSR，但每页 **1 次聚合请求** + ETag/`Cache-Control`（SSG 预留见附录 B）          |
+| 评论功能                 | 表/接口/审核/反垃圾/文案/前后台十余处 | **整体移除**（0 维护面、0 攻击面）                                                    |
+| 设置项新增成本           | 6 处改动                              | 1 处（模型定义）                                                                      |
+| 新增一个后台字段的改动点 | 5~7 处                                | 2~3 处（模型 + 模板；结构变更另有 SQL 文件）                                          |
+| 后端 HTTP 集成测试       | 0                                     | 覆盖全部鉴权/所有权/上传/写入路径                                                     |
+| Python 静态检查          | 无                                    | `ruff` + `mypy --strict`（新代码；存量代码用渐进清单）                                |
+| CSS 行数                 | 9,985（实测 8,466）                   | **已完成收口**：65 个分层样式文件（9,726 行含 banner；0 个 >400 行），见 3.9 状态更新 |
+| 迁移函数数量             | 13                                    | 0（无存量迁移；结构变更走版本化 SQL + 显式执行）                                      |
+| 存量图像自动重编码       | 改配置即全站失效                      | **0**（只有手动触发 `reencode` 任务才会重编码）                                       |
 
 ### 0.4 工作量估算
 
@@ -218,7 +218,7 @@
 **问题**
 
 - `P-B1` 新增一个设置项要同步 6 处：`defaults.py` → `update_settings` 白名单/校验 → `types.ts` → `config.ts(fallbackSite)` → 后台表单 `data-setting` → 文档。项目自己的计划文档（`IMAGE-PIPELINE-PLAN.md:42`）就承认了这条链路。
-- `P-B2` 默认值三份且已漂移：强调色在 `defaults.py` 为 `#c2451f`、`global.css` 为 `#e8481d`、`BaseLayout.astro:46` 兜底为 `#e8481d`、`config.ts` 为 `#c2451f`。
+- `P-B2` 默认值三份且已漂移：强调色在 `defaults.py` 为 `#c2451f`、`global.css` 为 `#e8481d`、`BaseLayout.astro:46` 兜底为 `#e8481d`、`config.ts` 为 `#c2451f`。**已修复**：3.0.0 样式收口后 CSS 兜底统一为 `#c2451f`，`global.css` 已删除。
 - `P-B3` `storage_s3_secret_key` 与主题文案同表；靠 `SECRET_SETTING_KEYS` 做响应 mask、靠 `PRIVATE_SETTING_KEYS` 做公开过滤。当前过滤正确，但每加一个敏感键都要记得加入两个集合。
 - `P-B4` `/api/site` 每请求 `load_settings()`（无缓存）并返回全部公开键，包含 60KB `custom_css` 与 30KB `head_html`。
 
@@ -367,7 +367,7 @@
 - `P-O1` 9,985 行 CSS（实测 8,466）是全仓最大模块；`global.css` → `mono.css` → `index.css` 靠 import 顺序互相覆盖；`admin.css` 单文件 3,654 行。
 - `P-O2` 强调色 4 个不同默认值；`data-theme="scene"` 硬编码与 `data-palette` 两套主题机制并存。
 
-**3.0.0 处置**：本版沿用 2.x 样式体系（见 3.9，`@layer` 重构不在本版范围）；后台样式继续集中在 `admin.css`。
+**3.0.0 处置**：样式收口已在 3.0.0 中补齐实施（见 3.9 状态更新）：旧五张表拆成 65 个 `@layer` 文件、后台拆到 `admin/*.css`、`data-theme="scene"` 覆盖层删除、强调色兜底统一为 `#c2451f`。
 
 #### P. 契约与类型
 
@@ -764,18 +764,19 @@ jobs(id, kind, payload, status CHECK(status IN ('queued','running','done','faile
 - 把三个最复杂页面（`PostEditor`、媒体库、相册详情）改为 `@astrojs/preact` 岛屿；其余页面继续服务端渲染 + 轻量脚本。
 - 迁移标准：页面交互状态 > 5 个或脚本 > 300 行时，评估岛屿化。
 
-### 3.9 样式系统（在 3.0.0-beta3 之后实施）
+### 3.9 样式系统（Phase 1–6，已在 3.0.0 中实施）
 
-> **状态更新**：本节候选设计已在 3.0.0-beta3 之后落地（不提交 commit，以 `git stash` 记录中间态）。落地结果与本节原方案的主要差异：
+> **状态更新**：本节候选设计已在 3.0.0 中分两个批次落地：Phase 1–4 结构重构 + Phase 5 语义收敛 + Phase 6 文档同步，并随 `chore(release): 3.0.0` 提交入库（过程检查点保留在 `git stash` 的 `css-refactor/phase-*`，仅作历史参照）。落地结果与本节原方案的主要差异：
 >
 > - 目录为 `styles/{tokens,base,shared,site,admin}/` + 单独保留的 `audio-player.css`；共 65 个文件，0 个文件超过 400 行。
 > - 层序为 `@layer tokens, base, components, pages, utilities;`；因为 Vite/rollup 会把 route chunk 中重复的 `@layer …;` 语句去重，权威声明放在三套 layout `<head>` 的内联 `<style>` 里，每个文件顶部的 banner 只用于可读性。
 > - 组件样式仍是全局分层文件 + 组件级 `import`（不走 Astro `<style>` 作用域，因为 Lightbox / GalleryViewer / 后台列表 / 编辑器 / 音频嵌入是脚本动态生成 DOM，拿不到 scope 属性）。
 > - `custom_css` 保持非分层、注入在所有样式表之后（原方案是挂到 utilities 之后）。
-> - 零视觉变化通过 `scripts/css/snapshot.mjs` + `diff.mjs` 验证：27 条路由 × 3 视口 × 6 套主题下，**每个元素每个属性的胜出声明与重构前完全一致**（57,931 个元素桶、486 组令牌；仅放行两个已删除的死令牌与新引入的 `--color-*` 别名）。快照基于 `BLOG_CSS_UNMINIFIED=1` 的未压缩构建（lightningcss 会合并简写/长写，导致声明级比较出现噪声）。
-> - 实测生产负载（minified，逐文件 gzip 相加）：公共页均值 74.4 → 22.7 KB raw（−69%）、15.2 → 6.2 KB gzip（−59%）；后台 105.5 → 40.9 KB raw（−61%）、19.6 → 9.9 KB gzip（−49%）；每页样式表请求从 3 个变为 4–8 个小文件（建议 HTTP/2）。
+> - 零视觉变化通过 `scripts/css/snapshot.mjs` + `diff.mjs` 验证：27 条路由 × 3 视口 × 6 套主题下，**Phase 1–4 的每个元素每个属性胜出声明与重构前完全一致**（57,931 个元素桶、486 组令牌；仅放行两个已删除的死令牌与新引入的 `--color-*` 别名）。快照基于 `BLOG_CSS_UNMINIFIED=1` 的未压缩构建（lightningcss 会合并简写/长写，导致声明级比较出现噪声）。
+> - **Phase 5 语义收敛**（允许 ≤0.5px 字号与近似颜色）：字号 84 种 → 16 档静态刻度 + 3 个相对档（最大偏差 0.5px），断点 9 → 4 个，58 个值名颜色别名 → 58 个语义令牌（仅一处 0.22→0.24 的 alpha 合并），`!important` 23 → 15 且全部为 reduced-motion 无障碍重置，`--pillar-pad`/`--gallery-columns` 归位、`--accent` 兜底统一 `#c2451f`、移除死 `data-theme` 属性。相位差快照：DOM/状态差异 0，除字号（≤0.5px）、上述颜色合并、令牌改名外**其他属性 0 差异**。
+> - 实测生产负载（minified，逐文件 gzip 相加）：Phase 1–4 后公共页均值 74.4 → 22.7 KB raw（−69%）、15.2 → 6.2 KB gzip（−59%）；后台 105.5 → 40.9 KB raw（−61%）、19.6 → 9.9 KB gzip（−49%）；每页样式表请求从 3 个变为 4–8 个小文件（建议 HTTP/2）。Phase 5 令牌化使 gzip 微增 +1.5%（公共 6.3 KB）/ +3.0%（后台 10.2 KB）。
 >
-> 剩余后续项（本版不做，已记录在 `docs/CSS.md`）：字号刻度 95 → ~14（含 ≤0.5px 变化，需视觉验收）、断点 10 → 4 收敛、把 58 个 `--color-*` 精确别名收敛为语义色板、清理最后 2 个 `font-size !important`、合并后台/公共重复令牌、把多代际重复声明折叠为单规则。
+> **后续项**：原列的五项（字号、断点、色板、`!important`、重复令牌）中前四项已完成。剩余 `duplicate-prop` 105 条 WARN 属于"按代际保留同名规则、胜出值不变"的预期结果，作为可选整理（合并时逐条跑 `css:diff`）；后台/公共 palette 的合并仍是显式决策，未在本次范围。详见 `docs/CSS.md` §9。
 >
 > 以下为本节原始候选设计（保留作历史对照）。
 
@@ -927,7 +928,7 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### Phase 4：前端与预留（3~4 人日）
 
-> 本阶段**不做样式收口**：`@layer` 重构、样式文件拆分、Stylelint/令牌规范均不实施，3.0.0 继续沿用 2.x 的 `global.css` / `admin.css` / `mono.css` / `index.css` / `audio-player.css`。其余任务照常实施。
+> 本阶段原计划**不做样式收口**；该范围已在 3.0.0 发布前补齐（Phase 1–6，见 §3.9 状态更新），其余任务照常实施。
 
 | 任务                 | 产出                                                                      | 验收                                                        |
 | -------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -1017,19 +1018,19 @@ nginx → 应用：应用只监听内网/回环；nginx 覆盖写 X-Forwarded-Fo
 
 ### 7.2 前端
 
-| 位置                                                                                                                    | 内容                                              | 原因                                         |
-| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | -------------------------------------------- |
-| `src/lib/proxy.ts`、`pages/api/[...path].ts`、`pages/media/[...path].ts`                                                | 手写代理                                          | 单层接入：生产 nginx、开发 Vite proxy        |
-| `src/config.ts`                                                                                                         | `fallbackSite`（150 行）                          | 第三份默认值                                 |
-| `src/types.ts`                                                                                                          | 手写 API 类型                                     | 生成类型取代                                 |
-| `src/lib/permissions.ts`                                                                                                | 手写角色矩阵                                      | 后端唯一来源                                 |
-| `src/styles/mono.css`、`index.css`                                                                                      | 覆盖式主题层                                      | 保留（本版不做样式收口）                     |
-| `src/lib/*-esm.mjs`                                                                                                     | CJS 桥接 shim                                     | 依赖升级后删除；若必须保留则移入 `vite` 配置 |
-| `pages/galleries/index.astro`                                                                                           | `/galleries` 301                                  | BC-23                                        |
-| `components/admin/ImageQualityDialog.astro`、`lib/quality-dialog.ts`                                                    | 单图 AVIF 质量覆盖 UI                             | 删除（质量不可变，BC-34）                    |
-| `pages/posts/[slug].astro`、`pages/galleries/[slug].astro`、后台统计卡片                                                | 浏览量 UI 与 `show_views` 判断                    | 删除（BC-18）                                |
-| `components/Comments.astro`、`scripts/admin-comments.ts`、`pages/admin/comments.astro`、`scripts/comments.ts`、评论样式 | 评论前后台全部实现                                | 删除（BC-35）                                |
-| 导航/统计/图标中评论入口                                                                                                | `admin` 导航项、`pending-comments` 卡片、图标引用 | 删除（BC-35）                                |
+| 位置                                                                                                                    | 内容                                              | 原因                                                 |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------------------- |
+| `src/lib/proxy.ts`、`pages/api/[...path].ts`、`pages/media/[...path].ts`                                                | 手写代理                                          | 单层接入：生产 nginx、开发 Vite proxy                |
+| `src/config.ts`                                                                                                         | `fallbackSite`（150 行）                          | 第三份默认值                                         |
+| `src/types.ts`                                                                                                          | 手写 API 类型                                     | 生成类型取代                                         |
+| `src/lib/permissions.ts`                                                                                                | 手写角色矩阵                                      | 后端唯一来源                                         |
+| `src/styles/*.css`（2.x 的 `global.css` / `admin.css` / `mono.css` / `index.css`）                                      | 覆盖式主题层 + 巨型单文件                         | **已删除**：拆成 65 个分层文件（3.0.0 实施，见 3.9） |
+| `src/lib/*-esm.mjs`                                                                                                     | CJS 桥接 shim                                     | 依赖升级后删除；若必须保留则移入 `vite` 配置         |
+| `pages/galleries/index.astro`                                                                                           | `/galleries` 301                                  | BC-23                                                |
+| `components/admin/ImageQualityDialog.astro`、`lib/quality-dialog.ts`                                                    | 单图 AVIF 质量覆盖 UI                             | 删除（质量不可变，BC-34）                            |
+| `pages/posts/[slug].astro`、`pages/galleries/[slug].astro`、后台统计卡片                                                | 浏览量 UI 与 `show_views` 判断                    | 删除（BC-18）                                        |
+| `components/Comments.astro`、`scripts/admin-comments.ts`、`pages/admin/comments.astro`、`scripts/comments.ts`、评论样式 | 评论前后台全部实现                                | 删除（BC-35）                                        |
+| 导航/统计/图标中评论入口                                                                                                | `admin` 导航项、`pending-comments` 卡片、图标引用 | 删除（BC-35）                                        |
 
 ### 7.3 文档归档与重写
 

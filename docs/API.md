@@ -1,8 +1,8 @@
 # MZTLAB · Scene API 参考（3.0.0）
 
-> 适用版本：3.0.0-beta3。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。
+> 适用版本：3.0.0。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。
 
-OpenAPI `3.0.0-beta3` · 61 个路径 · 168 个数据模型
+OpenAPI `3.0.0` · 61 个路径 · 168 个数据模型
 
 鉴权：除 `/api/site`、`/api/bootstrap`、`/api/posts*`、`/api/pages*`、`/api/projects*`、`/api/galleries*`、`/api/archive`、`/api/search`、`/api/taxonomy`、`/api/health*`、`/api/auth/login`、`/api/setup` 外，均需登录；`/api/admin/*` 的写请求还需要 `X-Blog-Request: 1` 头。
 

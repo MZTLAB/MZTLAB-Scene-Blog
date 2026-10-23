@@ -16,8 +16,8 @@
   justify-content: space-between;
   overflow: hidden;
   padding: clamp(30px, 5vw, 70px);
-  background: var(--color-1b1814);
-  color: var(--color-f3ecdf);
+  background: var(--surface-auth-deep);
+  color: var(--text-inverse);
 }
 
 .auth-aside::before {
@@ -26,10 +26,10 @@
   right: -15%;
   width: 60%;
   aspect-ratio: 1;
-  border: 1px solid var(--color-rgba-255-255-255-0-14);
+  border: 1px solid var(--border-inverse);
   border-radius: 50%;
-  box-shadow: 0 0 0 60px var(--color-rgba-255-255-255-0-03),
-    0 0 0 140px var(--color-rgba-255-255-255-0-02);
+  box-shadow: 0 0 0 60px var(--shadow-auth),
+    0 0 0 140px var(--surface-inverse-subtle);
   content: "";
 }
 
@@ -37,7 +37,7 @@
   position: absolute;
   right: 8%;
   bottom: 12%;
-  color: var(--color-rgba-255-255-255-0-05);
+  color: var(--text-inverse-faint);
   content: "墨";
   font-family: var(--font-display);
   font-size: clamp(240px, 38vw, 560px);
@@ -45,9 +45,9 @@
 }
 
 .auth-aside .brand-mark {
-  border-color: var(--color-rgba-255-255-255-0-24);
-  background: var(--color-rgba-255-255-255-0-06);
-  color: var(--color-e7a383);
+  border-color: var(--border-inverse-strong);
+  background: var(--surface-inverse);
+  color: var(--accent-soft);
 }
 
 .auth-aside__quote {
@@ -58,7 +58,7 @@
 
 .auth-aside__quote p {
   font-family: var(--font-display);
-  font-size: clamp(30px, 4.4vw, 56px);
+  font-size: clamp(var(--text-30), 4.4vw, 56px);
   line-height: 1.35;
   letter-spacing: -0.03em;
 }
@@ -66,9 +66,9 @@
 .auth-aside__quote span {
   display: block;
   margin-top: 20px;
-  color: var(--color-rgba-243-236-223-0-5);
+  color: var(--text-inverse-soft);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -78,9 +78,9 @@
   z-index: 1;
   display: flex;
   gap: 20px;
-  color: var(--color-rgba-243-236-223-0-42);
+  color: var(--text-inverse-muted);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.08em;
 }
 
@@ -101,7 +101,7 @@
 
 .auth-card h1 {
   font-family: var(--font-display);
-  font-size: 38px;
+  font-size: var(--text-38);
   font-weight: 550;
   letter-spacing: -0.03em;
 }
@@ -109,7 +109,7 @@
 .auth-card > p {
   margin-top: 8px;
   color: var(--ink-soft);
-  font-size: 12.5px;
+  font-size: var(--text-13);
   line-height: 1.7;
 }
 
@@ -121,12 +121,12 @@
 }
 
 .auth-form .a-field label {
-  font-size: 10px;
+  font-size: var(--text-10);
 }
 
 .auth-form .a-field input {
   min-height: 42px;
-  font-size: 13px;
+  font-size: var(--text-13);
 }
 
 .auth-form .a-btn {
@@ -136,15 +136,15 @@
 
 .auth-error {
   min-height: 18px;
-  color: var(--color-a24439);
-  font-size: 10.5px;
+  color: var(--feedback-error-soft);
+  font-size: var(--text-10);
   line-height: 1.6;
 }
 
 .auth-foot {
   margin-top: 22px;
   color: var(--ink-faint);
-  font-size: 9.5px;
+  font-size: var(--text-10);
   text-align: center;
 }
 
@@ -154,19 +154,19 @@
   text-underline-offset: 3px;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .auth-body {
     grid-template-columns: 1fr;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .auth-aside {
     display: none;
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .auth-main {
     min-height: 100vh;
   }
@@ -233,7 +233,7 @@ html[data-palette] .auth-form .a-btn {
   justify-content: center;
   min-height: 42px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-10);
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }

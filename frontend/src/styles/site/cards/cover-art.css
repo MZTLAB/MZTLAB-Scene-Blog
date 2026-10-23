@@ -27,23 +27,23 @@
 }
 
 .cover-art--v0 {
-  --plate-bg: var(--color-e9e5dc);
-  --plate-ink: var(--color-1a1917);
+  --plate-bg: var(--plate-v0-bg);
+  --plate-ink: var(--plate-v0-ink);
 }
 
 .cover-art--v1 {
-  --plate-bg: var(--color-1b1b19);
-  --plate-ink: var(--color-efeadd);
+  --plate-bg: var(--plate-v1-bg);
+  --plate-ink: var(--plate-v1-ink);
 }
 
 .cover-art--v2 {
-  --plate-bg: var(--color-dedad0);
-  --plate-ink: var(--color-2b2f38);
+  --plate-bg: var(--plate-v2-bg);
+  --plate-ink: var(--plate-v2-ink);
 }
 
 .cover-art--v3 {
-  --plate-bg: var(--color-2a2d31);
-  --plate-ink: var(--color-e7e2d6);
+  --plate-bg: var(--plate-v3-bg);
+  --plate-ink: var(--plate-v3-ink);
 }
 
 .cover-art--v4 {
@@ -52,8 +52,8 @@
 }
 
 .cover-art--v5 {
-  --plate-bg: var(--color-cfd3c6);
-  --plate-ink: var(--color-1f241f);
+  --plate-bg: var(--plate-v5-bg);
+  --plate-ink: var(--plate-v5-ink);
 }
 
 .cover-art-top {
@@ -62,7 +62,7 @@
   justify-content: space-between;
   gap: 10px;
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   opacity: 0.72;
@@ -86,7 +86,7 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12.5px;
+  font-size: var(--text-13);
   line-height: 1.35;
   padding-top: 10px;
   border-top: 1px solid currentColor;
@@ -99,7 +99,7 @@
 
 .cover-no {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;

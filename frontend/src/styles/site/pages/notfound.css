@@ -23,11 +23,11 @@
 
 .notfound p {
   color: var(--ink-soft);
-  font-size: 14.5px;
+  font-size: var(--text-14-5);
 }
 
 .notfound h1 {
-  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-size: clamp(var(--text-20-4), 3vw, var(--text-28));
   font-weight: 500;
 }
 

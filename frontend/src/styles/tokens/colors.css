@@ -1,72 +1,86 @@
 /* ==========================================================================
-   Colour aliases — exact values extracted from component stylesheets.
+   Semantic colour tokens — Phase 5 convergence.
 
-   Every entry keeps the literal that was previously inlined, so this file does
-   not change the rendered colours; it makes the palette auditable and keeps the
-   "no colour literals outside tokens/" lint rule meaningful. A later design pass
-   can collapse near-duplicates into a smaller semantic palette.
+   Replaces the value-named --color-* aliases that the stylesheet split generated.
+   Tokens are named by role (feedback / inverse surface / scrim / shadow / plate);
+   the literal values are the shipped ones, so this is a rename except for the two
+   documented alpha collapses (border-inverse .22→.24, bridge between the two).
    ========================================================================== */
-@layer tokens, base, components, pages, utilities;
 
+@layer tokens, base, components, pages, utilities;
 @layer tokens {
   :root {
-    --color-0b0b0a: #0b0b0a;
-    --color-1a1917: #1a1917;
-    --color-1b1814: #1b1814;
-    --color-1b1b19: #1b1b19;
-    --color-1f241f: #1f241f;
-    --color-2a2a28: #2a2a28;
-    --color-2a2d31: #2a2d31;
-    --color-2b2f38: #2b2f38;
-    --color-35734c: #35734c;
-    --color-4a64a8: #4a64a8;
-    --color-4f8b5e: #4f8b5e;
-    --color-718376: #718376;
-    --color-8fc79c: #8fc79c;
-    --color-9a6a25: #9a6a25;
-    --color-9c9a92: #9c9a92;
-    --color-a24439: #a24439;
-    --color-b33a2b: #b33a2b;
-    --color-c0392b: #c0392b;
-    --color-cfd3c6: #cfd3c6;
-    --color-d7e3d9: #d7e3d9;
-    --color-d8b36e: #d8b36e;
-    --color-d8d5cb: #d8d5cb;
-    --color-dedad0: #dedad0;
-    --color-e7a383: #e7a383;
-    --color-e7e2d6: #e7e2d6;
-    --color-e9e5dc: #e9e5dc;
-    --color-efeadd: #efeadd;
-    --color-f3ecdf: #f3ecdf;
-    --color-f4f2ec: #f4f2ec;
-    --color-fff: #fff;
-    --color-rgba-0-0-0-0-04: rgba(0, 0, 0, 0.04);
-    --color-rgba-0-0-0-0-35: rgba(0, 0, 0, 0.35);
-    --color-rgba-0-0-0-0-4: rgba(0, 0, 0, 0.4);
-    --color-rgba-0-0-0-0-5: rgba(0, 0, 0, 0.5);
-    --color-rgba-12-10-8-0-45: rgba(12, 10, 8, 0.45);
-    --color-rgba-16-13-10-0-5: rgba(16, 13, 10, 0.5);
-    --color-rgba-162-68-57-0-07: rgba(162, 68, 57, 0.07);
-    --color-rgba-162-68-57-0-1: rgba(162, 68, 57, 0.1);
-    --color-rgba-162-68-57-0-3: rgba(162, 68, 57, 0.3);
-    --color-rgba-179-58-43-0-06: rgba(179, 58, 43, 0.06);
-    --color-rgba-179-58-43-0-25: rgba(179, 58, 43, 0.25);
-    --color-rgba-184-132-47-0-1: rgba(184, 132, 47, 0.1);
-    --color-rgba-22-19-15-0-78: rgba(22, 19, 15, 0.78);
-    --color-rgba-243-236-223-0-42: rgba(243, 236, 223, 0.42);
-    --color-rgba-243-236-223-0-5: rgba(243, 236, 223, 0.5);
-    --color-rgba-255-255-255-0-02: rgba(255, 255, 255, 0.02);
-    --color-rgba-255-255-255-0-03: rgba(255, 255, 255, 0.03);
-    --color-rgba-255-255-255-0-05: rgba(255, 255, 255, 0.05);
-    --color-rgba-255-255-255-0-06: rgba(255, 255, 255, 0.06);
-    --color-rgba-255-255-255-0-14: rgba(255, 255, 255, 0.14);
-    --color-rgba-255-255-255-0-22: rgba(255, 255, 255, 0.22);
-    --color-rgba-255-255-255-0-24: rgba(255, 255, 255, 0.24);
-    --color-rgba-255-255-255-0-3: rgba(255, 255, 255, 0.3);
-    --color-rgba-33-30-25-0-24: rgba(33, 30, 25, 0.24);
-    --color-rgba-40-32-22-0-08: rgba(40, 32, 22, 0.08);
-    --color-rgba-40-32-22-0-14: rgba(40, 32, 22, 0.14);
-    --color-rgba-67-132-88-0-1: rgba(67, 132, 88, 0.1);
-    --color-rgba-74-100-168-0-1: rgba(74, 100, 168, 0.1);
+    /* Feedback / status */
+    --feedback-error: #c0392b;
+    --feedback-error-soft: #a24439;
+    --feedback-error-strong: #b33a2b;
+    --feedback-error-border: rgba(162, 68, 57, 0.3);
+    --feedback-error-border-strong: rgba(179, 58, 43, 0.25);
+    --feedback-error-wash: rgba(162, 68, 57, 0.1);
+    --feedback-error-wash-soft: rgba(162, 68, 57, 0.07);
+    --feedback-error-wash-faint: rgba(179, 58, 43, 0.06);
+    --feedback-success: #4f8b5e;
+    --feedback-success-strong: #35734c;
+    --feedback-success-ink: #8fc79c;
+    --feedback-success-soft: #d7e3d9;
+    --feedback-success-wash: rgba(67, 132, 88, 0.1);
+    --feedback-warning: #9a6a25;
+    --feedback-warning-ink: #d8b36e;
+    --feedback-warning-wash: rgba(184, 132, 47, 0.1);
+    --feedback-info: #4a64a8;
+    --feedback-info-wash: rgba(74, 100, 168, 0.1);
+    --feedback-inverse-wash: rgba(255, 255, 255, 0.3);
+
+    /* Auth / inverse surfaces */
+    --surface-auth-deep: #1b1814;
+    --surface-inverse-subtle: rgba(255, 255, 255, 0.02);
+    --surface-inverse: rgba(255, 255, 255, 0.06);
+    --border-inverse: rgba(255, 255, 255, 0.14);
+    --border-inverse-strong: rgba(255, 255, 255, 0.24);
+    --border-inverse-strong: rgba(255, 255, 255, 0.24);
+    --text-inverse-faint: rgba(255, 255, 255, 0.05);
+    --text-inverse: #f3ecdf;
+    --text-inverse-soft: rgba(243, 236, 223, 0.5);
+    --text-inverse-muted: rgba(243, 236, 223, 0.42);
+    --accent-soft: #e7a383;
+
+    /* Photo viewer (cinema) */
+    --surface-cinema: #0b0b0a;
+    --border-cinema: #2a2a28;
+    --text-cinema: #f4f2ec;
+    --text-cinema-soft: #d8d5cb;
+    --text-cinema-muted: #9c9a92;
+    --text-cinema-faint: #718376;
+
+    /* Scrims and overlays */
+    --overlay-scrim: rgba(12, 10, 8, 0.45);
+    --overlay-scrim-strong: rgba(16, 13, 10, 0.5);
+    --overlay-media: rgba(22, 19, 15, 0.78);
+
+    /* Shadows */
+    --shadow-auth: rgba(255, 255, 255, 0.03);
+    --shadow-panel: rgba(0, 0, 0, 0.35);
+    --shadow-overlay: rgba(0, 0, 0, 0.4);
+    --shadow-modal: rgba(0, 0, 0, 0.5);
+    --shadow-ring: rgba(33, 30, 25, 0.24);
+    --shadow-toolbar: rgba(40, 32, 22, 0.08);
+    --shadow-toolbar-strong: rgba(40, 32, 22, 0.14);
+
+    /* Cover-art plate variants */
+    --plate-v0-bg: #e9e5dc;
+    --plate-v0-ink: #1a1917;
+    --plate-v1-bg: #1b1b19;
+    --plate-v1-ink: #efeadd;
+    --plate-v2-bg: #dedad0;
+    --plate-v2-ink: #2b2f38;
+    --plate-v3-bg: #2a2d31;
+    --plate-v3-ink: #e7e2d6;
+    --plate-v5-bg: #cfd3c6;
+    --plate-v5-ink: #1f241f;
+
+    /* Miscellaneous */
+    --surface-tint: rgba(0, 0, 0, 0.04);
+    --surface-pure: #fff;
+
   }
 }

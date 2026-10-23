@@ -27,7 +27,7 @@
 .site-nav a {
   position: relative;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--text-10);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -134,7 +134,7 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
     padding-block: 14px;
     border-bottom: 1px solid var(--line);
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: var(--text-11-5);
     letter-spacing: 0.13em;
     text-transform: uppercase;
   }
@@ -143,7 +143,7 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
 @media (max-width: 900px) {
   .mobile-nav a span {
     color: var(--ink-faint);
-    font-size: 9.5px;
+    font-size: var(--text-10);
   }
 }
 
@@ -168,20 +168,20 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
 }
 
 .brand-mark {
-  width: 26px !important;
-  height: 26px !important;
+  width: 26px;
+  height: 26px;
 }
 
 .brand-title {
   font-family: var(--font-display);
-  font-size: 14px;
+  font-size: var(--text-14-5);
   font-weight: 600;
   letter-spacing: -0.02em;
 }
 
 .brand-sub {
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.24em;
   color: var(--ink-faint);
 }
@@ -196,7 +196,7 @@ html[data-color-mode="dark"] .theme-toggle .moon-icon {
 .site-nav a {
   position: relative;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--text-11-5);
   letter-spacing: 0.03em;
   color: var(--ink-soft);
   padding-block: 4px;

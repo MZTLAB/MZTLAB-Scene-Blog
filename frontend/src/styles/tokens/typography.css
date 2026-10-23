@@ -26,3 +26,31 @@ html[data-font='mono'] {
   --font-display: var(--font-mono);
 }
 }
+
+/* Phase 5 type scale — derived from the pre-semantic fixed font sizes.
+   Clusters are 1px wide, so every remapped declaration moves by <= 0.5px.
+   Responsive clamp() endpoints within 48px reference the same steps; their vw slopes are unchanged. */
+@layer tokens {
+  :root {
+    --text-7: 7px;
+    --text-8-5: 8.5px;
+    --text-10: 10px;
+    --text-11-5: 11.5px;
+    --text-13: 13px;
+    --text-14-5: 14.5px;
+    --text-16: 16px;
+    --text-17-5: 17.5px;
+    --text-18-7: 18.7px;
+    --text-20-4: 20.4px;
+    --text-22-7: 22.7px;
+    --text-26-5: 26.5px;
+    --text-28: 28px;
+    --text-30: 30px;
+    --text-34: 34px;
+    --text-38: 38px;
+    --text-em-0-85: 0.85em;
+    --text-em-1-06: 1.06em;
+    --text-em-0-86: 0.86em;
+  }
+}
+/* End Phase 5 type scale */

@@ -1,6 +1,6 @@
 # MZTLAB · Scene 数据库结构（3.0.0）
 
-> 适用版本：3.0.0-beta3。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。
+> 适用版本：3.0.0。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。
 
 ## 迁移文件
 

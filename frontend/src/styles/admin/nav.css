@@ -24,7 +24,7 @@
 
 .admin-brand__text strong {
   font-family: var(--font-display);
-  font-size: 18px;
+  font-size: var(--text-17-5);
   font-weight: 650;
   letter-spacing: 0.01em;
 }
@@ -32,7 +32,7 @@
 .admin-brand__text span {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -50,7 +50,7 @@
   padding: 16px 12px 7px;
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -63,7 +63,7 @@
   padding: 0 12px;
   border-radius: 9px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--text-13);
   transition: background 0.18s ease, color 0.18s ease;
 }
 
@@ -98,14 +98,14 @@
   position: fixed;
   inset: 0;
   z-index: 55;
-  background: var(--color-rgba-12-10-8-0-45);
+  background: var(--overlay-scrim);
   backdrop-filter: blur(2px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 900px) {
   .admin-menu-btn {
     display: inline-grid;
   }
@@ -122,7 +122,7 @@ html[data-palette] .admin-brand .brand-mark {
 }
 
 html[data-palette] .admin-brand__text strong {
-  font-size: 14px;
+  font-size: var(--text-14-5);
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -130,14 +130,14 @@ html[data-palette] .admin-brand__text strong {
 
 html[data-palette] .admin-brand__text span {
   letter-spacing: 0.26em;
-  font-size: 8px;
+  font-size: var(--text-8-5);
 }
 
 html[data-palette] .admin-nav a {
   min-height: 38px;
   border-radius: 0;
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: var(--text-10);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }

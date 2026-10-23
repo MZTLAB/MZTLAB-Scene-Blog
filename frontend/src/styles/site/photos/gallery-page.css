@@ -18,7 +18,7 @@
 
 .gallery-header p {
   color: var(--ink-soft);
-  font-size: 15px;
+  font-size: var(--text-14-5);
   max-width: 52ch;
   margin-top: 14px;
 }
@@ -38,7 +38,7 @@
   padding-block: 9px;
   border-bottom: 1px solid var(--line);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-10);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -63,11 +63,11 @@
 
 .gallery-header p {
   max-width: 42ch;
-  font-size: 13.5px;
+  font-size: var(--text-13);
 }
 
 .gallery-fact {
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
 }
 
 .gallery-fact span:last-child {

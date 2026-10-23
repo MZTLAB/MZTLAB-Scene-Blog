@@ -33,7 +33,7 @@
 
 .brand-title {
   font-family: var(--font-display);
-  font-size: 15px;
+  font-size: var(--text-14-5);
   font-weight: 600;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -41,7 +41,7 @@
 
 .brand-sub {
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.3em;
   color: var(--ink-faint);
   text-transform: uppercase;

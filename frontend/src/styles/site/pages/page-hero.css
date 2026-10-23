@@ -9,7 +9,7 @@
 }
 
 .page-hero h1 {
-  font-size: clamp(2.1rem, 5.2vw, 4.2rem);
+  font-size: clamp(var(--text-34), 5.2vw, 4.2rem);
   line-height: 1.02;
   margin-top: 16px;
   white-space: pre-line;
@@ -19,7 +19,7 @@
   margin-top: 18px;
   max-width: 60ch;
   color: var(--ink-soft);
-  font-size: 15.5px;
+  font-size: var(--text-16);
 }
 
 .page-hero__meta {
@@ -29,7 +29,7 @@
   gap: 8px 14px;
   margin-top: 22px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--text-10);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--ink-faint);
@@ -41,7 +41,7 @@
 
 .page-hero p {
   max-width: 38ch;
-  font-size: 13.5px;
+  font-size: var(--text-13);
 }
 
 .page-hero {
@@ -59,7 +59,7 @@
   max-width: 42ch;
   margin-top: 16px;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: var(--text-13);
   line-height: 1.8;
 }
 
@@ -70,7 +70,7 @@
   gap: 10px;
   margin-top: 22px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink-faint);

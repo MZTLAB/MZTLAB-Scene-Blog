@@ -27,7 +27,7 @@
   border-radius: 999px;
   background: var(--accent-wash);
   color: var(--accent);
-  font-size: 9.5px;
+  font-size: var(--text-10);
 }
 
 .tag-chip button {
@@ -40,7 +40,7 @@
   border-radius: 50%;
   background: transparent;
   color: currentColor;
-  font-size: 12px;
+  font-size: var(--text-11-5);
   line-height: 1;
 }
 
@@ -50,7 +50,7 @@
   border: 0;
   outline: 0;
   background: transparent;
-  font-size: 10.5px;
+  font-size: var(--text-10);
 }
 
 .taxonomy-grid {
@@ -79,7 +79,7 @@
 
 .term-row__main strong {
   display: block;
-  font-size: 12px;
+  font-size: var(--text-11-5);
   font-weight: 550;
 }
 
@@ -88,13 +88,13 @@
   margin-top: 1px;
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--text-8-5);
 }
 
 .term-row__count {
   color: var(--ink-faint);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--text-8-5);
 }
 
 .term-row__actions {
@@ -125,7 +125,7 @@
   color: var(--ink);
 }
 
-@media (max-width: 1020px) {
+@media (max-width: 1080px) {
   .taxonomy-grid {
     grid-template-columns: 1fr;
   }

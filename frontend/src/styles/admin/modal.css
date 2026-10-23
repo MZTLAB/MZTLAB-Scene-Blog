@@ -9,7 +9,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: var(--color-rgba-16-13-10-0-5);
+  background: var(--overlay-scrim-strong);
   backdrop-filter: blur(3px);
   opacity: 0;
   pointer-events: none;
@@ -30,7 +30,7 @@
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--bg-elevated);
-  box-shadow: 0 40px 100px -30px var(--color-rgba-0-0-0-0-5);
+  box-shadow: 0 40px 100px -30px var(--shadow-modal);
   transform: translateY(12px) scale(0.98);
   transition: transform 0.25s var(--ease);
 }
@@ -55,7 +55,7 @@
 
 .modal__head h3 {
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: var(--text-13);
   font-weight: 650;
 }
 
