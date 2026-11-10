@@ -1,6 +1,6 @@
 # MZTLAB · Scene 样式系统（CSS）
 
-> 适用版本：3.0.0
+> 适用版本：3.1.0
 >
 > 面向维护者：样式文件在哪、级联顺序怎么定、令牌从哪来、改一处 CSS 要跑哪些验证。
 > 架构与后端约定见 [`DEVELOPMENT.md`](DEVELOPMENT.md)；本轮样式重构的动因与范围见 [`REFACTOR-3.0.0.md`](archive/3.0.0/REFACTOR-3.0.0.md) 的 §O 与 §3.9。

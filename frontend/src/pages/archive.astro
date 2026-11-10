@@ -1,4 +1,5 @@
 ---
+import Timestamp from '../components/Timestamp.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import StoryCard from '../components/StoryCard.astro';
@@ -50,7 +51,7 @@ import '../styles/site/pages/search.css';
       </div>
       <span class="number-label">
         {archivePage.items.length
-          ? `FROM ${archivePage.items[archivePage.items.length - 1].published_at?.slice(0, 10)}`
+          ? <Fragment>FROM <Timestamp value={archivePage.items[archivePage.items.length - 1].published_at} /></Fragment>
           : 'EMPTY'}
       </span>
     </div>

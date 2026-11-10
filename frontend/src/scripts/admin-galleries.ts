@@ -1,7 +1,7 @@
+import { formatTimestamp } from '../lib/timestamps';
 import { api, qs } from '../lib/api';
 import { debounce, errorMessage, statusBadge, toast } from '../lib/admin-client';
-import { html, setHTML, type RawHtml } from '../lib/dom';
-import { formatDate } from '../lib/format';
+import { raw, html, setHTML, type RawHtml } from '../lib/dom';
 import { thumbUrl } from '../lib/images';
 import type { Gallery, Paginated } from '../types';
 
@@ -70,7 +70,7 @@ if (root) {
         <strong>${gallery.title}</strong>
         <div class="gallery-admin-card__meta">
           <span>${gallery.photo_count} FRAMES</span>
-          <span>${formatDate(gallery.updated_at, 'short')}</span>
+          <span>${raw(formatTimestamp(gallery.updated_at, 'short'))}</span>
         </div>
       </div>
       <div class="gallery-admin-card__actions">

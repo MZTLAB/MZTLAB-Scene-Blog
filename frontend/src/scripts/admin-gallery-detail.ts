@@ -1,3 +1,4 @@
+import { formatTimestamp } from '../lib/timestamps';
 import { api } from '../lib/api';
 import { debounce, errorMessage, toast } from '../lib/admin-client';
 import { html, setHTML, type RawHtml } from '../lib/dom';
@@ -56,7 +57,7 @@ if (root) {
     if (overviewPhotos) overviewPhotos.textContent = number(photos.length);
     if (overviewPublished)
       overviewPublished.textContent = number(photos.filter((photo) => photo.status === 'published').length);
-    if (overviewUpdated) overviewUpdated.textContent = value.updated_at.slice(0, 10);
+    if (overviewUpdated) setHTML(overviewUpdated, formatTimestamp(value.updated_at));
     renderPhotos();
   };
 

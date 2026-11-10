@@ -26,6 +26,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from ..content import normalize_iso_datetime
 from ..db import db, now_iso
 from ..errors import ApiError
 from ..settings import GROUPS, invalidate_settings_cache
@@ -253,6 +254,20 @@ def validate_document(document: dict[str, Any]) -> dict[str, list[dict[str, Any]
     _validate_settings(document)
 
     rows = {key: _rows(document, key) for key in _TABLE_KEYS}
+    # Imports must obey the same UTC/second precision contract as normal writes.
+    # EXIF taken_at is a camera-local date, not a system timestamp.
+    for table, items in rows.items():
+        for row in items:
+            for key in ("created_at", "updated_at", "published_at", "last_login_at"):
+                value = row.get(key)
+                if value is None or value == "":
+                    continue
+                normalized = normalize_iso_datetime(value) if isinstance(value, str) else None
+                if normalized is None:
+                    raise ApiError(
+                        422, "import.invalid_datetime", "时间格式不正确", field=f"{table}.{key}"
+                    )
+                row[key] = normalized
 
     user_ids = _id_set(rows["users"], "id", "users")
     if not user_ids:

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-command MZTLAB 3.0.0 acceptance run.
+"""One-command MZTLAB 3.1.0 acceptance run.
 
 Runs every gate the release checklist needs, prints a PASS/FAIL table and exits
 non-zero when any executed step fails. Standard library only; works on Windows
@@ -665,7 +665,7 @@ def main(argv: list[str] | None = None) -> int:
         with contextlib.suppress(OSError):
             sys.stdout.reconfigure(errors="replace")
     parser = argparse.ArgumentParser(
-        description=" MZTLAB 3.0.0 one-command acceptance run",
+        description=" MZTLAB 3.1.0 one-command acceptance run",
     )
     parser.add_argument(
         "--skip-slow",
@@ -702,7 +702,7 @@ def main(argv: list[str] | None = None) -> int:
         print("No steps selected.")
         return 0
 
-    print("MZTLAB 3.0.0 acceptance run")
+    print("MZTLAB 3.1.0 acceptance run")
     print(f"  root:   {ROOT}")
     print(f"  python: {PYTHON}")
     print(f"  steps:  {', '.join(selected)}")

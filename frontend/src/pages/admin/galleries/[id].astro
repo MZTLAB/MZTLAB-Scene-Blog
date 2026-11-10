@@ -1,4 +1,5 @@
 ---
+import Timestamp from '../../../components/Timestamp.astro';
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import Icon from '../../../components/Icon.astro';
 import { guardAdmin } from '../../../lib/auth';
@@ -125,8 +126,8 @@ import '../../../styles/admin/users.css';
             <div class="member-card__meta" style="border-top:0;padding-top:0">
               <div><span>照片</span><span data-overview-photos>—</span></div>
               <div><span>已发布</span><span data-overview-published>—</span></div>
-              <div><span>创建</span><span>{gallery.created_at.slice(0, 10)}</span></div>
-              <div><span>更新</span><span data-overview-updated>{gallery.updated_at.slice(0, 10)}</span></div>
+              <div><span>创建</span><span><Timestamp value={gallery.created_at} /></span></div>
+              <div><span>更新</span><span data-overview-updated><Timestamp value={gallery.updated_at} /></span></div>
             </div>
           </div>
         </div>

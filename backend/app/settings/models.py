@@ -177,6 +177,8 @@ class AppearanceSettings(StripModel):
     hero_image: str = Field(default="", max_length=500)
     show_reading_time: bool = True
     show_author: bool = True
+    post_show_time: bool = False
+    project_show_time: bool = False
     custom_css: str = Field(default="", max_length=60_000)
     head_html: str = Field(default="", max_length=30_000)
 
@@ -447,6 +449,8 @@ class AppearanceSettingsPatch(StripModel):
     hero_image: str | None = Field(default=None, max_length=500)
     show_reading_time: bool | None = None
     show_author: bool | None = None
+    post_show_time: bool | None = None
+    project_show_time: bool | None = None
     custom_css: str | None = Field(default=None, max_length=60_000)
     head_html: str | None = Field(default=None, max_length=30_000)
 

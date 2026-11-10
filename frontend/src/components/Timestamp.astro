@@ -1,0 +1,12 @@
+---
+import { formatTimestamp, type TimestampStyle } from '../lib/timestamps';
+
+interface Props {
+  value: string | null | undefined;
+  style?: TimestampStyle;
+}
+
+const { value, style = 'short' } = Astro.props;
+---
+
+<Fragment set:html={formatTimestamp(value, style)} />

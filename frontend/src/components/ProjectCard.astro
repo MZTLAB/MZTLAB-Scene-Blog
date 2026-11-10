@@ -1,6 +1,6 @@
 ---
 import type { PostSummary } from '../types';
-import { formatDate } from '../lib/format';
+import Timestamp from './Timestamp.astro';
 
 interface Props {
   project: PostSummary;
@@ -9,7 +9,7 @@ interface Props {
 }
 
 const { project, index = 0, compact = false } = Astro.props;
-const year = project.project_year || (project.published_at || '').slice(0, 4);
+const year = project.project_year;
 const role = project.project_role || '';
 const client = project.project_client || '';
 const kindLabel = (project.project_kind || '').trim();
@@ -19,12 +19,12 @@ import '../styles/site/cards/project-card.css';
 <a class:list={['project-card', compact && 'project-card--compact']} href={project.url}>
   <span class="project-card__plate" aria-hidden="true">
     <span class="project-card__plate-code">{label}</span>
-    <span class="project-card__plate-year">{year || '----'}</span>
+    <span class="project-card__plate-year">{year || <Timestamp value={project.published_at} style="year" />}</span>
   </span>
   <span class="project-card__body">
     <span class="project-card__topline">
       {kindLabel && <span class="project-card__kind">{kindLabel}</span>}
-      <span>{year || formatDate(project.published_at, 'short')}</span>
+      <span>{year || <Timestamp value={project.published_at} style="year" />}</span>
       {role && <span>{role}</span>}
     </span>
     <strong class="project-card__title">{project.title}</strong>

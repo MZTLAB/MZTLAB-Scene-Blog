@@ -1,7 +1,8 @@
 ---
 import Icon from '../Icon.astro';
 import AudioEmbedDialog from './AudioEmbedDialog.astro';
-import { formatDateInput, safeJson } from '../../lib/format';
+import Timestamp from '../Timestamp.astro';
+import { safeJson } from '../../lib/format';
 import type { AdminPost, AdminUser } from '../../types';
 
 interface Props {
@@ -102,7 +103,7 @@ import '../../styles/admin/taxonomy.css';
           <span>·</span>
           <span data-word-count>0 字</span>
           <span>·</span>
-          <span>{mode === 'edit' ? `最后保存 ${formatDateInput(post?.updated_at || '')?.replace('T', ' ') || '—'}` : '新' + typeLabel}</span>
+          <span>{mode === 'edit' ? <Fragment>最后保存 <Timestamp value={post?.updated_at} style="datetime" /></Fragment> : '新' + typeLabel}</span>
         </div>
       </div>
 
@@ -170,9 +171,21 @@ import '../../styles/admin/taxonomy.css';
             <input
               id="editor-published"
               type="datetime-local"
-              value={formatDateInput(post?.published_at)}
+              step="1"
+              data-initial-utc={post?.published_at || ''}
               data-published
             />
+          </div>
+          <div class="a-field" style="margin-top:12px">
+            <label for="editor-timezone">时间输入时区 <small>保存时换算为 UTC</small></label>
+            <select id="editor-timezone" data-timezone>
+              <option value="local">客户端时区</option>
+              {Array.from({ length: 105 }, (_, index) => index * 15 - 720).map((offset) => (
+                <option value={String(offset)}>
+                  {`UTC${offset >= 0 ? '+' : '-'}${String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0')}:${String(Math.abs(offset) % 60).padStart(2, '0')}`}
+                </option>
+              ))}
+            </select>
           </div>
           {
             canManageOthers && (
@@ -395,7 +408,7 @@ import '../../styles/admin/taxonomy.css';
   } from '../../lib/admin-client';
   import { api, ApiError } from '../../lib/api';
   import { html, raw, setHTML } from '../../lib/dom';
-  import { formatDate } from '../../lib/format';
+  import { dateInput, inputToUtc, formatTimestamp, utcOffset } from '../../lib/timestamps';
   import { thumbUrl, artifactWidths, derivativeUrl, isReady } from '../../lib/images';
   import type { AdminPost, AuthorOption, MediaItem, Paginated, Revision } from '../../types';
 
@@ -426,6 +439,15 @@ import '../../styles/admin/taxonomy.css';
     const categoryInput = root.querySelector<HTMLInputElement>('[data-category]');
     const statusSelect = root.querySelector<HTMLSelectElement>('[data-status]')!;
     const publishedInput = root.querySelector<HTMLInputElement>('[data-published]')!;
+    const timezoneSelect = root.querySelector<HTMLSelectElement>('[data-timezone]')!;
+    let inputZone = 'local';
+    let publishedInstant: string | null = publishedInput.dataset.initialUtc || null;
+    publishedInput.value = dateInput(publishedInstant, inputZone);
+    let displayedPublished = publishedInput.value;
+    const publishedUtc = () => publishedInput.value === displayedPublished
+      ? publishedInstant
+      : inputToUtc(publishedInput.value, inputZone);
+    timezoneSelect.options[0].textContent = `客户端时区（${Intl.DateTimeFormat().resolvedOptions().timeZone}，${utcOffset(new Date())}）`;
     const authorSelect = root.querySelector<HTMLSelectElement>('[data-author]');
     const featuredInput = root.querySelector<HTMLInputElement>('[data-featured]');
     const seoTitleInput = root.querySelector<HTMLInputElement>('[data-seo-title]')!;
@@ -573,6 +595,8 @@ import '../../styles/admin/taxonomy.css';
             cover,
             status: statusSelect.value,
             published: publishedInput.value,
+            timezone: inputZone,
+            publishedUtc: publishedUtc(),
             featured: featuredInput?.checked || false,
             seoTitle: seoTitleInput.value,
             seoDescription: seoDescriptionInput.value,
@@ -595,7 +619,11 @@ import '../../styles/admin/taxonomy.css';
       tags = Array.isArray(snapshot.tags) ? snapshot.tags.map(String) : [];
       cover = String(snapshot.cover || '');
       statusSelect.value = String(snapshot.status || 'draft');
+      inputZone = String(snapshot.timezone || 'local');
+      timezoneSelect.value = inputZone;
       publishedInput.value = String(snapshot.published || '');
+      publishedInstant = typeof snapshot.publishedUtc === 'string' ? snapshot.publishedUtc : inputToUtc(publishedInput.value, inputZone);
+      displayedPublished = publishedInput.value;
       if (featuredInput) featuredInput.checked = Boolean(snapshot.featured);
       seoTitleInput.value = String(snapshot.seoTitle || '');
       seoDescriptionInput.value = String(snapshot.seoDescription || '');
@@ -609,7 +637,6 @@ import '../../styles/admin/taxonomy.css';
 
     const collectPayload = (overrideStatus?: string) => {
       const status = overrideStatus || statusSelect.value;
-      const publishedValue = publishedInput.value;
       return {
         title: titleInput.value.trim(),
         slug: slugInput.value.trim().toLowerCase(),
@@ -618,7 +645,7 @@ import '../../styles/admin/taxonomy.css';
         cover_image: cover,
         status,
         featured: featuredInput?.checked || false,
-        published_at: publishedValue ? new Date(publishedValue).toISOString() : null,
+        published_at: publishedUtc(),
         seo_title: seoTitleInput.value.trim(),
         seo_description: seoDescriptionInput.value.trim(),
         project_year: projectYearInput?.value.trim() || '',
@@ -662,8 +689,8 @@ import '../../styles/admin/taxonomy.css';
         return;
       }
       setSaving(true);
-      const payload = collectPayload();
       try {
+        const payload = collectPayload();
         const result = isEdit
           ? await api<AdminPost>(`${apiRoot}/${id}`, { method: 'PATCH', body: payload })
           : await api<AdminPost>(apiRoot, { method: 'POST', body: payload });
@@ -682,9 +709,9 @@ import '../../styles/admin/taxonomy.css';
         }
         statusSelect.value = result.raw_status;
         if (result.published_at) {
-          const local = new Date(result.published_at);
-          const pad = (n: number) => String(n).padStart(2, '0');
-          publishedInput.value = `${local.getFullYear()}-${pad(local.getMonth() + 1)}-${pad(local.getDate())}T${pad(local.getHours())}:${pad(local.getMinutes())}`;
+          publishedInstant = result.published_at;
+          publishedInput.value = dateInput(publishedInstant, inputZone);
+          displayedPublished = publishedInput.value;
         }
         updateButtons();
         loadRevisions();
@@ -935,7 +962,7 @@ import '../../styles/admin/taxonomy.css';
             (revision) => html`<div class="revision-row">
               <div class="revision-row__meta">
                 <strong>${revision.title}</strong>
-                <span>${formatDate(revision.created_at, 'datetime')} · ${revision.reading_time} min</span>
+                <span>${raw(formatTimestamp(revision.created_at, 'datetime'))} · ${revision.reading_time} min</span>
               </div>
               <button class="a-btn a-btn--sm" type="button" data-restore="${revision.id}">恢复</button>
             </div>`,
@@ -1050,6 +1077,19 @@ import '../../styles/admin/taxonomy.css';
     seoTitleInput.addEventListener('input', markDirty);
     seoDescriptionInput.addEventListener('input', markDirty);
     publishedInput.addEventListener('change', markDirty);
+    timezoneSelect.addEventListener('change', () => {
+      try {
+        const instant = publishedUtc();
+        inputZone = timezoneSelect.value;
+        publishedInstant = instant;
+        publishedInput.value = dateInput(instant, inputZone);
+        displayedPublished = publishedInput.value;
+        markDirty();
+      } catch (error) {
+        timezoneSelect.value = inputZone;
+        toast(errorMessage(error), 'error');
+      }
+    });
     featuredInput?.addEventListener('change', markDirty);
     coverUrlInput.addEventListener('change', () => {
       cover = coverUrlInput.value.trim();

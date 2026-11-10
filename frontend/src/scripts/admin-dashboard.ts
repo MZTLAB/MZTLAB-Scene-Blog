@@ -1,7 +1,8 @@
+import { formatTimestamp } from '../lib/timestamps';
 import { api } from '../lib/api';
 import { errorMessage, statusBadge, toast } from '../lib/admin-client';
-import { html, setHTML } from '../lib/dom';
-import { number, timeAgo } from '../lib/format';
+import { raw, html, setHTML } from '../lib/dom';
+import { number } from '../lib/format';
 import type { Stats } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-dashboard]');
@@ -71,7 +72,7 @@ function renderRecent(stats: Stats): void {
                 </a>
               </td>
               <td>${statusBadge(post.raw_status || post.status)}</td>
-              <td><span style="color: var(--ink-faint); font-size: 10px">${timeAgo(post.updated_at)}</span></td>
+              <td><span style="color: var(--ink-faint); font-size: 10px">${raw(formatTimestamp(post.updated_at, 'relative'))}</span></td>
             </tr>`,
         )}
       </tbody>
@@ -97,7 +98,7 @@ function renderGalleries(stats: Stats): void {
         <span class="top-post__body">
           <strong>${gallery.title}</strong>
           <span style="color: var(--ink-faint); font-family: var(--font-mono); font-size: 8.5px; letter-spacing: .08em; text-transform: uppercase">
-            ${gallery.status} · ${timeAgo(gallery.updated_at)}
+            ${gallery.status} · ${raw(formatTimestamp(gallery.updated_at, 'relative'))}
           </span>
         </span>
         <span class="top-post__count">→</span>

@@ -19,7 +19,7 @@ from .permissions import (
     is_staff,
     normalize_role,
 )
-from .security import new_session_token, session_expiry, token_fingerprint
+from .security import iso_utc, new_session_token, session_expiry, token_fingerprint
 from .settings import load_settings_cached
 
 
@@ -144,7 +144,7 @@ def start_session(
     conn: sqlite3.Connection, request: Request, user_id: int
 ) -> tuple[str, str]:
     token = new_session_token()
-    expires = session_expiry().isoformat().replace("+00:00", "Z")
+    expires = iso_utc(session_expiry())
     conn.execute(
         "INSERT INTO sessions(token_hash, user_id, created_at, expires_at, user_agent, ip) "
         "VALUES (?, ?, ?, ?, ?, ?)",

@@ -122,6 +122,8 @@ class AppearanceSettingsPublic(Model):
     hero_image: str
     show_reading_time: bool
     show_author: bool
+    post_show_time: bool
+    project_show_time: bool
     custom_css: str
     head_html: str
 

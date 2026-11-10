@@ -1,4 +1,5 @@
 ---
+import Timestamp from '../../components/Timestamp.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PhotoGrid from '../../components/PhotoGrid.astro';
 import GalleryViewer from '../../components/GalleryViewer.astro';
@@ -64,7 +65,7 @@ const range = dates.length
     : `${formatMonth(dates[0])} – ${formatMonth(dates[dates.length - 1])}`
   : photos.length
     ? '—'
-    : formatMonth(gallery.created_at);
+    : '';
 const description = gallery.description || site.settings.site.description;
 import '../../styles/site/photos/gallery-page.css';
 import '../../styles/site/ui/empty-state.css';
@@ -86,7 +87,7 @@ import '../../styles/site/ui/section-headings.css';
     </div>
     <div class="gallery-facts">
       <div class="gallery-fact"><span>AUTHOR</span><span>{gallery.author?.name || site.settings.site.site_title}</span></div>
-      <div class="gallery-fact"><span>PERIOD</span><span>{range || '—'}</span></div>
+      <div class="gallery-fact"><span>PERIOD</span><span>{!photos.length ? <Timestamp value={gallery.created_at} style="month" /> : range || '—'}</span></div>
       <div class="gallery-fact"><span>LOCATION</span><span>{locations.join(' / ') || '—'}</span></div>
       <div class="gallery-fact"><span>CAMERA</span><span>{cameras.join(' / ') || '—'}</span></div>
       <div class="gallery-fact"><span>OPTICS</span><span>{optics.join(' / ') || '—'}{apertures.length ? ` · ${apertures.join(' / ')}` : ''}</span></div>

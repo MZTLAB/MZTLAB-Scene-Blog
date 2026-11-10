@@ -1,8 +1,8 @@
 ---
+import Timestamp from '../components/Timestamp.astro';
 import CoverArt from './CoverArt.astro';
 import SmartImage from './SmartImage.astro';
 import type { PostSummary, SiteInfo } from '../types';
-import { formatDate } from '../lib/format';
 
 interface Props {
   post: PostSummary;
@@ -35,7 +35,7 @@ import '../styles/site/cards/story-card.css';
     <div class="story-card__meta">
       <span>{category}</span>
       <span>·</span>
-      <time datetime={post.published_at || undefined}>{formatDate(post.published_at, 'short')}</time>
+      <Timestamp value={post.published_at} style="short" />
     </div>
     <h3 class="story-card__title"><a href={post.url}>{post.title}</a></h3>
     {post.excerpt && <p class="story-card__desc">{post.excerpt}</p>}

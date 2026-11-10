@@ -1,7 +1,7 @@
+import { formatTimestamp } from '../lib/timestamps';
 import { api, qs } from '../lib/api';
 import { debounce, errorMessage, toast } from '../lib/admin-client';
-import { html, setHTML, type RawHtml } from '../lib/dom';
-import { formatDate, timeAgo } from '../lib/format';
+import { raw, html, setHTML, type RawHtml } from '../lib/dom';
 import type { Member } from '../types';
 
 const root = document.querySelector<HTMLElement>('[data-users-page]');
@@ -80,8 +80,8 @@ if (root) {
           <div class="member-card__meta">
             <div><span>邮箱</span><span>${member.email || '—'}</span></div>
             <div><span>内容</span><span>${member.content_count} 篇 · ${member.gallery_count} 本相册 · ${member.media_count ?? 0} 个媒体</span></div>
-            <div><span>最近登录</span><span>${member.last_login_at ? timeAgo(member.last_login_at) : '从未登录'}</span></div>
-            <div><span>加入</span><span>${formatDate(member.created_at, 'short')}</span></div>
+            <div><span>最近登录</span><span>${member.last_login_at ? raw(formatTimestamp(member.last_login_at, 'relative')) : '从未登录'}</span></div>
+            <div><span>加入</span><span>${raw(formatTimestamp(member.created_at, 'short'))}</span></div>
             <div><span>状态</span><span>${member.is_active ? '启用中' : '已停用'}</span></div>
           </div>
           <div class="member-card__actions">

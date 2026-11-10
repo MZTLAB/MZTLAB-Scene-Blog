@@ -112,6 +112,10 @@ def normalize_schedule(status: str, published_at: str | None) -> tuple[str, str 
     """Resolve `draft`/`published`/`scheduled` against the publish timestamp."""
     now = now_iso()
     published = normalize_iso_datetime(published_at)
+    if published_at and not published:
+        raise ApiError(
+            422, "content.invalid_datetime", "发布时间格式不正确", field="published_at"
+        )
     if status == "draft":
         return "draft", published
     if not published:

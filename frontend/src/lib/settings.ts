@@ -58,6 +58,8 @@ const APPEARANCE_FIELDS: FieldTable = {
   hero_image: { group: 'appearance', path: ['hero_image'] },
   show_reading_time: { group: 'appearance', path: ['show_reading_time'], kind: 'boolean' },
   show_author: { group: 'appearance', path: ['show_author'], kind: 'boolean' },
+  post_show_time: { group: 'appearance', path: ['post_show_time'], kind: 'boolean' },
+  project_show_time: { group: 'appearance', path: ['project_show_time'], kind: 'boolean' },
   custom_css: { group: 'appearance', path: ['custom_css'] },
   head_html: { group: 'appearance', path: ['head_html'] },
 };

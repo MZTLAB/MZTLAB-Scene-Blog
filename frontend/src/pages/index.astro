@@ -1,11 +1,11 @@
 ---
+import Timestamp from '../components/Timestamp.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HomeHero from '../components/HomeHero.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import SmartImage from '../components/SmartImage.astro';
 import Icon from '../components/Icon.astro';
 import { getBootstrap } from '../lib/api';
-import { formatDate } from '../lib/format';
 import { isValidImage, isReady, srcset as imageSrcset } from '../lib/images';
 import { copyReader } from '../lib/site';
 
@@ -160,7 +160,7 @@ import '../styles/site/ui/empty-state.css';
                   <span class="pillar__text-index">{String(index + 1).padStart(2, '0')}</span>
                   <span class="pillar__meta">
                     <strong>{post.title}</strong>
-                    <span>{formatDate(post.published_at, 'short')} {post.reading_time ? `· ${post.reading_time} MIN` : ''}</span>
+                    <span><Timestamp value={post.published_at} style="short" /> {post.reading_time ? `· ${post.reading_time} MIN` : ''}</span>
                   </span>
                 </a>
               ))

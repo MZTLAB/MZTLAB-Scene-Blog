@@ -16,14 +16,14 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from ..config import ROOT_DIR
+from ..config import ROOT_DIR, VERSION
 
 MIGRATIONS = ROOT_DIR / "backend" / "migrations"
 OPENAPI = ROOT_DIR / "frontend" / "src" / "api" / "openapi.json"
 SCHEMA_DOC = ROOT_DIR / "docs" / "SCHEMA.md"
 API_DOC = ROOT_DIR / "docs" / "API.md"
 
-HEADER = "> 适用版本：3.0.0。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。"
+HEADER = f"> 适用版本：{VERSION}。本文件由脚本生成（`python -m app.scripts.gen_docs`），请勿手改。"
 
 
 def _build_database() -> tuple[sqlite3.Connection, list[str]]:
@@ -62,7 +62,7 @@ def _indexes(conn: sqlite3.Connection, table: str) -> list[sqlite3.Row]:
 def render_schema() -> str:
     conn, applied = _build_database()
     lines: list[str] = [
-        "# MZTLAB · Scene 数据库结构（3.0.0）",
+        f"# MZTLAB · Scene 数据库结构（{VERSION}）",
         "",
         HEADER,
         "",
@@ -131,7 +131,7 @@ def _schema_name(schema: dict | None) -> str:
 def render_api() -> str:
     spec = json.loads(OPENAPI.read_text(encoding="utf-8"))
     lines: list[str] = [
-        "# MZTLAB · Scene API 参考（3.0.0）",
+        f"# MZTLAB · Scene API 参考（{VERSION}）",
         "",
         HEADER,
         "",

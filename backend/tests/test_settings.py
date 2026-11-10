@@ -124,6 +124,19 @@ class SettingsStoreTests(unittest.TestCase):
         self.assertTrue(updated.advanced.image.avif_enabled)
         self.assertEqual(updated.advanced.storage.backend, "local")
 
+    def test_detail_time_display_settings_are_independent_and_persisted(self) -> None:
+        self.assertFalse(load_settings().appearance.post_show_time)
+        self.assertFalse(load_settings().appearance.project_show_time)
+        save_settings_patch(SettingsPatch(appearance={"post_show_time": True}))
+        self.assertTrue(load_settings().appearance.post_show_time)
+        self.assertFalse(load_settings().appearance.project_show_time)
+        save_settings_patch(SettingsPatch(appearance={"project_show_time": True}))
+        self.assertTrue(public_settings()["appearance"]["post_show_time"])
+        self.assertTrue(public_settings()["appearance"]["project_show_time"])
+        save_settings_patch(SettingsPatch(appearance={"post_show_time": False}))
+        self.assertFalse(load_settings().appearance.post_show_time)
+        self.assertTrue(load_settings().appearance.project_show_time)
+
     def test_invalid_values_are_rejected_before_writing(self) -> None:
         with self.assertRaises(ValidationError):
             SettingsPatch(appearance={"accent": "red"})

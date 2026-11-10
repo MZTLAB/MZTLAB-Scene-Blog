@@ -1,9 +1,9 @@
 ---
+import Timestamp from '../components/Timestamp.astro';
 import CoverArt from './CoverArt.astro';
 import SmartImage from './SmartImage.astro';
 import type { Gallery } from '../types';
 import { exifFieldVisible } from '../lib/photo';
-import { formatDate } from '../lib/format';
 
 interface Props {
   gallery: Gallery;
@@ -51,7 +51,7 @@ import '../styles/site/cards/gallery-card.css';
   <div class="gallery-card__body">
     <div class="gallery-card__meta">
       <span>{String(gallery.photo_count).padStart(2, '0')} FRAMES</span>
-      <time datetime={gallery.updated_at}>{formatDate(gallery.updated_at, 'short')}</time>
+      <Timestamp value={gallery.updated_at} style="short" />
     </div>
     <h3 class="gallery-card__title"><a href={gallery.url}>{gallery.title}</a></h3>
     {gallery.description && <p class="gallery-card__desc">{gallery.description}</p>}

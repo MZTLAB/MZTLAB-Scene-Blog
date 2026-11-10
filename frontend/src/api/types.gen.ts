@@ -1742,6 +1742,16 @@ export interface components {
              */
             post_layout: "grid" | "list";
             /**
+             * Post Show Time
+             * @default false
+             */
+            post_show_time: boolean;
+            /**
+             * Project Show Time
+             * @default false
+             */
+            project_show_time: boolean;
+            /**
              * Radius
              * @default 0
              */
@@ -1791,6 +1801,10 @@ export interface components {
             layout_width?: number | null;
             /** Post Layout */
             post_layout?: ("grid" | "list") | null;
+            /** Post Show Time */
+            post_show_time?: boolean | null;
+            /** Project Show Time */
+            project_show_time?: boolean | null;
             /** Radius */
             radius?: number | null;
             /** Show Author */
@@ -1840,6 +1854,10 @@ export interface components {
              * @enum {string}
              */
             post_layout: "grid" | "list";
+            /** Post Show Time */
+            post_show_time: boolean;
+            /** Project Show Time */
+            project_show_time: boolean;
             /** Radius */
             radius: number;
             /** Show Author */

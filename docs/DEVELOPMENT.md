@@ -1,6 +1,6 @@
 # MZTLAB · Scene 开发文档
 
-> 适用版本：3.0.0
+> 适用版本：3.1.0
 >
 > 面向维护者的工程手册：架构、数据层、配置、写入管线、授权、媒体管线、契约生成与测试。
 > 使用与部署见 [`README.md`](../README.md)；接入层要求见 [`EDGE.md`](EDGE.md)；数据库结构与 API 参考分别是脚本生成的 [`SCHEMA.md`](SCHEMA.md) 与 [`API.md`](API.md)。
@@ -137,6 +137,8 @@
 
 ### 3.3 事务与并发
 
+系统时间统一保存为秒级 UTC ISO 8601 字符串（`YYYY-MM-DDTHH:MM:SSZ`），包括会话到期时间与导入数据。页面通过 `Timestamp.astro` / `formatTimestamp()` 输出时间；服务端回退为 UTC，客户端按该时刻的本地时区换算并追加小时偏移上标（如 `UTC+8`、`UTC-3.5`、`UTC+5.75`）。编辑器默认使用客户端时区，可选择固定 UTC 偏移，切换只换算显示值，保存仍为 UTC。EXIF 拍摄日期和手填项目年份不代表确定时刻，保留原值。
+
 - `app.db.db()` 是**短事务**上下文：成功提交、异常回滚。长耗时工作（文件流、Pillow 解码/编码、对象存储 I/O、构建）必须在事务外完成。
 - SQLite 单写者：连接启用 WAL、`busy_timeout`，写事务保持短小，避免阻塞其他请求。
 - 跨进程协作只通过数据库（如 `jobs` 表），不引入 Redis 或内存共享。
@@ -155,7 +157,7 @@
 ### 4.1 五组设置
 
 - `site`：站点标识、`site_url`、导航/社交/页脚、SEO、分页与相册列数、公告、`editor_manage_others`。
-- `appearance`：主题、明暗、强调色、字体、宽度、圆角、Hero、`custom_css`、`head_html`。
+- `appearance`：主题、明暗、强调色、字体、宽度、圆角、Hero、`custom_css`、`head_html`；`post_show_time` / `project_show_time` 分别控制文章 / 项目详情页是否显示时分，默认关闭，时区上标始终保留。
 - `copy`：所有页面固定文案（字段名即 JSON 路径，如 `copy.photos_title`）。
 - `upload`：`max_mb` 与图片/音频/文件格式白名单。
 - `advanced.image`：派生图宽度阶梯与格式开关；`advanced.storage`：存储坐标（非密钥）。
@@ -318,7 +320,7 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 
 ### 一键验收
 
-`python scripts/verify.py` 是 3.0.0 的发布准入脚本，按顺序执行并打印 PASS/FAIL 表：
+`python scripts/verify.py` 是 3.1.0 的发布准入脚本，按顺序执行并打印 PASS/FAIL 表：
 
 - 后端：`ruff check app tests`、`mypy app`、`pytest tests`。
 - 契约：`audit_contracts`、重新导出 `openapi.json` 与重新生成 `types.gen.ts` 后做漂移检查。

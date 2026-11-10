@@ -1,7 +1,7 @@
+import { formatTimestamp } from '../lib/timestamps';
 import { api, qs } from '../lib/api';
 import { debounce, errorMessage, statusBadge, toast } from '../lib/admin-client';
-import { html, setHTML, type RawHtml } from '../lib/dom';
-import { formatDate } from '../lib/format';
+import { raw, html, setHTML, type RawHtml } from '../lib/dom';
 import type { Paginated, PostSummary } from '../types';
 
 interface ListResponse extends Paginated<PostSummary> {
@@ -99,10 +99,10 @@ if (root) {
                     </td>
                     <td><span style="color:var(--ink-soft);font-size:11px">${post.author?.name || '—'}</span></td>
                     <td>${statusBadge(post.raw_status || post.status)}</td>
-                    <td><span style="color:var(--ink-faint);font-size:10px">${formatDate(
+                    <td><span style="color:var(--ink-faint);font-size:10px">${raw(formatTimestamp(
                       isPage ? post.updated_at : post.published_at || post.updated_at,
                       'short',
-                    )}</span></td>
+                    ))}</span></td>
                     <td>
                       <div class="table-actions">
                         ${publicLink(post)}

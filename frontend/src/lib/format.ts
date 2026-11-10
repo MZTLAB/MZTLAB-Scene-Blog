@@ -1,16 +1,19 @@
 const longDate = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'UTC',
   year: 'numeric',
   month: 'long',
   day: 'numeric',
 });
 
 const shortDate = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'UTC',
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
 });
 
 const dateTime = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'UTC',
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
@@ -19,6 +22,7 @@ const dateTime = new Intl.DateTimeFormat('zh-CN', {
 });
 
 const monthLabel = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
   month: 'short',
   year: 'numeric',
 });

@@ -1,11 +1,11 @@
 ---
+import Timestamp from '../components/Timestamp.astro';
 import BaseLayout from '../layouts/BaseLayout.astro';
 import GalleryCard from '../components/GalleryCard.astro';
 import ProjectCard from '../components/ProjectCard.astro';
 import SmartImage from '../components/SmartImage.astro';
 import Icon from '../components/Icon.astro';
 import { getBootstrap } from '../lib/api';
-import { formatDate } from '../lib/format';
 import { copyReader } from '../lib/site';
 import type { Photo } from '../types';
 
@@ -146,9 +146,7 @@ import '../styles/site/cards/project-card.css';
               <div class="journal-list">
                 {results.articles.map((post) => (
                   <a class="journal-item" href={post.url}>
-                    <time datetime={post.published_at || undefined}>
-                      {formatDate(post.published_at, 'short')}
-                    </time>
+                    <Timestamp value={post.published_at} style="short" />
                     <div>
                       <h3>{post.title}</h3>
                       {post.excerpt && <p>{post.excerpt}</p>}

@@ -1,10 +1,11 @@
 ---
+import Timestamp from '../../components/Timestamp.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import CoverArt from '../../components/CoverArt.astro';
 import StoryCard from '../../components/StoryCard.astro';
 import Icon from '../../components/Icon.astro';
 import { ApiError, getBootstrap } from '../../lib/api';
-import { absoluteUrl, formatDate, initial, safeJson } from '../../lib/format';
+import { absoluteUrl, initial, safeJson } from '../../lib/format';
 import { copyReader } from '../../lib/site';
 
 const { slug } = Astro.params;
@@ -86,11 +87,13 @@ import '../../styles/audio-player.css';
             </span>
           )
         }
-        <time datetime={post.published_at || undefined}>{formatDate(post.published_at, 'long')}</time>
+        <Timestamp value={post.published_at} style={appearance.post_show_time ? 'datetime' : 'long'} />
         {appearance.show_reading_time && <span>{post.reading_time} 分钟阅读</span>}
         {
-          post.updated_at?.slice(0, 10) !== post.published_at?.slice(0, 10) && (
-            <span>更新于 {formatDate(post.updated_at, 'short')}</span>
+          (appearance.post_show_time
+            ? post.updated_at !== post.published_at
+            : post.updated_at?.slice(0, 10) !== post.published_at?.slice(0, 10)) && (
+            <span>更新于 <Timestamp value={post.updated_at} style={appearance.post_show_time ? 'datetime' : 'short'} /></span>
           )
         }
       </div>

@@ -75,7 +75,7 @@ def archive_media(target: Path) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="MZTLAB 3.0.0 数据库备份")
+    parser = argparse.ArgumentParser(description="MZTLAB 3.1.0 数据库备份")
     parser.add_argument("--out", default="", help="备份输出目录（默认 BLOG_DATA_DIR/backups）")
     parser.add_argument("--include-media", action="store_true", help="同时打包 uploads/ 与 cache/")
     args = parser.parse_args()

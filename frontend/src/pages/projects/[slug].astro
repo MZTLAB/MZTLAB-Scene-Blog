@@ -1,9 +1,10 @@
 ---
+import Timestamp from '../../components/Timestamp.astro';
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
 import Icon from '../../components/Icon.astro';
 import { ApiError, getBootstrap } from '../../lib/api';
-import { absoluteUrl, formatDate, safeJson } from '../../lib/format';
+import { absoluteUrl, safeJson } from '../../lib/format';
 import { copyReader } from '../../lib/site';
 
 const { slug } = Astro.params;
@@ -21,7 +22,7 @@ if (contentPage.kind !== 'project') {
   throw new Error('unexpected bootstrap payload for a project slug');
 }
 const project = contentPage.item;
-const { site: siteSettings } = site.settings;
+const { site: siteSettings, appearance } = site.settings;
 const copy = copyReader(site.settings);
 
 const description = project.seo_description || project.excerpt;
@@ -39,10 +40,10 @@ const kindLabel = (project.project_kind || '').trim();
 const meta = [
   { label: copy('author', '作者'), value: project.author?.name || '' },
   { label: copy('project_kind', '类型'), value: kindLabel },
-  { label: copy('project_year', '年份'), value: project.project_year || project.published_at?.slice(0, 4) || '' },
+  { label: !project.project_year && appearance.project_show_time ? '发布时间' : copy('project_year', '年份'), value: project.project_year || '', timestamp: project.project_year ? null : project.published_at },
   { label: copy('project_role', '角色'), value: project.project_role || '' },
   { label: copy('project_client', '上下文'), value: project.project_client || '' },
-].filter((item) => item.value);
+].filter((item) => item.value || ('timestamp' in item && item.timestamp));
 const related = (project.related || []) as typeof project.related;
 import '../../styles/site/pages/project.css';
 import '../../styles/shared/prose.css';
@@ -60,7 +61,7 @@ import '../../styles/site/articles/article.css';
       <a class="text-link project-header__back" href="/projects">
         <Icon name="arrowLeft" size={13} /> {copy('project_back', '返回项目')}
       </a>
-      <span class="eyebrow">{copy('projects_eyebrow', '// PROJECTS')} / {project.project_year || formatDate(project.published_at, 'short')}</span>
+      <span class="eyebrow">{copy('projects_eyebrow', '// PROJECTS')} / {appearance.project_show_time ? <Timestamp value={project.published_at} style="datetime" /> : project.project_year || <Timestamp value={project.published_at} />} </span>
       <h1>{project.title}</h1>
       {project.excerpt && <p class="project-header__deck">{project.excerpt}</p>}
 
@@ -69,7 +70,7 @@ import '../../styles/site/articles/article.css';
           {meta.map((item) => (
             <div>
               <dt>{item.label}</dt>
-              <dd>{item.value}</dd>
+              <dd>{'timestamp' in item && item.timestamp ? <Timestamp value={item.timestamp} style={appearance.project_show_time ? 'datetime' : 'year'} /> : item.value}</dd>
             </div>
           ))}
           {project.project_url && (
