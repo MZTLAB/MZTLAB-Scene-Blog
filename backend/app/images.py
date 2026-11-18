@@ -504,7 +504,7 @@ def _encode(
             "AVIF",
             quality=quality,
             speed=speed,
-            subsampling="4:4:4",
+            subsampling="4:0:0" if icc and icc[16:20] == b"GRAY" else "4:4:4",
             icc_profile=icc,
         )
     elif fmt == "webp":

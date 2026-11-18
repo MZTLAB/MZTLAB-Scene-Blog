@@ -89,13 +89,6 @@ import '../../styles/audio-player.css';
         }
         <Timestamp value={post.published_at} style={appearance.post_show_time ? 'datetime' : 'long'} />
         {appearance.show_reading_time && <span>{post.reading_time} 分钟阅读</span>}
-        {
-          (appearance.post_show_time
-            ? post.updated_at !== post.published_at
-            : post.updated_at?.slice(0, 10) !== post.published_at?.slice(0, 10)) && (
-            <span>更新于 <Timestamp value={post.updated_at} style={appearance.post_show_time ? 'datetime' : 'short'} /></span>
-          )
-        }
       </div>
     </header>
 

@@ -1,6 +1,6 @@
 # MZTLAB · Scene 开发文档
 
-> 适用版本：3.1.0
+> 适用版本：3.1.1
 >
 > 面向维护者的工程手册：架构、数据层、配置、写入管线、授权、媒体管线、契约生成与测试。
 > 使用与部署见 [`README.md`](../README.md)；接入层要求见 [`EDGE.md`](EDGE.md)；数据库结构与 API 参考分别是脚本生成的 [`SCHEMA.md`](SCHEMA.md) 与 [`API.md`](API.md)。
@@ -320,7 +320,7 @@ npm run gen:types                          # openapi.json → src/api/types.gen.
 
 ### 一键验收
 
-`python scripts/verify.py` 是 3.1.0 的发布准入脚本，按顺序执行并打印 PASS/FAIL 表：
+`python scripts/verify.py` 是 3.1.1 的发布准入脚本，按顺序执行并打印 PASS/FAIL 表：
 
 - 后端：`ruff check app tests`、`mypy app`、`pytest tests`。
 - 契约：`audit_contracts`、重新导出 `openapi.json` 与重新生成 `types.gen.ts` 后做漂移检查。
